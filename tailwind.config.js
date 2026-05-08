@@ -1,0 +1,21 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      fontFamily: {
+        'be-vietnam': ['"Be Vietnam Pro"', 'sans-serif'],
+      },
+      colors: {
+        primary: '#ff9400',
+        'primary-light': '#ffeacc',
+        'navy': '#003049',
+      },
+    },
+  },
+  plugins: [],
+}
+
