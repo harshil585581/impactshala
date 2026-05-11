@@ -20,6 +20,9 @@ dist-ssr
 # Python
 __pycache__/
 *.py[cod]
+.venv/
+venv/
+backend/venv/
 
 # Editor directories and files
 .vscode/*
