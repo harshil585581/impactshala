@@ -1,4 +1,7 @@
-const logo = "https://www.figma.com/api/mcp/asset/d643d316-0055-4e66-93e3-4abd763761cd";
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const logo     = "https://www.figma.com/api/mcp/asset/d643d316-0055-4e66-93e3-4abd763761cd";
 const avatarMe = "https://www.figma.com/api/mcp/asset/1f794d22-cc5e-4fd9-9a69-52e5d98eef02";
 
 type TopBarProps = {
@@ -6,6 +9,21 @@ type TopBarProps = {
 };
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
+  const navigate = useNavigate();
+  const [meOpen, setMeOpen] = useState(false);
+  const meRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (meRef.current && !meRef.current.contains(e.target as Node)) {
+        setMeOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[64px] sm:h-[72px] lg:h-[78px] bg-white border-b border-[#f2f2f3] z-30 flex items-center px-4 md:px-6 gap-4">
       {/* Hamburger — mobile only */}
@@ -20,7 +38,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       </button>
 
       {/* Logo */}
-      <a href="/" className="shrink-0">
+      <a href="/home" className="shrink-0">
         <img src={logo} alt="Impactshaala" className="h-9 object-contain" />
       </a>
 
@@ -44,6 +62,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
 
       {/* Right actions */}
       <div className="flex items-center gap-4 md:gap-6 ml-auto shrink-0">
+
         {/* Messages */}
         <button className="hidden sm:flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#ff9400] transition-colors">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -64,16 +83,74 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           <span className="text-[11px] leading-none">Notifications</span>
         </button>
 
-        {/* Me */}
-        <button className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#ff9400] transition-colors">
-          <img src={avatarMe} alt="Me" className="w-7 h-7 rounded-full object-cover" />
-          <div className="flex items-center">
-            <span className="text-[11px] leading-none">Me</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        </button>
+        {/* Me — with dropdown */}
+        <div className="relative" ref={meRef}>
+          <button
+            onClick={() => setMeOpen((v) => !v)}
+            className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#ff9400] transition-colors"
+          >
+            <img src={avatarMe} alt="Me" className="w-7 h-7 rounded-full object-cover" />
+            <div className="flex items-center">
+              <span className="text-[11px] leading-none">Me</span>
+              <svg
+                width="14" height="14" viewBox="0 0 24 24" fill="none"
+                className={`transition-transform duration-200 ${meOpen ? 'rotate-180' : ''}`}
+              >
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </button>
+
+          {/* Dropdown */}
+          {meOpen && (
+            <div className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.12)] border border-[#f2f2f3] z-50 overflow-hidden py-1">
+
+              {/* Profile header */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-[#f2f2f3]">
+                <img src={avatarMe} alt="Me" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[#18191c] text-sm font-semibold truncate">My Profile</p>
+                  <p className="text-[#767f8c] text-xs truncate">Student</p>
+                </div>
+              </div>
+
+              {/* Menu items */}
+              <button
+                onClick={() => { setMeOpen(false); navigate('/account/update'); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Update Account
+              </button>
+
+              <button
+                onClick={() => { setMeOpen(false); navigate('/home'); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+                Settings
+              </button>
+
+              <div className="border-t border-[#f2f2f3] my-1" />
+
+              <button
+                onClick={() => { setMeOpen(false); navigate('/'); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Sign Out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

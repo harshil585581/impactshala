@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+
 const bgPhoto    = "https://www.figma.com/api/mcp/asset/bbcb5826-35b3-4537-ac16-b11a10ffa204";
 const whiteLogo  = "https://www.figma.com/api/mcp/asset/d6e5d9b3-489f-4758-9655-08263b2209f7";
 const primaryLogo = "https://www.figma.com/api/mcp/asset/a3a385c6-9a03-4ff2-80f5-4be7c423e643";
@@ -29,14 +31,33 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '', remember: false });
   const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   function update(field: string, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
+    setError('');
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    navigate('/home');
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, password: form.password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? 'Login failed');
+      localStorage.setItem('user', JSON.stringify(data.user));
+      navigate('/home');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -136,12 +157,18 @@ export default function LoginPage() {
                   </Link>
                 </div>
 
+                {/* Error message */}
+                {error && (
+                  <p className="text-red-500 text-sm text-center -mb-1">{error}</p>
+                )}
+
                 {/* Submit */}
                 <button
                   type="submit"
-                  className="w-full h-[48px] sm:h-[52px] bg-[#ff9400] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] mt-1"
+                  disabled={loading}
+                  className="w-full h-[48px] sm:h-[52px] bg-[#ff9400] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Login
+                  {loading ? 'Logging in…' : 'Login'}
                 </button>
 
                 <p className="text-center text-sm sm:text-base text-[#1e1e1e]">

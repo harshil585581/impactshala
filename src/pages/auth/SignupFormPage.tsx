@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+
 const bgPhoto = "https://www.figma.com/api/mcp/asset/ff7c19f8-999c-4f34-8e4b-6cea4269938c";
 const whiteLogo = "https://www.figma.com/api/mcp/asset/d6e5d9b3-489f-4758-9655-08263b2209f7";
 const primaryLogo = "https://www.figma.com/api/mcp/asset/74afddfa-47ae-4e56-bb54-0ef8d74734aa";
@@ -32,14 +34,44 @@ export default function SignupFormPage() {
     agreeTerms: false,
   });
   const [showInterests, setShowInterests] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   function update(field: string, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
+    setError('');
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    navigate('/signup/verify');
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/signup/individual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name: form.firstName,
+          last_name: form.lastName,
+          dob: form.dob,
+          email: form.email,
+          password: form.password,
+          interests: form.interests,
+          agreed_terms: form.agreeTerms,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? 'Signup failed');
+      navigate('/signup/verify');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -207,12 +239,18 @@ export default function SignupFormPage() {
                   </span>
                 </label>
 
+                {/* Error message */}
+                {error && (
+                  <p className="text-red-500 text-sm text-center -mb-1">{error}</p>
+                )}
+
                 {/* Submit */}
                 <button
                   type="submit"
-                  className="w-full h-[48px] sm:h-[52px] bg-[#ff9400] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors mt-1 shadow-[0px_4px_12px_rgba(255,148,0,0.3)]"
+                  disabled={loading}
+                  className="w-full h-[48px] sm:h-[52px] bg-[#ff9400] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors mt-1 shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Create Account
+                  {loading ? 'Creating Account…' : 'Create Account'}
                 </button>
 
                 <p className="text-center text-sm sm:text-base text-[#4b5563] mt-1">

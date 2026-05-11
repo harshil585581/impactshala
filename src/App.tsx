@@ -10,6 +10,7 @@ import OrgTypeSelectPage from './pages/auth/OrgTypeSelectPage';
 import OrgFormPage from './pages/auth/OrgFormPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import UpdateAccountPage from './pages/account/UpdateAccountPage';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
 
         {/* App */}
         <Route path="/home" element={<HomePage />} />
+        <Route path="/account/update" element={<UpdateAccountPage />} />
       </Routes>
     </BrowserRouter>
   );

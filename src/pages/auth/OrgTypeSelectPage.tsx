@@ -142,7 +142,7 @@ export default function OrgTypeSelectPage() {
             {/* Continue */}
             <div className="flex justify-center mt-6 sm:mt-8">
               <button
-                onClick={() => navigate('/signup/org/form')}
+                onClick={() => navigate(`/signup/org/form?orgType=${selected}`)}
                 disabled={!selected}
                 className="flex items-center gap-2 px-8 sm:px-10 py-3 sm:py-3.5 bg-[#ff9400] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] w-full sm:w-auto justify-center"
               >
