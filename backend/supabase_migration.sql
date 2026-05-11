@@ -2,12 +2,11 @@
 -- Run this in Supabase Dashboard → SQL Editor
 -- ============================================================
 
--- Users table for both individual and organization signups
+-- Users profile table linked to Supabase Auth (auth.users)
 CREATE TABLE IF NOT EXISTS users (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id            UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   user_type     TEXT        NOT NULL CHECK (user_type IN ('individual', 'organization')),
   email         TEXT        NOT NULL UNIQUE,
-  password_hash TEXT        NOT NULL,
 
   -- Individual-only fields
   first_name    TEXT,
@@ -33,14 +32,26 @@ CREATE TABLE IF NOT EXISTS users (
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- Allow the backend (anon key) to insert new signups
-CREATE POLICY "anon_can_signup" ON users
+-- Allow backend (anon key) to insert profile right after auth.sign_up()
+CREATE POLICY "anon_can_insert_profile" ON users
   FOR INSERT
   TO anon
   WITH CHECK (true);
 
--- Allow the backend (anon key) to check for duplicate emails
-CREATE POLICY "anon_can_check_email" ON users
+-- Allow backend (anon key) to read profile for login response
+CREATE POLICY "anon_can_read_profile" ON users
   FOR SELECT
   TO anon
   USING (true);
+
+-- Allow authenticated users to read and update their own profile
+CREATE POLICY "user_can_read_own" ON users
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = id);
+
+CREATE POLICY "user_can_update_own" ON users
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);

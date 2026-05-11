@@ -59,6 +59,8 @@ export default function OrgFormPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Signup failed');
+      localStorage.setItem('pending_signup_user_type', 'organization');
+      localStorage.setItem('pending_signup_role', '');
       navigate('/signup/verify');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

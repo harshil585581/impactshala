@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
@@ -23,6 +23,8 @@ const inputCls =
 
 export default function SignupFormPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const role = searchParams.get('role') ?? '';
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -61,11 +63,15 @@ export default function SignupFormPage() {
           email: form.email,
           password: form.password,
           interests: form.interests,
+          role: role || null,
           agreed_terms: form.agreeTerms,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Signup failed');
+      localStorage.setItem('pending_verification_email', form.email);
+      localStorage.setItem('pending_signup_role', role || '');
+      localStorage.setItem('pending_signup_user_type', 'individual');
       navigate('/signup/verify');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
