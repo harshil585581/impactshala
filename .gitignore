@@ -13,9 +13,9 @@ dist-ssr
 *.local
 
 # Environment files
-.env
-.env.local
-backend/.env
+# .env
+# .env.local
+# backend/.env
 
 # Python
 __pycache__/
