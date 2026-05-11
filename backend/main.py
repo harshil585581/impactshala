@@ -1,4 +1,3 @@
-import bcrypt
 import os
 from typing import Optional
 
@@ -12,26 +11,20 @@ load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_ANON_KEY"]
+SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 app = FastAPI(title="Impactshaala API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
 class IndividualSignup(BaseModel):
@@ -41,6 +34,7 @@ class IndividualSignup(BaseModel):
     email: str
     password: str
     interests: str
+    role: Optional[str] = None
     agreed_terms: bool
 
 
@@ -60,33 +54,56 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ResendRequest(BaseModel):
+    email: str
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
 
+@app.post("/api/resend-verification")
+async def resend_verification(data: ResendRequest):
+    try:
+        supabase.auth.resend({"type": "signup", "email": data.email})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Verification email resent"}
+
+
 @app.post("/api/login")
 async def login(data: LoginRequest):
-    result = supabase.table("users").select(
-        "id, user_type, email, password_hash, first_name, last_name, org_name"
-    ).eq("email", data.email).execute()
-
-    if not result.data:
+    try:
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": data.email,
+            "password": data.password,
+        })
+    except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    user = result.data[0]
-    if not verify_password(data.password, user["password_hash"]):
+    if not auth_response.user or not auth_response.session:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    user_id = auth_response.user.id
+
+    profile = supabase_admin.table("users").select(
+        "user_type, role, first_name, last_name, org_name"
+    ).eq("id", user_id).execute()
+
+    profile_data = profile.data[0] if profile.data else {}
 
     return {
         "message": "Login successful",
+        "access_token": auth_response.session.access_token,
         "user": {
-            "id": user["id"],
-            "user_type": user["user_type"],
-            "email": user["email"],
-            "first_name": user.get("first_name"),
-            "last_name": user.get("last_name"),
-            "org_name": user.get("org_name"),
+            "id": user_id,
+            "email": auth_response.user.email,
+            "user_type": profile_data.get("user_type"),
+            "role": profile_data.get("role"),
+            "first_name": profile_data.get("first_name"),
+            "last_name": profile_data.get("last_name"),
+            "org_name": profile_data.get("org_name"),
         },
     }
 
@@ -98,25 +115,39 @@ async def signup_individual(data: IndividualSignup):
     if len(data.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
-    existing = supabase.table("users").select("id").eq("email", data.email).execute()
-    if existing.data:
+    try:
+        auth_response = supabase.auth.sign_up({
+            "email": data.email,
+            "password": data.password,
+        })
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not auth_response.user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    result = supabase.table("users").insert({
+    user_id = auth_response.user.id
+
+    result = supabase_admin.table("users").insert({
+        "id": user_id,
         "user_type": "individual",
         "email": data.email,
-        "password_hash": hash_password(data.password),
         "first_name": data.first_name,
         "last_name": data.last_name,
         "dob": data.dob or None,
         "interests": data.interests,
+        "role": data.role,
         "agreed_terms": data.agreed_terms,
     }).execute()
 
     if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to create account")
+        raise HTTPException(status_code=500, detail="Failed to create profile")
 
-    return {"message": "Account created successfully", "id": result.data[0]["id"]}
+    return {
+        "message": "Account created successfully",
+        "id": user_id,
+        "requires_confirmation": auth_response.session is None,
+    }
 
 
 @app.post("/api/signup/organization")
@@ -126,14 +157,23 @@ async def signup_organization(data: OrgSignup):
     if len(data.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
-    existing = supabase.table("users").select("id").eq("email", data.email).execute()
-    if existing.data:
+    try:
+        auth_response = supabase.auth.sign_up({
+            "email": data.email,
+            "password": data.password,
+        })
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not auth_response.user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    result = supabase.table("users").insert({
+    user_id = auth_response.user.id
+
+    result = supabase_admin.table("users").insert({
+        "id": user_id,
         "user_type": "organization",
         "email": data.email,
-        "password_hash": hash_password(data.password),
         "org_name": data.org_name,
         "org_type": data.org_type,
         "website": data.website,
@@ -143,6 +183,10 @@ async def signup_organization(data: OrgSignup):
     }).execute()
 
     if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to create account")
+        raise HTTPException(status_code=500, detail="Failed to create profile")
 
-    return {"message": "Account created successfully", "id": result.data[0]["id"]}
+    return {
+        "message": "Account created successfully",
+        "id": user_id,
+        "requires_confirmation": auth_response.session is None,
+    }

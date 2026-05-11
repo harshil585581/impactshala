@@ -1,10 +1,46 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const primaryLogo = "https://www.figma.com/api/mcp/asset/8a750235-40b0-42cf-b263-a81e8356a5bb";
 const emailIllustration = "https://www.figma.com/api/mcp/asset/c6880028-f78c-41b8-b8bb-c0cbf3b1f908";
 
+function getRoleRoute(): string {
+  const role = localStorage.getItem('pending_signup_role') ?? '';
+  const userType = localStorage.getItem('pending_signup_user_type') ?? '';
+  if (userType === 'individual') {
+    if (role === 'entrepreneur') return '/account/update/entrepreneur';
+    if (role === 'professional') return '/account/update/professional';
+    if (role === 'educator') return '/account/update/educator';
+    return '/account/update/student';
+  }
+  return '/home';
+}
+
 export default function VerificationPage() {
   const navigate = useNavigate();
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  async function handleResend() {
+    const email = localStorage.getItem('pending_verification_email');
+    if (!email) return;
+
+    setResendStatus('sending');
+    try {
+      const res = await fetch(`${API_URL}/api/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error();
+      setResendStatus('sent');
+      setTimeout(() => setResendStatus('idle'), 5000);
+    } catch {
+      setResendStatus('error');
+      setTimeout(() => setResendStatus('idle'), 4000);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -39,7 +75,7 @@ export default function VerificationPage() {
 
           {/* Skip Now */}
           <button
-            onClick={() => navigate('/home')}
+            onClick={() => navigate(getRoleRoute())}
             className="w-full h-[50px] sm:h-[56px] bg-[#ff9400] text-white text-sm sm:text-base font-bold rounded-full hover:bg-[#e68500] transition-colors tracking-[0.2px] shadow-[0px_4px_16px_rgba(255,148,0,0.35)]"
           >
             Skip Now
@@ -48,10 +84,18 @@ export default function VerificationPage() {
           {/* Resend */}
           <p className="text-sm -mt-2">
             <span className="text-[#0f172a]">Don't receive an email?</span>{' '}
-            <button className="text-[#ff9400] font-bold hover:underline transition-colors">
-              Resend
+            <button
+              onClick={handleResend}
+              disabled={resendStatus === 'sending' || resendStatus === 'sent'}
+              className="text-[#ff9400] font-bold hover:underline transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {resendStatus === 'sending' ? 'Sending…' : resendStatus === 'sent' ? 'Sent!' : 'Resend'}
             </button>
           </p>
+
+          {resendStatus === 'error' && (
+            <p className="text-red-500 text-xs -mt-4">Failed to resend. Please try again.</p>
+          )}
         </div>
       </div>
     </div>

@@ -11,12 +11,18 @@ import OrgFormPage from './pages/auth/OrgFormPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import UpdateAccountPage from './pages/account/UpdateAccountPage';
+import StudentAccountUpdatePage from './pages/account/StudentAccountUpdatePage';
+import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUpdatePage';
+import ProfessionalAccountUpdatePage from './pages/account/ProfessionalAccountUpdatePage';
+import EducatorAccountUpdatePage from './pages/account/EducatorAccountUpdatePage';
+import AuthCallbackPage from './pages/auth/AuthCallbackPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         {/* Auth */}
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/" element={<LoginPage />} />
         <Route path="/signin" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -35,6 +41,10 @@ export default function App() {
         {/* App */}
         <Route path="/home" element={<HomePage />} />
         <Route path="/account/update" element={<UpdateAccountPage />} />
+        <Route path="/account/update/student" element={<StudentAccountUpdatePage />} />
+        <Route path="/account/update/entrepreneur" element={<EntrepreneurAccountUpdatePage />} />
+        <Route path="/account/update/professional" element={<ProfessionalAccountUpdatePage />} />
+        <Route path="/account/update/educator" element={<EducatorAccountUpdatePage />} />
       </Routes>
     </BrowserRouter>
   );

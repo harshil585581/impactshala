@@ -8,10 +8,50 @@ type TopBarProps = {
   onMenuToggle: () => void;
 };
 
+const roleLabels: Record<string, string> = {
+  student: 'Student',
+  professional: 'Working Professional',
+  entrepreneur: 'Entrepreneur',
+  educator: 'Educator',
+};
+
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const navigate = useNavigate();
   const [meOpen, setMeOpen] = useState(false);
   const meRef = useRef<HTMLDivElement>(null);
+
+  const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
+  const userRole: string = storedUser.role ?? '';
+  const userType: string = storedUser.user_type ?? '';
+  const displayName: string =
+    storedUser.first_name
+      ? `${storedUser.first_name} ${storedUser.last_name ?? ''}`.trim()
+      : storedUser.org_name ?? 'My Profile';
+  const roleLabel: string =
+    userType === 'organization'
+      ? 'Organization'
+      : roleLabels[userRole] ?? 'Member';
+
+  function handleUpdateAccount() {
+    setMeOpen(false);
+    if (userType === 'individual' && userRole === 'entrepreneur') {
+      navigate('/account/update/entrepreneur');
+    } else if (userType === 'individual' && userRole === 'professional') {
+      navigate('/account/update/professional');
+    } else if (userType === 'individual' && userRole === 'educator') {
+      navigate('/account/update/educator');
+    } else if (userType === 'individual') {
+      navigate('/account/update/student');
+    } else {
+      navigate('/account/update');
+    }
+  }
+
+  function handleSignOut() {
+    localStorage.removeItem('user');
+    setMeOpen(false);
+    navigate('/');
+  }
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -109,14 +149,14 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               <div className="flex items-center gap-3 px-4 py-3 border-b border-[#f2f2f3]">
                 <img src={avatarMe} alt="Me" className="w-9 h-9 rounded-full object-cover shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[#18191c] text-sm font-semibold truncate">My Profile</p>
-                  <p className="text-[#767f8c] text-xs truncate">Student</p>
+                  <p className="text-[#18191c] text-sm font-semibold truncate">{displayName}</p>
+                  <p className="text-[#767f8c] text-xs truncate">{roleLabel}</p>
                 </div>
               </div>
 
               {/* Menu items */}
               <button
-                onClick={() => { setMeOpen(false); navigate('/account/update'); }}
+                onClick={handleUpdateAccount}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -140,7 +180,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               <div className="border-t border-[#f2f2f3] my-1" />
 
               <button
-                onClick={() => { setMeOpen(false); navigate('/'); }}
+                onClick={handleSignOut}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
