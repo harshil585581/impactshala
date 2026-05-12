@@ -16,6 +16,8 @@ import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUp
 import ProfessionalAccountUpdatePage from './pages/account/ProfessionalAccountUpdatePage';
 import EducatorAccountUpdatePage from './pages/account/EducatorAccountUpdatePage';
 import AuthCallbackPage from './pages/auth/AuthCallbackPage';
+import MyApplicationsPage from './pages/applications/MyApplicationsPage';
+import ApplicantsDetailPage from './pages/applications/ApplicantsDetailPage';
 
 export default function App() {
   return (
@@ -40,6 +42,8 @@ export default function App() {
 
         {/* App */}
         <Route path="/home" element={<HomePage />} />
+        <Route path="/applications" element={<MyApplicationsPage />} />
+        <Route path="/applications/detail/:postingId" element={<ApplicantsDetailPage />} />
         <Route path="/account/update" element={<UpdateAccountPage />} />
         <Route path="/account/update/student" element={<StudentAccountUpdatePage />} />
         <Route path="/account/update/entrepreneur" element={<EntrepreneurAccountUpdatePage />} />

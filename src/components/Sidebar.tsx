@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-const profileImg = "https://www.figma.com/api/mcp/asset/1f04a459-ed45-4c11-b98c-705bd79a1d88";
-const iconDiscover = "https://www.figma.com/api/mcp/asset/33957c94-21e7-47ce-9657-96e9fbd3bac3";
-const iconLearning = "https://www.figma.com/api/mcp/asset/6ababa2b-751d-40af-866b-af8f9d39c1a5";
-const iconEmployment = "https://www.figma.com/api/mcp/asset/00e0afc2-5675-43c9-92ae-6058ee27da4f";
+const profileImg    = "https://www.figma.com/api/mcp/asset/1f04a459-ed45-4c11-b98c-705bd79a1d88";
+const iconDiscover  = "https://www.figma.com/api/mcp/asset/33957c94-21e7-47ce-9657-96e9fbd3bac3";
+const iconLearning  = "https://www.figma.com/api/mcp/asset/6ababa2b-751d-40af-866b-af8f9d39c1a5";
+const iconEmployment= "https://www.figma.com/api/mcp/asset/00e0afc2-5675-43c9-92ae-6058ee27da4f";
 const iconCommunity = "https://www.figma.com/api/mcp/asset/f8f2c300-4dc2-438b-afe0-940f229c5523";
 
 type SidebarProps = {
@@ -11,29 +12,67 @@ type SidebarProps = {
   onClose: () => void;
 };
 
+const APP_SUB_ITEMS = [
+  { label: 'Discover',           route: '/applications'          },
+  { label: 'Learning Directory', route: '/applications/detail/2' },
+  { label: 'Employment Hub',     route: '/applications/detail/1' },
+];
+
+const ROUTE_TO_SUB_ITEM: Record<string, string> = {
+  '/applications':          'Discover',
+  '/applications/detail/2': 'Learning Directory',
+  '/applications/detail/1': 'Employment Hub',
+};
+
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isOnAppsRoute = location.pathname.startsWith('/applications');
+  const [appExpanded, setAppExpanded] = useState(isOnAppsRoute);
+  const [activeSubItem, setActiveSubItem] = useState(
+    ROUTE_TO_SUB_ITEM[location.pathname] ?? 'Discover'
+  );
+
+  useEffect(() => {
+    if (isOnAppsRoute) {
+      setAppExpanded(true);
+      const label = ROUTE_TO_SUB_ITEM[location.pathname];
+      if (label) setActiveSubItem(label);
+    }
+  }, [location.pathname, isOnAppsRoute]);
+
+  function handleAppClick() {
+    setAppExpanded(v => !v);
+    navigate('/applications');
+  }
+
+  function handleSubItem(label: string, route: string) {
+    setActiveSubItem(label);
+    navigate(route);
+    onClose();
+  }
+
   return (
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/40 z-20 lg:hidden" onClick={onClose} />
       )}
 
       {/* Sidebar panel */}
       <aside
         className={`
           fixed top-[64px] sm:top-[72px] lg:top-[78px] left-0 bottom-0 w-[280px] bg-white border-r border-[#f2f2f3]
-          flex flex-col z-20 transition-transform duration-300 ease-in-out overflow-hidden
+          flex flex-col z-20 transition-transform duration-300 ease-in-out overflow-y-auto
           lg:translate-x-0
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         {/* Main Navigation */}
         <nav className="mt-6 flex flex-col gap-0.5 flex-1">
-          {/* Home - Active */}
+
+          {/* Home */}
           <div className="flex items-center gap-3">
             <div className="w-1 h-8 bg-[#ff9400] rounded-r-full shrink-0" />
             <div className="flex items-center gap-4 bg-[#ffeacc] rounded-[100px] px-4 py-2.5 w-[228px] cursor-pointer">
@@ -45,22 +84,63 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           </div>
 
-          <NavItem icon={<img src={iconDiscover} alt="" className="w-5 h-5 shrink-0" />} label="Discover" />
-          <NavItem icon={<img src={iconLearning} alt="" className="w-5 h-5 shrink-0" />} label="Learning Directory" />
+          <NavItem icon={<img src={iconDiscover}   alt="" className="w-5 h-5 shrink-0" />} label="Discover" />
+          <NavItem icon={<img src={iconLearning}   alt="" className="w-5 h-5 shrink-0" />} label="Learning Directory" />
           <NavItem icon={<img src={iconEmployment} alt="" className="w-5 h-5 shrink-0" />} label="Employment Hub" />
-          <NavItem icon={<img src={iconCommunity} alt="" className="w-5 h-5 shrink-0" />} label="My Community" />
+          <NavItem icon={<img src={iconCommunity}  alt="" className="w-5 h-5 shrink-0" />} label="My Community" />
 
-          <NavItem
-            icon={
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0">
-                <rect x="4" y="2" width="16" height="20" rx="2" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <line x1="8" y1="10" x2="16" y2="10" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
-                <line x1="8" y1="14" x2="16" y2="14" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
-                <line x1="8" y1="18" x2="12" y2="18" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
+          {/* My Application — accordion */}
+          <div>
+            {/* Parent row */}
+            <div
+              onClick={handleAppClick}
+              className="flex items-center justify-between pl-7 pr-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                  <rect x="4" y="2" width="16" height="20" rx="2" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="8" y1="10" x2="16" y2="10" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="8" y1="14" x2="16" y2="14" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="8" y1="18" x2="12" y2="18" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <span className="text-[#7c8493] text-[15px] font-medium">My Applications</span>
+              </div>
+              {/* Chevron */}
+              <svg
+                width="16" height="16" viewBox="0 0 24 24" fill="none"
+                className={`shrink-0 transition-transform duration-200 ${appExpanded ? 'rotate-180' : ''}`}
+              >
+                <path d="M6 9l6 6 6-6" stroke="#7c8493" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            }
-            label="My Application"
-          />
+            </div>
+
+            {/* Sub-items */}
+            {appExpanded && (
+              <div className="flex flex-col">
+                {APP_SUB_ITEMS.map(item => {
+                  const isActive = activeSubItem === item.label;
+                  return (
+                    <div
+                      key={item.label}
+                      onClick={() => handleSubItem(item.label, item.route)}
+                      className={`flex items-center gap-2 pl-10 pr-4 py-2.5 cursor-pointer transition-colors ${
+                        isActive ? 'bg-[#fff3e0]' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      {/* indent arrow */}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0 opacity-40">
+                        <path d="M9 18l6-6-6-6" stroke={isActive ? '#ff9400' : '#7c8493'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className={`text-[14px] font-medium ${isActive ? 'text-[#ff9400]' : 'text-[#7c8493]'}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <NavItem
             icon={
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0">
@@ -111,9 +191,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   );
 }
 
-function NavItem({ icon, label }: { icon: React.ReactElement; label: string }) {
+function NavItem({ icon, label, onClick }: { icon: React.ReactElement; label: string; onClick?: () => void }) {
   return (
-    <div className="flex items-center gap-4 pl-7 pr-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+    <div onClick={onClick} className="flex items-center gap-4 pl-7 pr-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
       {icon}
       <span className="text-[#7c8493] text-[15px] font-medium">{label}</span>
     </div>
