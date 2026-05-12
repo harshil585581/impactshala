@@ -1,92 +1,113 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
-import TopBar from '../../components/TopBar';
-import { useAccountUpdate } from '../../hooks/useAccountUpdate';
-import { uploadProfileImage } from '../../services/accountService';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "../../components/Sidebar";
+import TopBar from "../../components/TopBar";
+import { useAccountUpdate } from "../../hooks/useAccountUpdate";
+import { uploadProfileImage } from "../../services/accountService";
 
-const userIcon       = "https://www.figma.com/api/mcp/asset/aeacde15-44b6-45d0-a0e0-273e0d60de81";
-const userCircleIcon = "https://www.figma.com/api/mcp/asset/6c1ee040-0e10-4e32-91cd-3efdea837772";
-const atIcon         = "https://www.figma.com/api/mcp/asset/bd19a781-f45c-4caf-bc9a-bb683b56f3c6";
-const envelopeIcon   = "https://www.figma.com/api/mcp/asset/f721fa21-d26c-4c12-9c82-2861f364f58a";
-const languageIcon   = "https://www.figma.com/api/mcp/asset/3ed2ca26-93a4-4801-99a0-45959d2e7c2c";
-const linkIcon       = "https://www.figma.com/api/mcp/asset/c12f4e16-6f90-478a-8500-58c37f19cd2b";
+const userIcon =
+  "https://www.figma.com/api/mcp/asset/aeacde15-44b6-45d0-a0e0-273e0d60de81";
+const userCircleIcon =
+  "https://www.figma.com/api/mcp/asset/6c1ee040-0e10-4e32-91cd-3efdea837772";
+const atIcon =
+  "https://www.figma.com/api/mcp/asset/bd19a781-f45c-4caf-bc9a-bb683b56f3c6";
+const envelopeIcon =
+  "https://www.figma.com/api/mcp/asset/f721fa21-d26c-4c12-9c82-2861f364f58a";
+const languageIcon =
+  "https://www.figma.com/api/mcp/asset/3ed2ca26-93a4-4801-99a0-45959d2e7c2c";
+const linkIcon =
+  "https://www.figma.com/api/mcp/asset/c12f4e16-6f90-478a-8500-58c37f19cd2b";
 
-type Tab = 'profile' | 'more' | 'contact' | 'complete';
+type Tab = "profile" | "more" | "contact" | "complete";
 
 const WORK_SECTOR_OPTIONS = [
-  'Government Sector',
-  'Private Sector',
-  'Freelance / Independent',
-  'Others',
+  "Government Sector",
+  "Private Sector",
+  "Freelance / Independent",
+  "Others",
 ];
 
 const WORK_INDUSTRY_OPTIONS = [
-  'Agriculture and Agribusiness',
-  'Aerospace and Defense',
-  'Architecture & Design',
-  'Arts and Culture (Museums, Galleries)',
-  'Automotive',
-  'Aviation',
-  'Banking and Finance',
-  'Biotechnology',
-  'Chemicals',
-  'Consumer Electronics',
-  'Construction',
-  'Consulting Services (Management, Environmental)',
-  'Cybersecurity',
-  'Defense Manufacturing',
-  'Digital Marketing and Advertising',
-  'Education and EdTech',
-  'Energy & Utilities (Electric, Water, and Waste Management)',
-  'Entertainment & Media',
-  'Environmental Services and Sustainability',
-  'Fashion & Apparel',
-  'Fintech and Financial Services',
-  'Food and Beverage',
-  'Healthcare Services',
-  'Hospitality & Tourism',
-  'Human Resources & Staffing',
-  'Information Technology (IT) and Business Process Management (BPM)',
-  'Insurance',
-  'Legal Services',
-  'Logistics & Supply Chain',
-  'Manufacturing (Specify subtype, e.g., Electronics, Consumer Goods)',
-  'Marine & Shipping (Port Operations)',
-  'Marketing & Advertising',
-  'Medical Devices',
-  'Metals and Mining',
-  'Oil and Gas',
-  'Packaging',
-  'Pharmaceuticals',
-  'Printing & Publishing',
-  'Professional Services (Legal, Accounting)',
-  'Public Relations',
-  'Real Estate',
-  'Retail & E-commerce',
-  'Security & Investigations',
-  'Software Development',
-  'Sports Management and Recreational Services',
-  'Technology Services',
-  'Telecommunications',
-  'Textiles and Apparel',
-  'Transportation and Logistics',
-  'Venture Capital & Private Equity',
-  'Warehousing',
-  'Wholesale Trade',
-  'Others',
+  "Agriculture and Agribusiness",
+  "Aerospace and Defense",
+  "Architecture & Design",
+  "Arts and Culture (Museums, Galleries)",
+  "Automotive",
+  "Aviation",
+  "Banking and Finance",
+  "Biotechnology",
+  "Chemicals",
+  "Consumer Electronics",
+  "Construction",
+  "Consulting Services (Management, Environmental)",
+  "Cybersecurity",
+  "Defense Manufacturing",
+  "Digital Marketing and Advertising",
+  "Education and EdTech",
+  "Energy & Utilities (Electric, Water, and Waste Management)",
+  "Entertainment & Media",
+  "Environmental Services and Sustainability",
+  "Fashion & Apparel",
+  "Fintech and Financial Services",
+  "Food and Beverage",
+  "Healthcare Services",
+  "Hospitality & Tourism",
+  "Human Resources & Staffing",
+  "Information Technology (IT) and Business Process Management (BPM)",
+  "Insurance",
+  "Legal Services",
+  "Logistics & Supply Chain",
+  "Manufacturing (Specify subtype, e.g., Electronics, Consumer Goods)",
+  "Marine & Shipping (Port Operations)",
+  "Marketing & Advertising",
+  "Medical Devices",
+  "Metals and Mining",
+  "Oil and Gas",
+  "Packaging",
+  "Pharmaceuticals",
+  "Printing & Publishing",
+  "Professional Services (Legal, Accounting)",
+  "Public Relations",
+  "Real Estate",
+  "Retail & E-commerce",
+  "Security & Investigations",
+  "Software Development",
+  "Sports Management and Recreational Services",
+  "Technology Services",
+  "Telecommunications",
+  "Textiles and Apparel",
+  "Transportation and Logistics",
+  "Venture Capital & Private Equity",
+  "Warehousing",
+  "Wholesale Trade",
+  "Others",
 ];
 
-const SOCIAL_PLATFORMS = ['GitHub', 'Behance / Dribbble', 'Instagram', 'Twitter / X', 'Facebook', 'Medium / Substack', 'LinkedIn'];
+const SOCIAL_PLATFORMS = [
+  "GitHub",
+  "Behance / Dribbble",
+  "Instagram",
+  "Twitter / X",
+  "Facebook",
+  "Medium / Substack",
+  "LinkedIn",
+];
 
 const inputCls =
-  'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
+  "w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors";
 
 function UploadArea({
-  hint, accept, preview, uploading, onFileChange,
+  hint,
+  accept,
+  preview,
+  uploading,
+  onFileChange,
 }: {
-  hint: string; accept?: string; preview?: string;
-  uploading?: boolean; onFileChange?: (f: File) => void;
+  hint: string;
+  accept?: string;
+  preview?: string;
+  uploading?: boolean;
+  onFileChange?: (f: File) => void;
 }) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -95,7 +116,11 @@ function UploadArea({
   if (preview) {
     return (
       <label className="relative rounded-lg overflow-hidden cursor-pointer block w-full h-[120px]">
-        <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+        <img
+          src={preview}
+          alt="Preview"
+          className="w-full h-full object-cover"
+        />
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium">Change</span>
         </div>
@@ -104,20 +129,56 @@ function UploadArea({
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
+        <input
+          type="file"
+          accept={accept}
+          className="sr-only"
+          onChange={handleChange}
+        />
       </label>
     );
   }
   return (
     <label className="flex flex-col items-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full">
-      <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
+      <input
+        type="file"
+        accept={accept}
+        className="sr-only"
+        onChange={handleChange}
+      />
       {uploading ? (
-        <div className="w-10 h-10 border-4 border-[#ff9400] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-[#f77f00] border-t-transparent rounded-full animate-spin" />
       ) : (
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#7c8493]">
-          <polyline points="16 16 12 12 8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          <line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <svg
+          width="40"
+          height="40"
+          viewBox="0 0 24 24"
+          fill="none"
+          className="text-[#7c8493]"
+        >
+          <polyline
+            points="16 16 12 12 8 16"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <line
+            x1="12"
+            y1="12"
+            x2="12"
+            y2="21"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       )}
       <div className="text-center">
@@ -131,26 +192,50 @@ function UploadArea({
 }
 
 function TagInput({
-  label, placeholder, hint, tags, onAdd, onRemove,
+  label,
+  placeholder,
+  hint,
+  tags,
+  onAdd,
+  onRemove,
 }: {
-  label: string; placeholder: string; hint?: string;
-  tags: string[]; onAdd: (t: string) => void; onRemove: (t: string) => void;
+  label: string;
+  placeholder: string;
+  hint?: string;
+  tags: string[];
+  onAdd: (t: string) => void;
+  onRemove: (t: string) => void;
 }) {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   function commit() {
-    const v = input.trim().replace(/,/g, '');
-    if (v) { onAdd(v); setInput(''); }
+    const v = input.trim().replace(/,/g, "");
+    if (v) {
+      onAdd(v);
+      setInput("");
+    }
   }
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[#18191c] text-sm">{label}</label>
       <div className="min-h-[48px] border border-[#e4e5e8] bg-white rounded-full px-3 flex flex-wrap items-center gap-1.5 py-1.5">
         {tags.map((t) => (
-          <span key={t} className="flex items-center gap-1 bg-[#ffeacc] text-[#ff9400] text-sm rounded-full pl-3 pr-2 py-1 shrink-0">
+          <span
+            key={t}
+            className="flex items-center gap-1 bg-[#ffeacc] text-[#f77f00] text-sm rounded-full pl-3 pr-2 py-1 shrink-0"
+          >
             {t}
-            <button type="button" onClick={() => onRemove(t)} className="hover:text-[#cc7700] transition-colors">
+            <button
+              type="button"
+              onClick={() => onRemove(t)}
+              className="hover:text-[#cc7700] transition-colors"
+            >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                <path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </span>
@@ -158,9 +243,14 @@ function TagInput({
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === ',' || e.key === 'Enter') { e.preventDefault(); commit(); } }}
+          onKeyDown={(e) => {
+            if (e.key === "," || e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+          }}
           onBlur={commit}
-          placeholder={tags.length === 0 ? placeholder : ''}
+          placeholder={tags.length === 0 ? placeholder : ""}
           className="flex-1 min-w-[100px] text-sm bg-transparent outline-none text-[#18191c] placeholder-[#9199a3]"
         />
       </div>
@@ -194,16 +284,25 @@ function ScrollableDropdown({
         <button
           type="button"
           onClick={onToggle}
-          className="w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 flex items-center justify-between text-sm focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400]"
+          className="w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 flex items-center justify-between text-sm focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00]"
         >
-          <span className={value ? 'text-[#18191c]' : 'text-[#9199a3]'}>
+          <span className={value ? "text-[#18191c]" : "text-[#9199a3]"}>
             {value || placeholder}
           </span>
           <svg
-            width="16" height="16" viewBox="0 0 24 24" fill="none"
-            className={`transition-transform duration-200 shrink-0 ${open ? 'rotate-180' : ''}`}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            className={`transition-transform duration-200 shrink-0 ${open ? "rotate-180" : ""}`}
           >
-            <path d="M6 9l6 6 6-6" stroke="#9199a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M6 9l6 6 6-6"
+              stroke="#9199a3"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
         {open && (
@@ -216,8 +315,8 @@ function ScrollableDropdown({
                   onClick={() => onSelect(opt)}
                   className={`w-full text-left px-4 py-3 text-sm transition-colors border-l-4 ${
                     idx === 0
-                      ? 'text-[#f77f00] border-[#f77f00]'
-                      : 'text-[#6b6b6b] border-transparent hover:bg-[#fff6ed] hover:text-[#ff9400] hover:border-[#ff9400]'
+                      ? "text-[#f77f00] border-[#f77f00]"
+                      : "text-[#6b6b6b] border-transparent hover:bg-[#fff6ed] hover:text-[#f77f00] hover:border-[#f77f00]"
                   }`}
                 >
                   {opt}
@@ -234,36 +333,41 @@ function ScrollableDropdown({
 export default function ProfessionalAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>('profile');
-  const { profile, loading, saving, error, successMsg, save } = useAccountUpdate();
+  const [tab, setTab] = useState<Tab>("profile");
+  const { profile, loading, saving, error, successMsg, save } =
+    useAccountUpdate();
 
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
+  const [uploadError, setUploadError] = useState("");
 
   // Profile Info
-  const [workSector, setWorkSector] = useState('');
+  const [workSector, setWorkSector] = useState("");
   const [showSectorDrop, setShowSectorDrop] = useState(false);
-  const [workIndustry, setWorkIndustry] = useState('');
+  const [workIndustry, setWorkIndustry] = useState("");
   const [showIndustryDrop, setShowIndustryDrop] = useState(false);
-  const [jobTitle, setJobTitle] = useState('');
-  const [company, setCompany] = useState('');
-  const [bio, setBio] = useState('');
+  const [jobTitle, setJobTitle] = useState("");
+  const [company, setCompany] = useState("");
+  const [bio, setBio] = useState("");
 
   // More Info
   const [skills, setSkills] = useState<string[]>([]);
-  const [website, setWebsite] = useState('');
-  const [socialLinks, setSocialLinks] = useState([{ platform: 'GitHub', url: '' }]);
-  const [openSocialDropdown, setOpenSocialDropdown] = useState<number | null>(null);
+  const [website, setWebsite] = useState("");
+  const [socialLinks, setSocialLinks] = useState([
+    { platform: "GitHub", url: "" },
+  ]);
+  const [openSocialDropdown, setOpenSocialDropdown] = useState<number | null>(
+    null,
+  );
 
   // Contact
   const [reachFor, setReachFor] = useState<string[]>([]);
-  const [location, setLocation] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [languages, setLanguages] = useState('');
+  const [location, setLocation] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [languages, setLanguages] = useState("");
 
   // Pre-fill form when profile loads
   useEffect(() => {
@@ -285,39 +389,65 @@ export default function ProfessionalAccountUpdatePage() {
   }, [profile]);
 
   const progressMap: Record<Tab, number> = {
-    profile: 25, more: 50, contact: 75, complete: 100,
+    profile: 25,
+    more: 50,
+    contact: 75,
+    complete: 100,
   };
 
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'profile', label: 'Profile Info', icon: userIcon },
-    { id: 'more',    label: 'More Info',    icon: userCircleIcon },
-    { id: 'contact', label: 'Contact',      icon: atIcon },
+    { id: "profile", label: "Profile Info", icon: userIcon },
+    { id: "more", label: "More Info", icon: userCircleIcon },
+    { id: "contact", label: "Contact", icon: atIcon },
   ];
 
   async function handleAvatarChange(file: File) {
-    setAvatarUploading(true); setUploadError('');
-    try { const url = await uploadProfileImage(file, 'avatar'); setAvatarUrl(url); }
-    catch (e: unknown) { setUploadError(e instanceof Error ? e.message : 'Avatar upload failed'); }
-    finally { setAvatarUploading(false); }
+    setAvatarUploading(true);
+    setUploadError("");
+    try {
+      const url = await uploadProfileImage(file, "avatar");
+      setAvatarUrl(url);
+    } catch (e: unknown) {
+      setUploadError(e instanceof Error ? e.message : "Avatar upload failed");
+    } finally {
+      setAvatarUploading(false);
+    }
   }
 
   async function handleCoverChange(file: File) {
-    setCoverUploading(true); setUploadError('');
-    try { const url = await uploadProfileImage(file, 'cover'); setCoverUrl(url); }
-    catch (e: unknown) { setUploadError(e instanceof Error ? e.message : 'Cover upload failed'); }
-    finally { setCoverUploading(false); }
+    setCoverUploading(true);
+    setUploadError("");
+    try {
+      const url = await uploadProfileImage(file, "cover");
+      setCoverUrl(url);
+    } catch (e: unknown) {
+      setUploadError(e instanceof Error ? e.message : "Cover upload failed");
+    } finally {
+      setCoverUploading(false);
+    }
   }
 
   async function handleSave() {
-    if (tab === 'profile') {
-      const ok = await save({ work_sector: workSector, work_industry: workIndustry, title: jobTitle, company, bio });
-      if (ok) setTab('more');
-    } else if (tab === 'more') {
+    if (tab === "profile") {
+      const ok = await save({
+        work_sector: workSector,
+        work_industry: workIndustry,
+        title: jobTitle,
+        company,
+        bio,
+      });
+      if (ok) setTab("more");
+    } else if (tab === "more") {
       const ok = await save({ skills, website, social_links: socialLinks });
-      if (ok) setTab('contact');
+      if (ok) setTab("contact");
     } else {
-      const ok = await save({ reach_for: reachFor, location, languages, setup_complete: true });
-      if (ok) setTab('complete');
+      const ok = await save({
+        reach_for: reachFor,
+        location,
+        languages,
+        setup_complete: true,
+      });
+      if (ok) setTab("complete");
     }
   }
 
@@ -325,8 +455,14 @@ export default function ProfessionalAccountUpdatePage() {
     setSocialLinks((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function updateSocialLink(idx: number, field: 'platform' | 'url', value: string) {
-    setSocialLinks((prev) => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
+  function updateSocialLink(
+    idx: number,
+    field: "platform" | "url",
+    value: string,
+  ) {
+    setSocialLinks((prev) =>
+      prev.map((l, i) => (i === idx ? { ...l, [field]: value } : l)),
+    );
   }
 
   if (loading) {
@@ -335,7 +471,7 @@ export default function ProfessionalAccountUpdatePage() {
         <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="pt-[78px] lg:pl-[280px] flex items-center justify-center min-h-screen">
-          <div className="w-8 h-8 border-4 border-[#ff9400] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-[#f77f00] border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -347,27 +483,50 @@ export default function ProfessionalAccountUpdatePage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
-
         {/* ── Completion screen ── */}
-        {tab === 'complete' && (
+        {tab === "complete" && (
           <div className="flex items-center justify-center min-h-[calc(100vh-78px)] px-4">
             <div className="flex flex-col items-center gap-8 text-center max-w-md w-full">
               <div className="bg-[#ffeacc] p-10 rounded-full">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-[#ff9400]">
-                  <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="20 12 9 23 4 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="text-[#f77f00]"
+                >
+                  <polyline
+                    points="20 6 9 17 4 12"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <polyline
+                    points="20 12 9 23 4 18"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
                 🎉 Congratulations, Your profile is 100% complete!
               </h2>
               <button
-                onClick={() => navigate('/home')}
-                className="flex items-center gap-3 bg-[#ff9400] text-white text-base font-semibold rounded-full px-8 py-4 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
+                onClick={() => navigate("/home")}
+                className="flex items-center gap-3 bg-[#f77f00] text-white text-base font-semibold rounded-full px-8 py-4 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
               >
                 Go To Home
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path
+                    d="M5 12h14M13 6l6 6-6 6"
+                    stroke="white"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
             </div>
@@ -375,18 +534,19 @@ export default function ProfessionalAccountUpdatePage() {
         )}
 
         {/* ── Form ── */}
-        {tab !== 'complete' && (
+        {tab !== "complete" && (
           <div className="max-w-[960px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
-
             {/* Progress */}
             <div className="mb-6 sm:mb-8">
               <div className="flex items-center justify-between text-sm sm:text-base mb-3">
                 <span className="text-[#767f8c]">Setup Progress</span>
-                <span className="text-[#ff9400] font-medium">{progressMap[tab]}% Completed</span>
+                <span className="text-[#f77f00] font-medium">
+                  {progressMap[tab]}% Completed
+                </span>
               </div>
               <div className="w-full h-[9px] bg-[#e7f0fa] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#ff9400] rounded-full transition-all duration-500"
+                  className="h-full bg-[#f77f00] rounded-full transition-all duration-500"
                   style={{ width: `${progressMap[tab]}%` }}
                 />
               </div>
@@ -401,26 +561,37 @@ export default function ProfessionalAccountUpdatePage() {
                     onClick={() => setTab(t.id)}
                     className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-5 py-3 rounded-[10px] text-sm transition-all ${
                       tab === t.id
-                        ? 'bg-white shadow-sm text-[#ff9400] font-semibold'
-                        : 'text-[#4f5665] font-medium hover:text-[#18191c]'
+                        ? "bg-white shadow-sm text-[#f77f00] font-semibold"
+                        : "text-[#4f5665] font-medium hover:text-[#18191c]"
                     }`}
                   >
                     <img src={t.icon} alt="" className="w-5 h-5 shrink-0" />
-                    <span className="hidden xs:inline sm:inline">{t.label}</span>
+                    <span className="hidden xs:inline sm:inline">
+                      {t.label}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Error / Success */}
-            {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
-            {successMsg && <p className="text-green-600 text-sm mb-4 text-center">{successMsg}</p>}
-            {uploadError && <p className="text-red-500 text-sm mb-4 text-center">{uploadError}</p>}
+            {error && (
+              <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
+            )}
+            {successMsg && (
+              <p className="text-green-600 text-sm mb-4 text-center">
+                {successMsg}
+              </p>
+            )}
+            {uploadError && (
+              <p className="text-red-500 text-sm mb-4 text-center">
+                {uploadError}
+              </p>
+            )}
 
             {/* ── Tab: Profile Info ── */}
-            {tab === 'profile' && (
+            {tab === "profile" && (
               <div className="flex flex-col gap-5 sm:gap-6">
-
                 {/* Photo uploads */}
                 <div className="flex flex-col sm:flex-row gap-5 sm:gap-6">
                   <div className="flex flex-col gap-2 w-full sm:w-[260px] shrink-0">
@@ -452,8 +623,14 @@ export default function ProfessionalAccountUpdatePage() {
                   value={workSector}
                   options={WORK_SECTOR_OPTIONS}
                   open={showSectorDrop}
-                  onToggle={() => { setShowSectorDrop((v) => !v); setShowIndustryDrop(false); }}
-                  onSelect={(v) => { setWorkSector(v); setShowSectorDrop(false); }}
+                  onToggle={() => {
+                    setShowSectorDrop((v) => !v);
+                    setShowIndustryDrop(false);
+                  }}
+                  onSelect={(v) => {
+                    setWorkSector(v);
+                    setShowSectorDrop(false);
+                  }}
                 />
 
                 {/* Work Industry */}
@@ -463,8 +640,14 @@ export default function ProfessionalAccountUpdatePage() {
                   value={workIndustry}
                   options={WORK_INDUSTRY_OPTIONS}
                   open={showIndustryDrop}
-                  onToggle={() => { setShowIndustryDrop((v) => !v); setShowSectorDrop(false); }}
-                  onSelect={(v) => { setWorkIndustry(v); setShowIndustryDrop(false); }}
+                  onToggle={() => {
+                    setShowIndustryDrop((v) => !v);
+                    setShowSectorDrop(false);
+                  }}
+                  onSelect={(v) => {
+                    setWorkIndustry(v);
+                    setShowIndustryDrop(false);
+                  }}
                 />
 
                 {/* Job Title */}
@@ -481,7 +664,9 @@ export default function ProfessionalAccountUpdatePage() {
 
                 {/* Company */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[#18191c] text-sm">Company / Organisation</label>
+                  <label className="text-[#18191c] text-sm">
+                    Company / Organisation
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. Infosys, TCS, Startup Name"
@@ -499,47 +684,87 @@ export default function ProfessionalAccountUpdatePage() {
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     rows={5}
-                    className="w-full border border-[#e4e5e8] bg-white rounded-[18px] px-4 py-3 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors resize-none"
+                    className="w-full border border-[#e4e5e8] bg-white rounded-[18px] px-4 py-3 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors resize-none"
                   />
                 </div>
               </div>
             )}
 
             {/* ── Tab: More Info ── */}
-            {tab === 'more' && (
+            {tab === "more" && (
               <div className="flex flex-col gap-5 sm:gap-6">
-
                 <TagInput
                   label="Mention your Expertise & Skills in keywords"
                   placeholder="Type a skill and press comma or Enter"
                   hint="Enter a comma after each tag"
                   tags={skills}
                   onAdd={(t) => setSkills((prev) => [...prev, t])}
-                  onRemove={(t) => setSkills((prev) => prev.filter((x) => x !== t))}
+                  onRemove={(t) =>
+                    setSkills((prev) => prev.filter((x) => x !== t))
+                  }
                 />
 
                 {/* Resume upload */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[#18191c] text-sm">Upload your Portfolio/Resume</label>
+                  <label className="text-[#18191c] text-sm">
+                    Upload your Portfolio/Resume
+                  </label>
                   <label className="flex flex-col items-center gap-3 border-2 border-dashed border-[rgba(200,204,209,0.7)] bg-[rgba(241,242,244,0.4)] rounded-[6px] px-8 py-6 cursor-pointer hover:bg-[rgba(241,242,244,0.7)] transition-colors">
                     <input type="file" accept=".pdf" className="sr-only" />
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#7c8493]">
-                      <polyline points="16 16 12 12 8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <svg
+                      width="40"
+                      height="40"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="text-[#7c8493]"
+                    >
+                      <polyline
+                        points="16 16 12 12 8 16"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <line
+                        x1="12"
+                        y1="12"
+                        x2="12"
+                        y2="21"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                     <div className="text-center">
-                      <p className="text-sm text-[#18191c]"><span className="font-medium">Browse File</span> or drop here</p>
-                      <p className="text-xs text-[#5e6670] mt-1">*Supported Format Pdf, Max file size 12 MB.</p>
+                      <p className="text-sm text-[#18191c]">
+                        <span className="font-medium">Browse File</span> or drop
+                        here
+                      </p>
+                      <p className="text-xs text-[#5e6670] mt-1">
+                        *Supported Format Pdf, Max file size 12 MB.
+                      </p>
                     </div>
                   </label>
                 </div>
 
                 {/* Website */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[#18191c] text-sm">Website (Optional)</label>
+                  <label className="text-[#18191c] text-sm">
+                    Website (Optional)
+                  </label>
                   <div className="relative">
-                    <img src={linkIcon} alt="" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" />
+                    <img
+                      src={linkIcon}
+                      alt=""
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
+                    />
                     <input
                       type="url"
                       placeholder="https://yourwebsite.com"
@@ -561,12 +786,28 @@ export default function ProfessionalAccountUpdatePage() {
                             <div className="relative">
                               <button
                                 type="button"
-                                onClick={() => setOpenSocialDropdown(openSocialDropdown === idx ? null : idx)}
-                                className="h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 flex items-center gap-2 text-sm font-medium text-[#18191c] focus:outline-none focus:border-[#ff9400] min-w-[160px] justify-between"
+                                onClick={() =>
+                                  setOpenSocialDropdown(
+                                    openSocialDropdown === idx ? null : idx,
+                                  )
+                                }
+                                className="h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 flex items-center gap-2 text-sm font-medium text-[#18191c] focus:outline-none focus:border-[#f77f00] min-w-[160px] justify-between"
                               >
                                 <span>{link.platform}</span>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`transition-transform duration-200 ${openSocialDropdown === idx ? 'rotate-180' : ''}`}>
-                                  <path d="M6 9l6 6 6-6" stroke="#9199a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  className={`transition-transform duration-200 ${openSocialDropdown === idx ? "rotate-180" : ""}`}
+                                >
+                                  <path
+                                    d="M6 9l6 6 6-6"
+                                    stroke="#9199a3"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
                                 </svg>
                               </button>
                               {openSocialDropdown === idx && (
@@ -575,11 +816,14 @@ export default function ProfessionalAccountUpdatePage() {
                                     <button
                                       key={p}
                                       type="button"
-                                      onClick={() => { updateSocialLink(idx, 'platform', p); setOpenSocialDropdown(null); }}
+                                      onClick={() => {
+                                        updateSocialLink(idx, "platform", p);
+                                        setOpenSocialDropdown(null);
+                                      }}
                                       className={`w-full text-left px-4 py-3 text-sm transition-colors ${
                                         pIdx === SOCIAL_PLATFORMS.length - 1
-                                          ? 'text-[#ff9400] border-l-2 border-[#ff9400]'
-                                          : 'text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400]'
+                                          ? "text-[#f77f00] border-l-2 border-[#f77f00]"
+                                          : "text-[#18191c] hover:bg-[#fff6ed] hover:text-[#f77f00]"
                                       }`}
                                     >
                                       {p}
@@ -592,8 +836,10 @@ export default function ProfessionalAccountUpdatePage() {
                               type="url"
                               placeholder="Profile link/url..."
                               value={link.url}
-                              onChange={(e) => updateSocialLink(idx, 'url', e.target.value)}
-                              className="flex-1 h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors"
+                              onChange={(e) =>
+                                updateSocialLink(idx, "url", e.target.value)
+                              }
+                              className="flex-1 h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors"
                             />
                           </div>
                         </div>
@@ -603,8 +849,18 @@ export default function ProfessionalAccountUpdatePage() {
                             onClick={() => removeSocialLink(idx)}
                             className="w-10 h-10 bg-[#f1f2f4] rounded-full flex items-center justify-center shrink-0 hover:bg-[#e4e5e8] transition-colors"
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                              <path d="M18 6L6 18M6 6l12 12" stroke="#7c8493" strokeWidth="2" strokeLinecap="round"/>
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <path
+                                d="M18 6L6 18M6 6l12 12"
+                                stroke="#7c8493"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
                             </svg>
                           </button>
                         )}
@@ -612,12 +868,33 @@ export default function ProfessionalAccountUpdatePage() {
                     ))}
                     <button
                       type="button"
-                      onClick={() => setSocialLinks((prev) => [...prev, { platform: 'GitHub', url: '' }])}
+                      onClick={() =>
+                        setSocialLinks((prev) => [
+                          ...prev,
+                          { platform: "GitHub", url: "" },
+                        ])
+                      }
                       className="w-full h-[44px] bg-[#ffeacc] rounded-full flex items-center justify-center gap-2 text-sm font-medium text-[#18191c] hover:bg-[#ffd99a] transition-colors"
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="#ff9400" strokeWidth="1.5"/>
-                        <path d="M12 8v8M8 12h8" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round"/>
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="#f77f00"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M12 8v8M8 12h8"
+                          stroke="#f77f00"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
                       </svg>
                       Add New Social Link
                     </button>
@@ -627,16 +904,17 @@ export default function ProfessionalAccountUpdatePage() {
             )}
 
             {/* ── Tab: Contact ── */}
-            {tab === 'contact' && (
+            {tab === "contact" && (
               <div className="flex flex-col gap-5 sm:gap-6">
-
                 <TagInput
                   label="Reach out to me for:"
                   placeholder="Type a keyword and press comma or Enter"
                   hint="Enter a comma after each tag"
                   tags={reachFor}
                   onAdd={(t) => setReachFor((prev) => [...prev, t])}
-                  onRemove={(t) => setReachFor((prev) => prev.filter((x) => x !== t))}
+                  onRemove={(t) =>
+                    setReachFor((prev) => prev.filter((x) => x !== t))
+                  }
                 />
 
                 <div className="flex flex-col gap-2">
@@ -664,7 +942,11 @@ export default function ProfessionalAccountUpdatePage() {
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Email</label>
                   <div className="relative">
-                    <img src={envelopeIcon} alt="" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" />
+                    <img
+                      src={envelopeIcon}
+                      alt=""
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
+                    />
                     <input
                       type="email"
                       placeholder="Email address"
@@ -678,7 +960,11 @@ export default function ProfessionalAccountUpdatePage() {
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Languages</label>
                   <div className="relative">
-                    <img src={languageIcon} alt="" className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" />
+                    <img
+                      src={languageIcon}
+                      alt=""
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
+                    />
                     <input
                       type="text"
                       placeholder="Languages you speak"
@@ -695,8 +981,8 @@ export default function ProfessionalAccountUpdatePage() {
             <div className="border-t border-[#f2f2f3] mt-6 sm:mt-8 pt-4 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => navigate('/home')}
-                className="border border-[#ff9400] text-[#ff9400] text-sm font-medium rounded-full px-5 py-2 hover:bg-[#fff6ed] transition-colors"
+                onClick={() => navigate("/home")}
+                className="border border-[#f77f00] text-[#f77f00] text-sm font-medium rounded-full px-5 py-2 hover:bg-[#fff6ed] transition-colors"
               >
                 Skip Now
               </button>
@@ -704,9 +990,9 @@ export default function ProfessionalAccountUpdatePage() {
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-[#ff9400] text-white text-sm font-medium rounded-full px-6 py-2 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
+                className="bg-[#f77f00] text-white text-sm font-medium rounded-full px-6 py-2 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {saving ? 'Saving…' : 'Save'}
+                {saving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>

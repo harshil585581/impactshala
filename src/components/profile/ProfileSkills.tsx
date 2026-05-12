@@ -14,7 +14,7 @@ export default function ProfileSkills({ skills, isOwnProfile }: Props) {
           {skills.map((skill) => (
             <span
               key={skill}
-              className="bg-[#f3f5f7] text-[#18191c] text-sm font-medium px-3 py-1.5 rounded-full border border-[#e4e5e8] hover:border-[#ff9400] hover:text-[#ff9400] transition-colors"
+              className="bg-[#f3f5f7] text-[#18191c] text-sm font-medium px-3 py-1.5 rounded-full border border-[#e4e5e8] hover:border-[#f77f00] hover:text-[#f77f00] transition-colors"
             >
               {skill}
             </span>
@@ -22,7 +22,9 @@ export default function ProfileSkills({ skills, isOwnProfile }: Props) {
         </div>
       ) : (
         <p className="text-[#9199a3] text-sm italic">
-          {isOwnProfile ? 'Add your skills to help others discover you.' : 'No skills listed yet.'}
+          {isOwnProfile
+            ? "Add your skills to help others discover you."
+            : "No skills listed yet."}
         </p>
       )}
     </div>

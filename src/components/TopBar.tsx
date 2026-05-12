@@ -1,20 +1,22 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-const logo           = "https://www.figma.com/api/mcp/asset/d643d316-0055-4e66-93e3-4abd763761cd";
-const defaultAvatar  = "https://www.figma.com/api/mcp/asset/1f794d22-cc5e-4fd9-9a69-52e5d98eef02";
+const logo =
+  "https://www.figma.com/api/mcp/asset/d643d316-0055-4e66-93e3-4abd763761cd";
+const defaultAvatar =
+  "https://www.figma.com/api/mcp/asset/1f794d22-cc5e-4fd9-9a69-52e5d98eef02";
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 type TopBarProps = {
   onMenuToggle: () => void;
 };
 
 const roleLabels: Record<string, string> = {
-  student: 'Student',
-  professional: 'Working Professional',
-  entrepreneur: 'Entrepreneur',
-  educator: 'Educator',
+  student: "Student",
+  professional: "Working Professional",
+  entrepreneur: "Entrepreneur",
+  educator: "Educator",
 };
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
@@ -23,49 +25,50 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const [avatarUrl, setAvatarUrl] = useState<string>(defaultAvatar);
   const meRef = useRef<HTMLDivElement>(null);
 
-  const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const userRole: string = storedUser.role ?? '';
-  const userType: string = storedUser.user_type ?? '';
-  const displayName: string =
-    storedUser.first_name
-      ? `${storedUser.first_name} ${storedUser.last_name ?? ''}`.trim()
-      : storedUser.org_name ?? 'My Profile';
+  const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
+  const userRole: string = storedUser.role ?? "";
+  const userType: string = storedUser.user_type ?? "";
+  const displayName: string = storedUser.first_name
+    ? `${storedUser.first_name} ${storedUser.last_name ?? ""}`.trim()
+    : (storedUser.org_name ?? "My Profile");
   const roleLabel: string =
-    userType === 'organization'
-      ? 'Organization'
-      : roleLabels[userRole] ?? 'Member';
+    userType === "organization"
+      ? "Organization"
+      : (roleLabels[userRole] ?? "Member");
 
   function handleUpdateAccount() {
     setMeOpen(false);
-    if (userType === 'individual' && userRole === 'entrepreneur') {
-      navigate('/account/update/entrepreneur');
-    } else if (userType === 'individual' && userRole === 'professional') {
-      navigate('/account/update/professional');
-    } else if (userType === 'individual' && userRole === 'educator') {
-      navigate('/account/update/educator');
-    } else if (userType === 'individual') {
-      navigate('/account/update/student');
+    if (userType === "individual" && userRole === "entrepreneur") {
+      navigate("/account/update/entrepreneur");
+    } else if (userType === "individual" && userRole === "professional") {
+      navigate("/account/update/professional");
+    } else if (userType === "individual" && userRole === "educator") {
+      navigate("/account/update/educator");
+    } else if (userType === "individual") {
+      navigate("/account/update/student");
     } else {
-      navigate('/account/update');
+      navigate("/account/update");
     }
   }
 
   function handleSignOut() {
-    localStorage.removeItem('user');
+    localStorage.removeItem("user");
     setMeOpen(false);
-    navigate('/');
+    navigate("/");
   }
 
   // Fetch avatar_url from profile
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') ?? '{}');
-    const token = user.access_token ?? '';
+    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+    const token = user.access_token ?? "";
     if (!token) return;
     fetch(`${API_URL}/api/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.avatar_url) setAvatarUrl(data.avatar_url); })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+      })
       .catch(() => {});
   }, []);
 
@@ -76,8 +79,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         setMeOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   return (
@@ -85,11 +88,16 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       {/* Hamburger — mobile only */}
       <button
         onClick={onMenuToggle}
-        className="lg:hidden text-[#7c8493] hover:text-[#ff9400] shrink-0"
+        className="lg:hidden text-[#7c8493] hover:text-[#f77f00] shrink-0"
         aria-label="Toggle menu"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <path
+            d="M3 6h18M3 12h18M3 18h18"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         </svg>
       </button>
 
@@ -103,38 +111,71 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         <div className="relative flex items-center">
           <svg
             className="absolute left-3 text-[#9ca3af] pointer-events-none"
-            width="18" height="18" viewBox="0 0 24 24" fill="none"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
           >
-            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-            <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <circle
+              cx="11"
+              cy="11"
+              r="8"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <path
+              d="M21 21l-4.35-4.35"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
           </svg>
           <input
             type="text"
             placeholder="Search messages"
-            className="w-full bg-[#f8f8f8] border border-[#f2f2f3] rounded-full pl-10 pr-4 py-2 text-sm text-[#474d57] placeholder-[#9ca3af] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors"
+            className="w-full bg-[#f8f8f8] border border-[#f2f2f3] rounded-full pl-10 pr-4 py-2 text-sm text-[#474d57] placeholder-[#9ca3af] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors"
           />
         </div>
       </div>
 
       {/* Right actions */}
       <div className="flex items-center gap-4 md:gap-6 ml-auto shrink-0">
-
         {/* Messages */}
-        <button className="hidden sm:flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#ff9400] transition-colors">
+        <button className="hidden sm:flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#f77f00] transition-colors">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           <span className="text-[11px] leading-none">Message</span>
         </button>
 
         {/* Notifications */}
-        <button className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#ff9400] transition-colors relative">
+        <button className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#f77f00] transition-colors relative">
           <div className="relative">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path
+                d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M13.73 21a2 2 0 01-3.46 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] rounded-full w-[14px] h-[14px] flex items-center justify-center font-bold">3</span>
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] rounded-full w-[14px] h-[14px] flex items-center justify-center font-bold">
+              3
+            </span>
           </div>
           <span className="text-[11px] leading-none">Notifications</span>
         </button>
@@ -143,16 +184,29 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         <div className="relative" ref={meRef}>
           <button
             onClick={() => setMeOpen((v) => !v)}
-            className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#ff9400] transition-colors"
+            className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#f77f00] transition-colors"
           >
-            <img src={avatarUrl} alt="Me" className="w-7 h-7 rounded-full object-cover" />
+            <img
+              src={avatarUrl}
+              alt="Me"
+              className="w-7 h-7 rounded-full object-cover"
+            />
             <div className="flex items-center">
               <span className="text-[11px] leading-none">Me</span>
               <svg
-                width="14" height="14" viewBox="0 0 24 24" fill="none"
-                className={`transition-transform duration-200 ${meOpen ? 'rotate-180' : ''}`}
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                className={`transition-transform duration-200 ${meOpen ? "rotate-180" : ""}`}
               >
-                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path
+                  d="M6 9l6 6 6-6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </div>
           </button>
@@ -160,46 +214,94 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           {/* Dropdown */}
           {meOpen && (
             <div className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.12)] border border-[#f2f2f3] z-50 overflow-hidden py-1">
-
               {/* Profile header */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-[#f2f2f3]">
-                <img src={avatarUrl} alt="Me" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                <img
+                  src={avatarUrl}
+                  alt="Me"
+                  className="w-9 h-9 rounded-full object-cover shrink-0"
+                />
                 <div className="min-w-0">
-                  <p className="text-[#18191c] text-sm font-semibold truncate">{displayName}</p>
+                  <p className="text-[#18191c] text-sm font-semibold truncate">
+                    {displayName}
+                  </p>
                   <p className="text-[#767f8c] text-xs truncate">{roleLabel}</p>
                 </div>
               </div>
 
               {/* Menu items */}
               <button
-                onClick={() => { setMeOpen(false); navigate('/profile/me'); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
+                onClick={() => {
+                  setMeOpen(false);
+                  navigate("/profile/me");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#f77f00] transition-colors text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle
+                    cx="12"
+                    cy="8"
+                    r="4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 My Profile
               </button>
 
               <button
                 onClick={handleUpdateAccount}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#f77f00] transition-colors text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path
+                    d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle
+                    cx="12"
+                    cy="7"
+                    r="4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Update Account
               </button>
 
               <button
-                onClick={() => { setMeOpen(false); navigate('/home'); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
+                onClick={() => {
+                  setMeOpen(false);
+                  navigate("/home");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#f77f00] transition-colors text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5"/>
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="3"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
                 </svg>
                 Settings
               </button>
@@ -211,7 +313,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path
+                    d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Sign Out
               </button>
