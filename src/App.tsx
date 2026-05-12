@@ -13,6 +13,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import UpdateAccountPage from './pages/account/UpdateAccountPage';
 import StudentAccountUpdatePage from './pages/account/StudentAccountUpdatePage';
 import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUpdatePage';
+import ProfilePage from './pages/profile/ProfilePage';
 import ProfessionalAccountUpdatePage from './pages/account/ProfessionalAccountUpdatePage';
 import EducatorAccountUpdatePage from './pages/account/EducatorAccountUpdatePage';
 import AuthCallbackPage from './pages/auth/AuthCallbackPage';
@@ -39,6 +40,10 @@ export default function App() {
         {/* Signup — organisation */}
         <Route path="/signup/org/select" element={<OrgTypeSelectPage />} />
         <Route path="/signup/org/form" element={<OrgFormPage />} />
+
+        {/* Profile */}
+        <Route path="/profile/me" element={<ProfilePage />} />
+        <Route path="/profile/:userId" element={<ProfilePage />} />
 
         {/* App */}
         <Route path="/home" element={<HomePage />} />

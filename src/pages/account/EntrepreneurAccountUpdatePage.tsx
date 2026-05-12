@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
+import { useAccountUpdate } from '../../hooks/useAccountUpdate';
+import { uploadProfileImage } from '../../services/accountService';
 
 // Tab icons from Figma
 const userIcon       = "https://www.figma.com/api/mcp/asset/aeacde15-44b6-45d0-a0e0-273e0d60de81";
@@ -24,15 +26,44 @@ const inputCls =
   'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
 
 // ── Upload drop-zone ──────────────────────────────────────────────────────────
-function UploadArea({ hint, accept }: { hint: string; accept?: string }) {
+function UploadArea({
+  hint, accept, preview, uploading, onFileChange,
+}: {
+  hint: string; accept?: string; preview?: string;
+  uploading?: boolean; onFileChange?: (f: File) => void;
+}) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f && onFileChange) onFileChange(f);
+  }
+  if (preview) {
+    return (
+      <label className="relative rounded-lg overflow-hidden cursor-pointer block w-full h-[120px]">
+        <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+          <span className="text-white text-sm font-medium">Change</span>
+        </div>
+        {uploading && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+        <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
+      </label>
+    );
+  }
   return (
     <label className="flex flex-col items-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full">
-      <input type="file" accept={accept} className="sr-only" />
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#7c8493]">
-        <polyline points="16 16 12 12 8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
+      <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
+      {uploading ? (
+        <div className="w-10 h-10 border-4 border-[#ff9400] border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#7c8493]">
+          <polyline points="16 16 12 12 8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
       <div className="text-center">
         <p className="text-sm text-[#18191c]">
           <span className="font-medium">Browse photo</span> or drop here
@@ -90,6 +121,14 @@ export default function EntrepreneurAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('profile');
+  const { profile, loading, saving, error, successMsg, save } = useAccountUpdate();
+
+  // Photo upload
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   // Profile Info
   const [entrepreneurType, setEntrepreneurType] = useState<'established' | 'aspiring'>('established');
@@ -110,6 +149,23 @@ export default function EntrepreneurAccountUpdatePage() {
   const [email, setEmail] = useState('');
   const [languages, setLanguages] = useState('');
 
+  // Pre-fill form when profile loads
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+    if (profile.cover_url) setCoverUrl(profile.cover_url);
+    if (profile.entrepreneur_type) setEntrepreneurType(profile.entrepreneur_type);
+    if (profile.describe_as) setDescribeAs(profile.describe_as);
+    if (profile.bio) setBio(profile.bio);
+    if (profile.skills?.length) setSkills(profile.skills);
+    if (profile.website) setWebsite(profile.website);
+    if (profile.social_links?.length) setSocialLinks(profile.social_links);
+    if (profile.reach_for?.length) setReachFor(profile.reach_for);
+    if (profile.location) setLocation(profile.location);
+    if (profile.email) setEmail(profile.email);
+    if (profile.languages) setLanguages(profile.languages);
+  }, [profile]);
+
   const progressMap: Record<Tab, number> = {
     profile: 25, more: 50, contact: 75, complete: 100,
   };
@@ -120,10 +176,31 @@ export default function EntrepreneurAccountUpdatePage() {
     { id: 'contact',  label: 'Contact',      icon: atIcon },
   ];
 
-  function handleSave() {
-    if (tab === 'profile') setTab('more');
-    else if (tab === 'more') setTab('contact');
-    else setTab('complete');
+  async function handleAvatarChange(file: File) {
+    setAvatarUploading(true); setUploadError('');
+    try { const url = await uploadProfileImage(file, 'avatar'); setAvatarUrl(url); }
+    catch (e: unknown) { setUploadError(e instanceof Error ? e.message : 'Avatar upload failed'); }
+    finally { setAvatarUploading(false); }
+  }
+
+  async function handleCoverChange(file: File) {
+    setCoverUploading(true); setUploadError('');
+    try { const url = await uploadProfileImage(file, 'cover'); setCoverUrl(url); }
+    catch (e: unknown) { setUploadError(e instanceof Error ? e.message : 'Cover upload failed'); }
+    finally { setCoverUploading(false); }
+  }
+
+  async function handleSave() {
+    if (tab === 'profile') {
+      const ok = await save({ entrepreneur_type: entrepreneurType, describe_as: describeAs, bio });
+      if (ok) setTab('more');
+    } else if (tab === 'more') {
+      const ok = await save({ skills, website, social_links: socialLinks });
+      if (ok) setTab('contact');
+    } else {
+      const ok = await save({ reach_for: reachFor, location, languages, setup_complete: true });
+      if (ok) setTab('complete');
+    }
   }
 
   function removeSocialLink(idx: number) {
@@ -132,6 +209,18 @@ export default function EntrepreneurAccountUpdatePage() {
 
   function updateSocialLink(idx: number, field: 'platform' | 'url', value: string) {
     setSocialLinks((prev) => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="pt-[78px] lg:pl-[280px] flex items-center justify-center min-h-screen">
+          <div className="w-8 h-8 border-4 border-[#ff9400] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -205,6 +294,11 @@ export default function EntrepreneurAccountUpdatePage() {
               </div>
             </div>
 
+            {/* Error / Success */}
+            {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+            {successMsg && <p className="text-green-600 text-sm mb-4 text-center">{successMsg}</p>}
+            {uploadError && <p className="text-red-500 text-sm mb-4 text-center">{uploadError}</p>}
+
             {/* ── Tab: Profile Info ── */}
             {tab === 'profile' && (
               <div className="flex flex-col gap-5 sm:gap-6">
@@ -216,6 +310,9 @@ export default function EntrepreneurAccountUpdatePage() {
                     <UploadArea
                       hint="A photo larger than 400 pixels work best. Max photo size 5 MB."
                       accept="image/*"
+                      preview={avatarUrl}
+                      uploading={avatarUploading}
+                      onFileChange={handleAvatarChange}
                     />
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
@@ -223,6 +320,9 @@ export default function EntrepreneurAccountUpdatePage() {
                     <UploadArea
                       hint="Banner images optimal dimension 1520 × 400. Supported: jpeg, png, max 5 MB."
                       accept="image/*"
+                      preview={coverUrl}
+                      uploading={coverUploading}
+                      onFileChange={handleCoverChange}
                     />
                   </div>
                 </div>
@@ -516,9 +616,10 @@ export default function EntrepreneurAccountUpdatePage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="bg-[#ff9400] text-white text-sm font-medium rounded-full px-6 py-2 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]"
+                disabled={saving}
+                className="bg-[#ff9400] text-white text-sm font-medium rounded-full px-6 py-2 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Save
+                {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>

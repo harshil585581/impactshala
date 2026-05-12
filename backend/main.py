@@ -1,8 +1,8 @@
 import os
-from typing import Optional
+from typing import Any, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import Client, create_client
@@ -56,6 +56,42 @@ class LoginRequest(BaseModel):
 
 class ResendRequest(BaseModel):
     email: str
+
+
+class ProfileUpdate(BaseModel):
+    title: Optional[str] = None
+    company: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+    languages: Optional[str] = None
+    skills: Optional[List[str]] = None
+    social_links: Optional[List[Any]] = None
+    reach_for: Optional[List[str]] = None
+    work_sector: Optional[str] = None
+    work_industry: Optional[str] = None
+    teach_subject: Optional[str] = None
+    experience_years: Optional[str] = None
+    entrepreneur_type: Optional[str] = None
+    describe_as: Optional[str] = None
+    website: Optional[str] = None
+    setup_complete: Optional[bool] = None
+    education_level: Optional[str] = None
+    institute_name: Optional[str] = None
+    resume_url: Optional[str] = None
+
+
+def get_user_id(authorization: str) -> str:
+    """Extract and validate user from Bearer token."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization.split(" ", 1)[1]
+    try:
+        user_resp = supabase.auth.get_user(token)
+        if not user_resp.user:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return user_resp.user.id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 @app.get("/health")
@@ -148,6 +184,106 @@ async def signup_individual(data: IndividualSignup):
         "id": user_id,
         "requires_confirmation": auth_response.session is None,
     }
+
+
+@app.get("/api/profile")
+async def get_profile(authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    result = supabase_admin.table("users").select("*").eq("id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return result.data[0]
+
+
+@app.patch("/api/profile")
+async def update_profile(data: ProfileUpdate, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    payload = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not payload:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    try:
+        result = supabase_admin.table("users").update(payload).eq("id", user_id).select().execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Supabase error: {str(e)}")
+    if not result.data:
+        raise HTTPException(status_code=500, detail="No rows updated — user row may be missing in public.users")
+    return result.data[0]
+
+
+@app.post("/api/upload/profile-image")
+async def upload_profile_image(
+    file: UploadFile = File(...),
+    image_type: str = Form(...),
+    authorization: str = Header(None),
+):
+    user_id = get_user_id(authorization)
+    if image_type not in ("avatar", "cover"):
+        raise HTTPException(status_code=400, detail="image_type must be 'avatar' or 'cover'")
+
+    content = await file.read()
+    ext = (file.filename or "image.jpg").rsplit(".", 1)[-1].lower()
+    if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+        ext = "jpg"
+
+    bucket = "profile-images"
+    path = f"{user_id}/{image_type}.{ext}"
+    content_type = file.content_type or "image/jpeg"
+
+    try:
+        supabase_admin.storage.from_(bucket).upload(
+            path=path,
+            file=content,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
+
+    public_url = supabase_admin.storage.from_(bucket).get_public_url(path)
+
+    field = "avatar_url" if image_type == "avatar" else "cover_url"
+    supabase_admin.table("users").update({field: public_url}).eq("id", user_id).select().execute()
+
+    return {"url": public_url}
+
+
+@app.get("/api/profile/resume")
+async def get_resume_url(authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    result = supabase_admin.table("users").select("resume_url").eq("id", user_id).execute()
+    if not result.data or not result.data[0].get("resume_url"):
+        raise HTTPException(status_code=404, detail="No resume uploaded")
+    path = result.data[0]["resume_url"]
+    signed = supabase_admin.storage.from_("documents").create_signed_url(path, 3600)
+    return {"url": signed.get("signedURL") or signed.get("signed_url") or ""}
+
+
+@app.post("/api/upload/document")
+async def upload_document(
+    file: UploadFile = File(...),
+    authorization: str = Header(None),
+):
+    user_id = get_user_id(authorization)
+    ext = (file.filename or "document.pdf").rsplit(".", 1)[-1].lower()
+    if ext not in ("pdf",):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    content = await file.read()
+    if len(content) > 12 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds 12 MB limit")
+    bucket = "documents"
+    path = f"{user_id}/resume.pdf"
+    try:
+        supabase_admin.storage.from_(bucket).upload(
+            path=path,
+            file=content,
+            file_options={"content-type": "application/pdf", "upsert": "true"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
+    # Store the storage path (not a public URL) — we generate signed URLs on demand
+    supabase_admin.table("users").update({"resume_url": path}).eq("id", user_id).select().execute()
+    # Return a short-lived signed URL (1 hour) for immediate preview
+    signed = supabase_admin.storage.from_(bucket).create_signed_url(path, 3600)
+    return {"url": signed.get("signedURL") or signed.get("signed_url") or ""}
 
 
 @app.post("/api/signup/organization")
