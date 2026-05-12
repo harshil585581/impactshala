@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { UserProfile, EditProfileForm, Toast } from '../types/profile';
 import { fetchProfile, updateProfile, toggleFollow } from '../services/profileService';
 
 export function useProfile(userId: string) {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,7 +24,15 @@ export function useProfile(userId: string) {
     setLoading(true);
     fetchProfile(userId)
       .then(setProfile)
-      .catch(() => addToast('error', 'Failed to load profile'))
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : '';
+        if (msg.includes('401')) {
+          localStorage.removeItem('user');
+          navigate('/login');
+        } else {
+          addToast('error', 'Failed to load profile');
+        }
+      })
       .finally(() => setLoading(false));
   }, [userId, addToast]);
 
