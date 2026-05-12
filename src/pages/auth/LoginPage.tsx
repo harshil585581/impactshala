@@ -51,7 +51,10 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail ?? 'Login failed');
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('user', JSON.stringify({
+        ...data.user,
+        access_token: data.access_token,
+      }));
       navigate('/home');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

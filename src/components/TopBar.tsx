@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const logo     = "https://www.figma.com/api/mcp/asset/d643d316-0055-4e66-93e3-4abd763761cd";
-const avatarMe = "https://www.figma.com/api/mcp/asset/1f794d22-cc5e-4fd9-9a69-52e5d98eef02";
+const logo           = "https://www.figma.com/api/mcp/asset/d643d316-0055-4e66-93e3-4abd763761cd";
+const defaultAvatar  = "https://www.figma.com/api/mcp/asset/1f794d22-cc5e-4fd9-9a69-52e5d98eef02";
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 type TopBarProps = {
   onMenuToggle: () => void;
@@ -18,6 +20,7 @@ const roleLabels: Record<string, string> = {
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const navigate = useNavigate();
   const [meOpen, setMeOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>(defaultAvatar);
   const meRef = useRef<HTMLDivElement>(null);
 
   const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
@@ -52,6 +55,19 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
     setMeOpen(false);
     navigate('/');
   }
+
+  // Fetch avatar_url from profile
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') ?? '{}');
+    const token = user.access_token ?? '';
+    if (!token) return;
+    fetch(`${API_URL}/api/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.avatar_url) setAvatarUrl(data.avatar_url); })
+      .catch(() => {});
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -129,7 +145,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             onClick={() => setMeOpen((v) => !v)}
             className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#ff9400] transition-colors"
           >
-            <img src={avatarMe} alt="Me" className="w-7 h-7 rounded-full object-cover" />
+            <img src={avatarUrl} alt="Me" className="w-7 h-7 rounded-full object-cover" />
             <div className="flex items-center">
               <span className="text-[11px] leading-none">Me</span>
               <svg
@@ -147,7 +163,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
 
               {/* Profile header */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-[#f2f2f3]">
-                <img src={avatarMe} alt="Me" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                <img src={avatarUrl} alt="Me" className="w-9 h-9 rounded-full object-cover shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[#18191c] text-sm font-semibold truncate">{displayName}</p>
                   <p className="text-[#767f8c] text-xs truncate">{roleLabel}</p>
@@ -155,6 +171,17 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               </div>
 
               {/* Menu items */}
+              <button
+                onClick={() => { setMeOpen(false); navigate('/profile/me'); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                My Profile
+              </button>
+
               <button
                 onClick={handleUpdateAccount}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#ff9400] transition-colors text-left"
