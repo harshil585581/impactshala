@@ -59,6 +59,8 @@ class ResendRequest(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     title: Optional[str] = None
     company: Optional[str] = None
     location: Optional[str] = None

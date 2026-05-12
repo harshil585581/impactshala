@@ -39,6 +39,9 @@ export interface UserProfile {
   describeAs?: string;
   website?: string;
   reachFor: string[];
+  resumeUrl?: string;
+  educationLevel?: string;
+  instituteName?: string;
 }
 
 export interface EditProfileForm {
