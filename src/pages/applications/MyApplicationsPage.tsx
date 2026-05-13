@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
@@ -276,7 +276,7 @@ export default function MyApplicationsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
-        <div className="max-w-[900px] mx-auto px-4 sm:px-6 py-6">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
           {/* Status filter tabs */}
           <div className="flex items-center gap-2 sm:gap-3 mb-5 flex-wrap">
             {TABS.map((tab) => (

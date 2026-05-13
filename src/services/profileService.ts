@@ -47,6 +47,7 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
     resumeUrl: data.resume_url,
     educationLevel: data.education_level,
     instituteName: data.institute_name,
+    orgName: data.org_name,
   };
 }
 

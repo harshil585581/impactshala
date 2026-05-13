@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useProfile } from "../hooks/useProfile";
+import { fetchExperiences } from "../services/experienceService";
+import type { Experience } from "../services/experienceService";
 
-const userBg =
-  "https://www.figma.com/api/mcp/asset/05e80ba2-5ce4-4079-9c31-afc322dab171";
-const userAvatar =
-  "https://www.figma.com/api/mcp/asset/3705c617-5e62-4578-acf8-8f5a2af9ff8f";
 const courseImg =
   "https://www.figma.com/api/mcp/asset/3e343bdd-8744-4851-8006-14dbcae6fa4e";
 const announcementIcon =
@@ -11,50 +10,82 @@ const announcementIcon =
 
 export default function RightPanel() {
   const [helpDismissed, setHelpDismissed] = useState(false);
+  const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
+  const { profile, loading } = useProfile("me");
+  const [currentExp, setCurrentExp] = useState<Experience | null>(null);
+
+  useEffect(() => {
+    if (storedUser.id) {
+      fetchExperiences(storedUser.id)
+        .then((exps) => {
+          const current = exps.find((e) => e.is_current);
+          setCurrentExp(current || exps[0] || null);
+        })
+        .catch(() => {});
+    }
+  }, [storedUser.id]);
+
+  const name = profile
+    ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.orgName
+    : [storedUser.first_name, storedUser.last_name].filter(Boolean).join(" ") || storedUser.org_name || "You";
+
+  const avatar = profile?.avatarUrl || storedUser.avatar_url;
 
   return (
     <aside className="w-[354px] shrink-0 flex flex-col gap-6">
       {/* User Profile Card */}
-      <div className="bg-white border border-[#f2f2f3] rounded-[14px] overflow-hidden">
+      <div className="bg-white border border-[#f2f2f3] rounded-[14px] overflow-hidden shadow-sm">
         {/* Banner */}
         <div className="h-[80px] bg-[#003049]" />
         {/* Avatar */}
         <div className="flex flex-col items-center px-5 pb-6 -mt-10">
-          <img
-            src={userAvatar}
-            alt="Michael Anderson"
-            className="w-20 h-20 rounded-full border-4 border-white object-cover"
-          />
-          <div className="mt-3 text-center">
-            <h3 className="text-[#282828] text-lg font-semibold">
-              Michael Anderson
+          {avatar ? (
+            <img
+              src={avatar}
+              alt={name}
+              className="w-20 h-20 rounded-full border-4 border-white object-cover bg-white"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full border-4 border-white bg-[#FF9400] flex items-center justify-center text-white text-2xl font-bold">
+              {name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="mt-3 text-center w-full px-2">
+            <h3 className="text-[#282828] text-lg font-semibold truncate">
+              {name}
             </h3>
-            <div className="flex items-center gap-1 justify-center mt-1">
-              <span className="text-[#666] text-xs">UI/UX Designer</span>
-              <span className="text-[#666] text-xs">·</span>
-              <span className="text-[#666] text-xs">Accenture</span>
+            <div className="flex items-center gap-1 justify-center mt-1 text-[#666] text-xs">
+              {currentExp ? (
+                <>
+                  <span className="truncate max-w-[120px]">{currentExp.role}</span>
+                  <span>·</span>
+                  <span className="truncate max-w-[120px]">{currentExp.company}</span>
+                </>
+              ) : (
+                <span>Add your experience</span>
+              )}
             </div>
           </div>
 
           {/* Stats */}
           <div className="flex items-center gap-3 mt-5 w-full justify-center">
             <div className="flex flex-col items-center gap-1">
-              <span className="text-[#f77f00] text-sm font-bold">183</span>
-              <span className="text-black text-xs font-medium text-center">
+              <span className="text-[#FF9400] text-sm font-bold">183</span>
+              <span className="text-black text-[10px] font-medium text-center leading-tight">
                 Recommendations
               </span>
             </div>
-            <div className="w-px h-10 bg-[#f77f00]" />
+            <div className="w-px h-10 bg-[#FF9400]/30" />
             <div className="flex flex-col items-center gap-1">
-              <span className="text-[#f77f00] text-sm font-bold">60</span>
-              <span className="text-black text-xs font-medium text-center">
+              <span className="text-[#FF9400] text-sm font-bold">60</span>
+              <span className="text-black text-[10px] font-medium text-center leading-tight">
                 Credibility
               </span>
             </div>
-            <div className="w-px h-10 bg-[#f77f00]" />
+            <div className="w-px h-10 bg-[#FF9400]/30" />
             <div className="flex flex-col items-center gap-1">
-              <span className="text-[#f77f00] text-sm font-bold">48</span>
-              <span className="text-black text-xs font-medium text-center">
+              <span className="text-[#FF9400] text-sm font-bold">48</span>
+              <span className="text-black text-[10px] font-medium text-center leading-tight">
                 Achievement
               </span>
             </div>
@@ -63,7 +94,7 @@ export default function RightPanel() {
       </div>
 
       {/* Course Card */}
-      <div className="bg-white border border-[#f2f2f3] rounded-[14px] overflow-hidden">
+      <div className="bg-white border border-[#f2f2f3] rounded-[14px] overflow-hidden shadow-sm">
         <img
           src={courseImg}
           alt="Figma Design"
@@ -74,21 +105,20 @@ export default function RightPanel() {
             <h4 className="text-[#282828] text-lg font-semibold">
               UI/UX Certification Course
             </h4>
-            <span className="bg-[#ffeacc] text-[#f77f00] text-sm font-medium px-3 py-0.5 rounded-full w-fit">
+            <span className="bg-[#fff8ee] text-[#FF9400] text-xs font-semibold px-3 py-1 rounded-full w-fit border border-[#ffeacc]">
               Onsite
             </span>
-            <p className="text-[#666] text-sm leading-relaxed">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla
-              facilisi. Vivamus ac tellus nec velit finibus egestas.
+            <p className="text-[#666] text-sm leading-relaxed line-clamp-3">
+              Master the fundamentals of UI/UX design with this comprehensive course. Learn Figma, user research, and prototyping.
             </p>
           </div>
-          <button className="self-center border border-[#df704d] text-[#f77f00] text-base font-medium px-10 py-3 rounded-[46px] hover:bg-[#fff8ee] transition-colors">
+          <button className="self-center border border-[#FF9400] text-[#FF9400] text-sm font-semibold px-10 py-2.5 rounded-full hover:bg-[#FF9400] hover:text-white transition-all">
             Know More
           </button>
         </div>
         {/* Pagination dots */}
         <div className="flex justify-center gap-1.5 pb-4">
-          <div className="w-2 h-2 rounded-full bg-[#f77f00]" />
+          <div className="w-2 h-2 rounded-full bg-[#FF9400]" />
           <div className="w-2 h-2 rounded-full bg-[#d9d9d9]" />
           <div className="w-2 h-2 rounded-full bg-[#d9d9d9]" />
         </div>
@@ -96,7 +126,7 @@ export default function RightPanel() {
 
       {/* Help Box */}
       {!helpDismissed && (
-        <div className="bg-white border border-[#ececec] rounded-[17px] p-4 flex flex-col gap-2 relative">
+        <div className="bg-[#fffcf8] border border-[#ffeacc] rounded-[17px] p-4 flex flex-col gap-2 relative shadow-sm">
           <div className="flex items-start justify-between">
             <img
               src={announcementIcon}
@@ -118,14 +148,14 @@ export default function RightPanel() {
             </button>
           </div>
           <div>
-            <p className="text-[#f77f00] text-lg font-semibold leading-snug">
+            <p className="text-[#FF9400] text-lg font-bold leading-snug">
               Help Box
             </p>
-            <p className="text-[#7c8493] text-base mt-0.5 leading-relaxed">
+            <p className="text-[#7c8493] text-sm mt-0.5 leading-relaxed">
               Not able to find what you're looking for? Let us help you.
             </p>
           </div>
-          <button className="bg-[#f77f00] text-white text-sm font-medium px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-colors">
+          <button className="bg-[#FF9400] text-white text-sm font-semibold px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-all shadow-md active:scale-95">
             Click Here
           </button>
         </div>

@@ -1,257 +1,262 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
 import EditProfileModal from '../../components/profile/EditProfileModal';
 import ToastContainer from '../../components/ui/Toast';
 import { useProfile } from '../../hooks/useProfile';
+import {
+  fetchExperiences,
+  createExperience,
+  updateExperience,
+  deleteExperience,
+  formatPeriod,
+} from '../../services/experienceService';
+import type { Experience } from '../../services/experienceService';
+import { fetchPersonalAchievements } from '../../services/achievementService';
+import type { PersonalAchievement } from '../../services/achievementService';
+import AddPersonalAchievementModal from '../../components/profile/AddPersonalAchievementModal';
+import AchievementDetailModal from '../../components/profile/AchievementDetailModal';
+import { fetchEducations, deleteEducation, formatEducationPeriod, formatEducationDegree } from '../../services/educationService';
+import type { Education } from '../../services/educationService';
+import AddEducationModal from '../../components/profile/AddEducationModal';
+import { fetchUserPosts, type FeedPost } from '../../services/postService';
 
-// ─── Mock data (for sections not yet backed by real data) ───────────────────
 const postImg1 = "https://www.figma.com/api/mcp/asset/d208c4d3-690e-45f8-8437-d98e914f6319";
-
-
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const MOCK_EXPERIENCES = [
-  {
-    id: '1',
-    role: 'Product Designer',
-    company: 'Canker',
-    type: 'Full Time',
-    period: '2021 – Present · 0 yrs',
-    skills: ['UX Research', 'Wireframing', 'Prototyping', 'Figma'],
-    description: '',
-  },
-  {
-    id: '2',
-    role: 'Growth Marketing Designer',
-    company: 'LinkedIn',
-    type: 'Full Time',
-    period: 'Nov 2020 – Jan 2021 · 3 mos',
-    skills: [],
-    description: 'Developed digital marketing strategies, collaborations, ecosystems, customer proposition for short timelines.',
-  },
-];
+// ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_REVIEWS = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    rating: 4,
-    text: 'Excellent work and very professional. Highly recommended for UI/UX projects.',
-  },
-  {
-    id: '2',
-    name: 'David Chen',
-    rating: 4,
-    text: 'Great collaboration and communication. Will definitely work together again.',
-  },
+  { id: '1', name: 'David Chen', rating: 4, text: 'Great collaboration experience. Michael brings both creativity and strategic thinking to every project.' },
+  { id: '2', name: 'Sarah Johnson', rating: 5, text: "Exceptional UX designer with a keen eye for detail. Michael's work on our healthcare platform was transformative." },
+  { id: '3', name: 'David Chen', rating: 4, text: 'Great collaboration experience. Michael brings both creativity and strategic thinking to every project.' },
 ];
 
-const MOCK_PERSONAL_ACHIEVEMENTS = [
-  { id: '1', title: 'UI/UX Certificate By Impactshaala', img: postImg1 },
-  { id: '2', title: 'UI/UX Certificate By Impactshaala', img: postImg1 },
-  { id: '3', title: 'UI/UX Certificate By Impactshaala', img: postImg1 },
-  { id: '4', title: 'UI/UX Certificate By Impactshaala', img: postImg1 },
-];
 
 const MOCK_COLLAB_ACHIEVEMENTS = [
-  {
-    id: '1',
-    title: 'Product Design Community Group Sprint',
-    org: 'Sarah Anderson and 3 others',
-    period: 'March 2024 - September 2024',
-  },
-  {
-    id: '2',
-    title: 'Launched Community by Abusoph for',
-    org: 'David Chen · 2 Projects',
-    period: 'Started: June 2023',
-  },
+  { id: '1', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
+  { id: '2', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
+  { id: '3', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
+  { id: '4', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
 ];
 
-const MOCK_EDUCATIONS = [
-  {
-    id: '1',
-    school: 'Harvard University',
-    degree: 'Bachelors in Arts, Human Psychology',
-    period: '2010 – 2014',
-    description: 'Also Founded the Tech Club and Helped in Delta 20 Projects and took part in various business opportunities during the internship, delivering impact to the students.',
-  },
-  {
-    id: '2',
-    school: 'University of Toronto',
-    degree: 'Masters in Computer Science',
-    period: '2015 – 2016',
-  },
-];
 
 const MOCK_POSTS = [
-  { id: '1', img: postImg1, title: 'Redesigning the Stock Fusion Dashboard' },
-  { id: '2', img: postImg1, title: 'Mobile App Web Learning' },
-  { id: '3', img: postImg1, title: 'User Testing Insights' },
+  { id: '1', img: postImg1, title: 'Redesigning the Healthcare Dashboard', desc: 'A case study on improving patient management interface' },
+  { id: '2', img: postImg1, title: 'Mobile App Wire framing', desc: 'Behind the scene of our design process' },
+  { id: '3', img: postImg1, title: 'User Testing Insights', desc: 'Key finding from our latest research' },
 ];
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function SocialIcon({ platform }: { platform: string }) {
   const p = platform.toLowerCase();
-  if (p.includes('linkedin'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M19 3C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19ZM18.5 18.5V13.2C18.5 12.3354 18.1565 11.5062 17.5452 10.8948C16.9338 10.2835 16.1046 9.94 15.24 9.94C14.39 9.94 13.4 10.46 12.92 11.24V10.13H10.13V18.5H12.92V13.57C12.92 12.8 13.54 12.17 14.31 12.17C14.6813 12.17 15.0374 12.3175 15.2999 12.5801C15.5625 12.8426 15.71 13.1987 15.71 13.57V18.5H18.5ZM6.88 8.56C7.32556 8.56 7.75288 8.383 8.06794 8.06794C8.383 7.75288 8.56 7.32556 8.56 6.88C8.56 5.95 7.81 5.19 6.88 5.19C6.43178 5.19 6.00193 5.36805 5.68499 5.68499C5.36805 6.00193 5.19 6.43178 5.19 6.88C5.19 7.81 5.95 8.56 6.88 8.56ZM8.27 18.5V10.13H5.5V18.5H8.27Z" fill="currentColor"/></svg>;
-  if (p.includes('github'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>;
-  if (p.includes('behance'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M22 7h-7V5h7v2zm1.726 10c-.442 1.297-2.029 3-5.101 3-3.074 0-5.564-1.729-5.564-5.675 0-3.91 2.325-5.92 5.466-5.92 3.082 0 4.964 1.782 5.375 4.426.078.506.109 1.188.095 2.14H15.97c.13 3.211 3.483 3.312 4.588 2.029H23.7zM19.34 13c-.104-1.336-1.02-1.893-1.97-1.893-1.04 0-1.856.63-2.01 1.893h3.98zM0 5h6.599c3.098 0 4.199 1.787 4.199 3.541 0 1.657-.895 2.652-2.099 3.151 1.441.35 2.739 1.426 2.739 3.338 0 2.531-1.978 3.97-5.098 3.97H0V5zm4.339 5.816c1.12 0 1.661-.465 1.661-1.278 0-.791-.51-1.197-1.575-1.197H3.35v2.475h.989zm.242 5.107c1.185 0 1.838-.526 1.838-1.489 0-.883-.577-1.408-1.855-1.408H3.35v2.897h1.231z"/></svg>;
-  if (p.includes('dribbble'))
-    return <svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/></svg>;
-  if (p.includes('instagram'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>;
-  if (p.includes('twitter') || p.includes('x'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>;
-  if (p.includes('facebook'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>;
-  if (p.includes('youtube'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 00-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 00-1.95 1.96A29 29 0 001 12a29 29 0 00.46 5.58A2.78 2.78 0 003.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.4a2.78 2.78 0 001.95-1.95A29 29 0 0023 12a29 29 0 00-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>;
-  if (p.includes('medium') || p.includes('substack'))
-    return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13.54 12a6.8 6.8 0 01-6.77 6.82A6.8 6.8 0 010 12a6.8 6.8 0 016.77-6.82A6.8 6.8 0 0113.54 12zM20.96 12c0 3.54-1.51 6.42-3.38 6.42-1.87 0-3.39-2.88-3.39-6.42s1.52-6.42 3.39-6.42 3.38 2.88 3.38 6.42M24 12c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75C23.47 6.25 24 8.83 24 12z"/></svg>;
-  // Generic link icon fallback
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
+  if (p.includes('linkedin')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14zm-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79zM6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68zm1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>;
+  if (p.includes('github')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>;
+  if (p.includes('behance')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 7h-7V5h7v2zm1.726 10c-.442 1.297-2.029 3-5.101 3-3.074 0-5.564-1.729-5.564-5.675 0-3.91 2.325-5.92 5.466-5.92 3.082 0 4.964 1.782 5.375 4.426.078.506.109 1.188.095 2.14H15.97c.13 3.211 3.483 3.312 4.588 2.029H23.7zM19.34 13c-.104-1.336-1.02-1.893-1.97-1.893-1.04 0-1.856.63-2.01 1.893h3.98zM0 5h6.599c3.098 0 4.199 1.787 4.199 3.541 0 1.657-.895 2.652-2.099 3.151 1.441.35 2.739 1.426 2.739 3.338 0 2.531-1.978 3.97-5.098 3.97H0V5zm4.339 5.816c1.12 0 1.661-.465 1.661-1.278 0-.791-.51-1.197-1.575-1.197H3.35v2.475h.989zm.242 5.107c1.185 0 1.838-.526 1.838-1.489 0-.883-.577-1.408-1.855-1.408H3.35v2.897h1.231z"/></svg>;
+  if (p.includes('twitter') || p.includes('x')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>;
+  if (p.includes('facebook')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>;
+  if (p.includes('instagram')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>;
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
+}
+
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <svg key={s} width="13" height="13" viewBox="0 0 24 24" fill={s <= rating ? '#ff9400' : '#e4e5e8'}>
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="h-px bg-[#f2f2f3] my-6" />;
+}
+
+
+function AddButton({ onClick }: { onClick?: () => void }) {
+  return (
+    <button onClick={onClick} className="w-[34px] h-[34px] rounded-full border border-[#e4e5e8] flex items-center justify-center text-[#9199a3] hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+    </button>
+  );
 }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const YEARS = Array.from({ length: 30 }, (_, i) => String(new Date().getFullYear() - i));
 const EMP_TYPES = ['Full Time','Part Time','Self-employed','Freelance','Contract','Internship','Apprenticeship'];
 
-function AddExperienceModal({ onClose }: { onClose: () => void }) {
-  const [title, setTitle] = useState('');
-  const [empType, setEmpType] = useState('');
-  const [company, setCompany] = useState('');
-  const [current, setCurrent] = useState(false);
-  const [startMonth, setStartMonth] = useState('');
-  const [startYear, setStartYear] = useState('');
-  const [endMonth, setEndMonth] = useState('');
-  const [endYear, setEndYear] = useState('');
-  const [location, setLocation] = useState('');
-  const [description, setDescription] = useState('');
-  const [skills, setSkills] = useState<string[]>([]);
+function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => void; onSaved: () => void; experience?: Experience }) {
+  const [title, setTitle] = useState(experience?.role ?? '');
+  const [empType, setEmpType] = useState(experience?.emp_type ?? '');
+  const [company, setCompany] = useState(experience?.company ?? '');
+  const [current, setCurrent] = useState(experience?.is_current ?? false);
+  const [startMonth, setStartMonth] = useState(experience?.start_month ?? '');
+  const [startYear, setStartYear] = useState(experience?.start_year ?? '');
+  const [endMonth, setEndMonth] = useState(experience?.end_month ?? '');
+  const [endYear, setEndYear] = useState(experience?.end_year ?? '');
+  const [location, setLocation] = useState(experience?.location ?? '');
+  const [description, setDescription] = useState(experience?.description ?? '');
+  const [skills, setSkills] = useState<string[]>(experience?.skills ?? []);
+  const [newSkill, setNewSkill] = useState('');
+  const [showSkillInput, setShowSkillInput] = useState(false);
 
   const sel = 'w-full h-[44px] border border-[#e4e5e8] bg-white rounded-lg px-3 text-sm text-[#18191c] focus:outline-none focus:border-[#ff9400] appearance-none';
   const inp = 'w-full h-[44px] border border-[#e4e5e8] bg-white rounded-lg px-3 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400]';
 
+  const handleAddSkill = () => {
+    const trimmed = newSkill.trim();
+    if (trimmed && !skills.includes(trimmed)) {
+      setSkills([...skills, trimmed]);
+    }
+    setNewSkill('');
+    setShowSkillInput(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3] shrink-0">
-          <h2 className="text-[#18191c] text-base font-semibold">Add Experience</h2>
-          <button onClick={onClose} className="text-[#9199a3] hover:text-[#18191c] transition-colors">
+          <h2 className="text-[#18191c] text-base font-semibold">{experience ? 'Edit Experience' : 'Add Experience'}</h2>
+          <button onClick={onClose} className="text-[#9199a3] hover:text-[#18191c]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
         </div>
-
-        {/* Body */}
         <div className="overflow-y-auto px-6 py-5 flex flex-col gap-4">
           <p className="text-[#9199a3] text-xs">* indicates required</p>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[#18191c] font-medium">Title <span className="text-red-500">*</span></label>
             <input className={inp} placeholder="Ex: Retail Sales Manager" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[#18191c] font-medium">Employment Type <span className="text-red-500">*</span></label>
             <select className={sel} value={empType} onChange={(e) => setEmpType(e.target.value)}>
               <option value="">Ex: Full Time</option>
-              {EMP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {EMP_TYPES.map((t) => <option key={t}>{t}</option>)}
             </select>
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[#18191c] font-medium">Company or Organization <span className="text-red-500">*</span></label>
             <input className={inp} placeholder="Ex: Accenture" value={company} onChange={(e) => setCompany(e.target.value)} />
           </div>
-
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={current} onChange={(e) => setCurrent(e.target.checked)} className="w-4 h-4 accent-[#ff9400]" />
             <span className="text-sm text-[#18191c]">Currently I am working on this role</span>
           </label>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[#18191c] font-medium">Start Date <span className="text-red-500">*</span></label>
             <div className="grid grid-cols-2 gap-3">
               <select className={sel} value={startMonth} onChange={(e) => setStartMonth(e.target.value)}>
                 <option value="">Month</option>
-                {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                {MONTHS.map((m) => <option key={m}>{m}</option>)}
               </select>
               <select className={sel} value={startYear} onChange={(e) => setStartYear(e.target.value)}>
                 <option value="">Year</option>
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                {YEARS.map((y) => <option key={y}>{y}</option>)}
               </select>
             </div>
           </div>
-
           {!current && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-[#18191c] font-medium">End Date <span className="text-red-500">*</span></label>
+              <label className="text-sm text-[#18191c] font-medium">End Date</label>
               <div className="grid grid-cols-2 gap-3">
                 <select className={sel} value={endMonth} onChange={(e) => setEndMonth(e.target.value)}>
                   <option value="">Month</option>
-                  {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  {MONTHS.map((m) => <option key={m}>{m}</option>)}
                 </select>
                 <select className={sel} value={endYear} onChange={(e) => setEndYear(e.target.value)}>
                   <option value="">Year</option>
-                  {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  {YEARS.map((y) => <option key={y}>{y}</option>)}
                 </select>
               </div>
             </div>
           )}
-
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-[#18191c] font-medium">Location <span className="text-red-500">*</span></label>
+            <label className="text-sm text-[#18191c] font-medium">Location</label>
             <input className={inp} placeholder="Ex: Bangalore, India" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[#18191c] font-medium">Description</label>
-            <textarea
-              rows={4}
-              placeholder="Ex: List your major duties and successes, highlighting specific projects"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={1000}
-              className="w-full border border-[#e4e5e8] bg-white rounded-lg px-3 py-2.5 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] resize-none"
-            />
+            <textarea rows={4} placeholder="List your major duties and successes" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000}
+              className="w-full border border-[#e4e5e8] rounded-lg px-3 py-2.5 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] resize-none" />
             <p className="text-[#9199a3] text-xs text-right">{description.length}/1,000</p>
           </div>
-
           <div className="flex flex-col gap-2">
-            <label className="text-sm text-[#18191c] font-medium">Skill</label>
-            <p className="text-xs text-[#9199a3]">We recommend adding your top 5 used skills in this experience.</p>
-            <div className="flex flex-wrap gap-2 mb-1">
+            <label className="text-sm text-[#18191c] font-medium">Skills</label>
+            <div className="flex flex-wrap gap-2">
               {skills.map((s) => (
-                <span key={s} className="flex items-center gap-1 bg-[#ffeacc] text-[#ff9400] text-xs px-3 py-1 rounded-full">
+                <span key={s} className="flex items-center gap-1.5 bg-[#fff8ee] border border-[#ffd9a0] text-[#ff9400] text-xs px-3 py-1.5 rounded-full">
                   {s}
-                  <button type="button" onClick={() => setSkills((prev) => prev.filter((x) => x !== s))}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                  <button onClick={() => setSkills((p) => p.filter((x) => x !== s))} className="hover:text-red-500">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                   </button>
                 </span>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => { const v = prompt('Enter skill'); if (v?.trim()) setSkills((s) => [...s, v.trim()]); }}
-              className="self-start h-[36px] px-5 border border-[#ff9400] text-[#ff9400] text-sm font-medium rounded-full hover:bg-[#fff6ed] transition-colors"
-            >
-              + Add Skill
-            </button>
+            
+            {showSkillInput ? (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  autoFocus
+                  className={`${inp} h-[36px] flex-1`}
+                  placeholder="Type a skill..."
+                  value={newSkill}
+                  onChange={(e) => setNewSkill(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddSkill();
+                    if (e.key === 'Escape') setShowSkillInput(false);
+                  }}
+                  onBlur={() => {
+                    if (!newSkill.trim()) setShowSkillInput(false);
+                  }}
+                />
+                <button
+                  onClick={handleAddSkill}
+                  className="h-[36px] px-4 bg-[#ff9400] text-white text-xs font-semibold rounded-lg hover:bg-[#e68500] transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowSkillInput(true)}
+                className="self-start h-[36px] px-5 border border-[#ff9400] text-[#ff9400] text-sm font-medium rounded-full hover:bg-[#fff6ed] transition-colors"
+              >
+                + Add Skill
+              </button>
+            )}
           </div>
         </div>
-
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-[#f2f2f3] flex justify-end shrink-0">
           <button
-            onClick={onClose}
-            className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]"
+            onClick={async () => {
+              if (!title.trim() || !company.trim()) return;
+              const data = {
+                role: title.trim(),
+                company: company.trim(),
+                emp_type: empType || null,
+                start_month: startMonth || null,
+                start_year: startYear || null,
+                end_month: current ? null : endMonth || null,
+                end_year: current ? null : endYear || null,
+                is_current: current,
+                location: location.trim() || null,
+                description: description.trim() || null,
+                skills: skills.length > 0 ? skills : undefined,
+              };
+              if (experience) {
+                await updateExperience(experience.id, data);
+              } else {
+                await createExperience(data);
+              }
+              onSaved();
+              onClose();
+            }}
+            className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors"
           >
             Save
           </button>
@@ -261,34 +266,20 @@ function AddExperienceModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function StarRating({ rating }: { rating: number }) {
+// ── Badge icon for achievements ───────────────────────────────────────────────
+function BadgeIcon() {
   return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill={s <= rating ? '#ff9400' : '#e4e5e8'}>
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-      ))}
-    </div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="8" r="6" stroke="#ff9400" strokeWidth="1.5"/>
+      <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
   );
 }
 
-function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-[#18191c] text-base font-semibold">{title}</h3>
-      {action}
-    </div>
-  );
-}
-
-function Divider() {
-  return <div className="h-px bg-[#f2f2f3] my-5" />;
-}
-
-// ─── Main Page ───────────────────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const { userId = 'me' } = useParams<{ userId?: string }>();
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
@@ -301,12 +292,47 @@ export default function ProfilePage() {
 
   const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
   const isOwn = userId === 'me' || userId === storedUser.id;
+  const resolvedUserId = userId === 'me' ? storedUser.id : userId;
 
-  const displayedExp = showAllExp ? MOCK_EXPERIENCES : MOCK_EXPERIENCES.slice(0, 1);
-  const displayedEdu = showAllEdu ? MOCK_EDUCATIONS : MOCK_EDUCATIONS.slice(0, 1);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [editExp, setEditExp] = useState<Experience | null>(null);
+  const [achievements, setAchievements] = useState<PersonalAchievement[]>([]);
+  const [selectedAchievement, setSelectedAchievement] = useState<PersonalAchievement | null>(null);
+  const [addAchievementOpen, setAddAchievementOpen] = useState(false);
+  const [educations, setEducations] = useState<Education[]>([]);
+  const [addEduOpen, setAddEduOpen] = useState(false);
+  const [editEdu, setEditEdu] = useState<Education | null>(null);
 
-  const reachForTags = profile?.reachFor ?? [];
-  const interests = profile?.skills ?? [];
+  const loadExperiences = () => {
+    if (!resolvedUserId) return;
+    fetchExperiences(resolvedUserId).then(setExperiences).catch(() => {});
+  };
+
+  const loadAchievements = () => {
+    if (!resolvedUserId) return;
+    fetchPersonalAchievements(resolvedUserId).then(setAchievements).catch(() => {});
+  };
+
+  const loadEducations = () => {
+    if (!resolvedUserId) return;
+    fetchEducations(resolvedUserId).then(setEducations).catch(() => {});
+  };
+
+  const loadPosts = () => {
+    if (!resolvedUserId) return;
+    fetchUserPosts(resolvedUserId).then(setPosts).catch(() => {});
+  };
+
+  useEffect(() => { loadExperiences(); }, [resolvedUserId]);
+  useEffect(() => { loadAchievements(); }, [resolvedUserId]);
+  useEffect(() => { loadEducations(); }, [resolvedUserId]);
+  useEffect(() => { loadPosts(); }, [resolvedUserId]);
+
+  const displayedExp = showAllExp ? experiences : experiences.slice(0, 2);
+  const displayedEdu = showAllEdu ? educations : educations.slice(0, 2);
+
+  const reachForTags = profile?.reachFor ?? ['UX Research', 'Design Systems', 'Product Strategy', 'Accessibility', 'Workshop Facilitation'];
+  const interests = profile?.skills ?? ['UX Design', 'UI Design', 'User Research'];
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -315,84 +341,73 @@ export default function ProfilePage() {
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
-
           {loading ? (
             <div className="bg-white rounded-[14px] border border-[#f2f2f3] p-6 animate-pulse">
               <div className="flex gap-4">
                 <div className="w-16 h-16 rounded-full bg-[#f1f2f4]" />
                 <div className="flex-1 space-y-2 pt-1">
                   <div className="h-5 w-40 bg-[#f1f2f4] rounded" />
-                  <div className="h-4 w-28 bg-[#f1f2f4] rounded" />
                   <div className="h-4 w-56 bg-[#f1f2f4] rounded" />
                 </div>
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-[14px] border border-[#f2f2f3] shadow-[0px_2px_8px_rgba(0,0,0,0.06)] overflow-hidden">
+            <div className="bg-white rounded-[14px] border border-[#f2f2f3] shadow-[0px_2px_8px_rgba(0,0,0,0.06)]">
 
-              {/* ── Cover image — only shown if uploaded ── */}
-              {profile?.coverUrl && (
-                <div className="relative w-full h-[160px] sm:h-[200px]">
+              {/* Cover — own overflow-hidden keeps image clipped to card's rounded top corners */}
+              <div className="relative w-full h-[170px] sm:h-[230px] bg-gradient-to-r from-[#5a3e2b] via-[#7a5c3e] to-[#4a3020] rounded-t-[14px] overflow-hidden">
+                {profile?.coverUrl && (
                   <img src={profile.coverUrl} alt="Cover" className="w-full h-full object-cover" />
-                </div>
-              )}
+                )}
+                {/* White card overlay — inset left/right to match content padding below */}
+                <div className="absolute bottom-0 left-6 right-6 sm:left-8 sm:right-8 h-10 bg-white rounded-t-[24px]" />
+              </div>
 
-              {/* ── Header ── */}
-              <div className="px-8 pt-6 pb-0">
+              {/* Header — px matches the overlay left/right offset above */}
+              <div className="px-6 sm:px-16 pt-0 pb-0">
+                {/* Top row: avatar + name + social icons */}
                 <div className="flex items-start justify-between gap-4">
-
-                  {/* Avatar + Info */}
-                  <div className="flex items-start gap-5">
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
+                  <div className="flex items-start gap-4">
+                    {/* Avatar — overlaps the banner */}
+                    <div className="relative shrink-0 -mt-[90px]">
                       {profile?.avatarUrl ? (
-                        <img
-                          src={profile.avatarUrl}
-                          alt="avatar"
-                          className="w-[88px] h-[88px] rounded-full object-cover border-[3px] border-white shadow-md"
-                        />
+                        <img src={profile.avatarUrl} alt="avatar"
+                          className="w-[120px] h-[120px] rounded-full object-cover border-4 border-white shadow-md" />
                       ) : (
-                        <div className="w-[88px] h-[88px] rounded-full bg-[#ff9400] flex items-center justify-center border-[3px] border-white shadow-md">
-                          <span className="text-white text-3xl font-bold">
-                            {profile?.firstName?.[0]?.toUpperCase() ?? '?'}
+                        <div className="w-[120px] h-[120px] rounded-full bg-[#ff9400] flex items-center justify-center border-4 border-white shadow-md">
+                          <span className="text-white text-4xl font-bold">
+                            {(profile?.firstName?.[0] ?? storedUser?.first_name?.[0] ?? '?').toUpperCase()}
                           </span>
                         </div>
                       )}
-                      <span className="absolute bottom-1.5 right-1.5 w-3.5 h-3.5 bg-[#22c55e] rounded-full border-2 border-white" />
+                      <span className="absolute bottom-3 right-3 w-4 h-4 bg-[#22c55e] rounded-full border-2 border-white" />
                     </div>
 
-                    {/* Name / Title / Bio */}
-                    <div className="flex flex-col gap-1 min-w-0 pt-1">
-                      <h1 className="text-[#18191c] text-2xl font-bold leading-tight">
-                        {profile ? `${profile.firstName} ${profile.lastName}`.trim() : ''}
+                    {/* Name / Info */}
+                    <div className="flex flex-col gap-0.5 min-w-0 -mt-3 relative z-10">
+                      <h1 className="text-[#18191c] text-xl font-bold leading-tight">
+                        {profile ? `${profile.firstName} ${profile.lastName}`.trim() : `${storedUser.first_name ?? ''} ${storedUser.last_name ?? ''}`.trim() || storedUser.org_name || 'Your Name'}
                       </h1>
                       {(profile?.title || profile?.company || profile?.instituteName) && (
-                        <p className="text-[#5e6670] text-sm font-medium">
-                          {[profile.title, profile.company || profile.instituteName].filter(Boolean).join(' · ')}
+                        <p className="text-[#5e6670] text-sm">
+                          {[profile?.title, profile?.company || profile?.instituteName].filter(Boolean).join(' · ')}
                         </p>
                       )}
                       {profile?.location && (
                         <p className="text-[#9199a3] text-xs">{profile.location}</p>
                       )}
                       {profile?.bio && (
-                        <p className="text-[#5e6670] text-sm mt-1 leading-relaxed max-w-xl">{profile.bio}</p>
+                        <p className="text-[#5e6670] text-sm mt-1 leading-relaxed max-w-lg">{profile.bio}</p>
                       )}
                     </div>
                   </div>
 
-                  {/* Social icons — from real profile data */}
+                  {/* Social icons — top right */}
                   {profile?.socialLinks && profile.socialLinks.length > 0 && (
-                    <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end pt-1">
+                    <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end -mt-2 relative z-10">
                       {profile.socialLinks.map((link) => (
-                        <a
-                          key={link.platform}
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#9199a3] hover:text-[#18191c] transition-colors"
-                          aria-label={link.platform}
-                          title={link.platform}
-                        >
+                        <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer"
+                          className="text-[#9199a3] hover:text-[#18191c] transition-colors" title={link.platform}>
                           <SocialIcon platform={link.platform} />
                         </a>
                       ))}
@@ -401,61 +416,51 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2 mt-5 flex-wrap">
+                <div className="flex items-center gap-2 mt-3 mb-1 flex-wrap" style={{paddingLeft:"10%"}}>
                   {isOwn ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEditOpen(true)}
-                        className="flex items-center gap-1.5 h-[34px] px-4 bg-[#f0eeff] text-[#6b50ff] text-xs font-semibold rounded-full hover:bg-[#e4dcff] transition-colors"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                    <>
+                      <button onClick={() => setEditOpen(true)}
+                        className="flex items-center gap-1.5 h-[34px] px-4 bg-[#f0eeff] text-[#6b50ff] text-xs font-semibold rounded-full hover:bg-[#e4dcff] transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
                         Edit Profile
                       </button>
-                      <button
-                        onClick={() => setAddSectionOpen(true)}
-                        className="flex items-center gap-1.5 h-[34px] px-4 bg-[#f0eeff] text-[#6b50ff] text-xs font-semibold rounded-full hover:bg-[#e4dcff] transition-colors"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                      <button onClick={() => setAddSectionOpen(true)}
+                        className="flex items-center gap-1.5 h-[34px] px-4 bg-[#f0eeff] text-[#6b50ff] text-xs font-semibold rounded-full hover:bg-[#e4dcff] transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                         Add Profile Section
                       </button>
                       <div className="relative">
-                        <button
-                          onClick={() => setMoreMenuOpen((v) => !v)}
-                          className="w-[34px] h-[34px] border border-[#e4e5e8] rounded-full flex items-center justify-center text-[#9199a3] hover:border-[#6b50ff] hover:text-[#6b50ff] transition-colors"
-                        >
+                        <button onClick={() => setMoreMenuOpen((v) => !v)}
+                          className="w-[34px] h-[34px] border border-[#e4e5e8] rounded-full flex items-center justify-center text-[#9199a3] hover:border-[#6b50ff] hover:text-[#6b50ff] transition-colors">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
                         </button>
                         {moreMenuOpen && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
-                            <div className="absolute left-0 top-[calc(100%+6px)] w-44 bg-white rounded-xl shadow-[0px_8px_24px_rgba(0,0,0,0.12)] border border-[#f2f2f3] z-50 overflow-hidden py-1">
-                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] transition-colors text-left">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+                            <div className="absolute left-0 top-[calc(100%+6px)] w-44 bg-white rounded-xl shadow-lg border border-[#f2f2f3] z-50 overflow-hidden py-1">
+                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
                                 Share Profile
                               </button>
-                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] transition-colors text-left">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
                                 About My Profile
                               </button>
                             </div>
                           </>
                         )}
                       </div>
-                    </div>
+                    </>
                   ) : (
                     <>
-                      <button className="flex items-center gap-1.5 h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
                         Add to Community
                       </button>
-                      <button className="flex items-center gap-1.5 h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
                         Message
                       </button>
-                      <button
-                        onClick={follow}
-                        className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors"
-                      >
+                      <button onClick={follow}
+                        className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
                         {profile?.isFollowing ? 'Following' : '+ Follow'}
                       </button>
                       <button className="w-[34px] h-[34px] border border-[#e4e5e8] rounded-full flex items-center justify-center text-[#9199a3] hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
@@ -466,30 +471,35 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Stats */}
-                <div className="flex items-center gap-6 mt-5 pb-5 border-b border-[#f2f2f3] flex-wrap">
-                  {[
-                    { label: 'Recommendations', value: '143' },
-                    { label: 'Reviews', value: '64' },
-                    { label: 'Achievements', value: '48' },
-                    { label: 'Community Members', value: '1.2k' },
-                  ].map((s, i) => (
-                    <div key={i} className="flex flex-col items-center gap-0.5">
-                      <span className="text-[#ff9400] text-base font-bold">{s.value}</span>
-                      <span className="text-[#18191c] text-[11px] font-medium text-center">{s.label}</span>
-                    </div>
-                  ))}
+                <div className="mt-5 mb-1">
+                  <div className="flex items-stretch border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
+                    {[
+                      { label: 'Endorsements', value: '183' },
+                      { label: 'Review', value: '24' },
+                      { label: 'Achievements', value: '56' },
+                      { label: 'Community Members', value: '1.2K' },
+                    ].map((s) => (
+                      <button
+                        key={s.label}
+                        className="flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors"
+                      >
+                        <span className="text-[#ff9400] text-xl font-bold leading-tight">{s.value}</span>
+                        <span className="text-[#18191c] text-[11px] font-medium text-center mt-0.5">{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* ── Body sections ── */}
-              <div className="py-5 flex flex-col gap-0" style={{paddingLeft:'3.5rem',paddingRight:'3.5rem'}}>
+              {/* Body */}
+              <div className="px-6 sm:px-16 py-6 flex flex-col">
 
                 {/* Reach out */}
                 <div>
                   <p className="text-[#18191c] text-sm font-semibold mb-3">Reach out to me for:</p>
                   <div className="flex flex-wrap gap-2">
                     {reachForTags.map((tag) => (
-                      <span key={tag} className="bg-[#fff6ed] text-[#ff9400] text-xs font-medium px-3 py-1.5 rounded-full border border-[#ffeacc]">
+                      <span key={tag} className="bg-[#fff6ed] text-[#ff9400] text-xs font-medium px-3.5 py-1.5 rounded-full border border-[#ffeacc]">
                         {tag}
                       </span>
                     ))}
@@ -498,99 +508,110 @@ export default function ProfilePage() {
 
                 <Divider />
 
-                {/* Interests + Additional Details + Portfolio */}
+                {/* Interest / Additional Details / Portfolio */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  {/* Interests */}
                   <div>
                     <p className="text-[#18191c] text-sm font-semibold mb-3">Interest</p>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1.5">
                       {interests.map((item) => (
                         <span key={item} className="text-[#5e6670] text-sm">{item}</span>
                       ))}
                     </div>
                   </div>
 
-                  {/* Additional Details */}
                   <div>
                     <p className="text-[#18191c] text-sm font-semibold mb-3">Additional Details</p>
                     <div className="flex flex-col gap-2.5">
                       {profile?.languages && (
-                        <div className="flex items-center gap-2 text-[#5e6670] text-sm">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/><line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" strokeWidth="1.8"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" strokeWidth="1.8"/></svg>
-                          {profile.languages}
+                        <div className="flex items-start gap-2 text-[#5e6670] text-sm">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" strokeWidth="1.8"/></svg>
+                          <span><span className="text-[#18191c] font-medium">Languages</span><br />{profile.languages}</span>
                         </div>
                       )}
                       {profile?.website && (
-                        <div className="flex items-center gap-2 text-[#5e6670] text-sm">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                          <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-[#ff9400] hover:underline truncate max-w-[140px]">
-                            {profile.website.replace(/^https?:\/\//, '')}
-                          </a>
+                        <div className="flex items-start gap-2 text-[#5e6670] text-sm">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                          <span><span className="text-[#18191c] font-medium">Profile URL</span><br />
+                            <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-[#5e6670] hover:text-[#ff9400] hover:underline">
+                              {profile.website.replace(/^https?:\/\//, '')}
+                            </a>
+                          </span>
                         </div>
                       )}
-                      {profile?.location && (
-                        <div className="flex items-center gap-2 text-[#5e6670] text-sm">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.8"/></svg>
-                          {profile.location}
-                        </div>
-                      )}
-                      {!profile?.languages && !profile?.website && !profile?.location && (
-                        <p className="text-[#9199a3] text-xs">No details added yet</p>
+                      {!profile?.languages && !profile?.website && (
+                        <>
+                          <div className="flex items-start gap-2 text-[#5e6670] text-sm">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" strokeWidth="1.8"/></svg>
+                            <span><span className="text-[#18191c] font-medium">Languages</span><br />English, French</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-[#5e6670] text-sm">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                            <span><span className="text-[#18191c] font-medium">Profile URL</span><br />www.jakegyll.com</span>
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
 
-                  {/* Portfolio/Resume */}
                   <div>
                     <p className="text-[#18191c] text-sm font-semibold mb-3">Portfolio/Resume</p>
-                    {profile?.resumeUrl ? (
-                      <button
-                        onClick={async () => {
-                          try {
-                            const user = JSON.parse(localStorage.getItem('user') ?? '{}');
-                            const res = await fetch(`${API_URL}/api/profile/resume`, {
-                              headers: { Authorization: `Bearer ${user.access_token ?? ''}` },
-                            });
-                            const data = await res.json();
-                            if (data.url) window.open(data.url, '_blank');
-                          } catch { /* ignore */ }
-                        }}
-                        className="w-[80px] h-[100px] bg-[#fff6ed] rounded-[6px] border border-[#ffeacc] flex flex-col items-center justify-center gap-1 hover:bg-[#ffeacc] transition-colors"
-                      >
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#ff9400]">
-                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <span className="text-[10px] text-[#ff9400] font-medium">View PDF</span>
-                      </button>
-                    ) : (
-                      <div className="w-[80px] h-[100px] bg-[#f3f5f7] rounded-[6px] border border-[#e4e5e8] flex items-center justify-center">
-                        <span className="text-[10px] text-[#9199a3] text-center px-1">Not uploaded</span>
+                    <div 
+                      onClick={async () => {
+                        if (!profile?.resumeUrl) return;
+                        try {
+                          const user = JSON.parse(localStorage.getItem('user') ?? '{}');
+                          const res = await fetch(`${API_URL}/api/profile/resume`, { headers: { Authorization: `Bearer ${user.access_token ?? ''}` } });
+                          const data = await res.json();
+                          if (data.url) window.open(data.url, '_blank');
+                        } catch { /* ignore */ }
+                      }}
+                      className={`relative w-[150px] h-[190px] group cursor-pointer overflow-hidden rounded-xl border border-[#e4e5e8] bg-white shadow-sm hover:shadow-md transition-all ${!profile?.resumeUrl ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      {/* Blurred Resume Preview Image */}
+                      <div className="absolute inset-0 bg-[#f8fafc]">
+                        <img 
+                          src="data:image/png;base64,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" 
+                          alt="Resume Preview" 
+                          className="w-full h-full object-cover blur-[1.5px] opacity-50 grayscale-[0.3]"
+                        />
+                        {/* Gradient overlay for better contrast */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
                       </div>
-                    )}
+
+                      {/* Eye Icon in Middle */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-[#ff9400] transform group-hover:scale-110 transition-transform duration-300">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </div>
+                      </div>
+
+                      {/* Status indicator if no resume */}
+                      {!profile?.resumeUrl && (
+                        <div className="absolute inset-0 flex items-end justify-center pb-4">
+                           <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">No Resume</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <Divider />
 
-                {/* Experience */}
+                {/* Experiences */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[#18191c] text-base font-semibold">Experience</h3>
-                    {isOwn && (
-                      <button
-                        onClick={() => setAddExpOpen(true)}
-                        className="w-[36px] h-[36px] rounded-full border border-[#e4e5e8] flex items-center justify-center text-[#9199a3] hover:border-[#ff9400] hover:text-[#ff9400] transition-colors"
-                        title="Add Experience"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                      </button>
-                    )}
+                    <h3 className="text-[#18191c] text-base font-semibold">Experiences</h3>
+                    {isOwn && <AddButton onClick={() => setAddExpOpen(true)} />}
                   </div>
+                  {experiences.length === 0 && (
+                    <p className="text-[#9199a3] text-sm">No experiences added yet.</p>
+                  )}
                   <div className="flex flex-col gap-5">
                     {displayedExp.map((exp) => (
                       <div key={exp.id} className="flex gap-3">
-                        {/* Company logo placeholder */}
                         <div className="w-10 h-10 rounded-lg bg-[#f3f5f7] border border-[#e4e5e8] shrink-0 flex items-center justify-center">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="#9199a3" strokeWidth="1.5"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/></svg>
                         </div>
@@ -598,16 +619,48 @@ export default function ProfilePage() {
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <p className="text-[#18191c] text-sm font-semibold">{exp.role}</p>
-                              <p className="text-[#5e6670] text-xs mt-0.5">{exp.company} · {exp.type} · {exp.period}</p>
+                              <p className="text-[#5e6670] text-xs mt-1.5">
+                                <span className="font-bold text-[#18191c]">{exp.company}</span>
+                                {[exp.emp_type, formatPeriod(exp)].filter(Boolean).map((text, i) => (
+                                  <span key={i}> · {text}</span>
+                                ))}
+                              </p>
+                              {exp.location && <p className="text-[#9199a3] text-xs mt-1.5">{exp.location}</p>}
                             </div>
+                            {isOwn && (
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  onClick={() => setEditExp(exp)}
+                                  className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1"
+                                >
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (window.confirm('Are you sure you want to delete this experience?')) {
+                                      await deleteExperience(exp.id);
+                                      loadExperiences();
+                                    }
+                                  }}
+                                  className="text-[#ff9400] hover:text-red-500 transition-colors p-1"
+                                >
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                </button>
+                              </div>
+                            )}
                           </div>
                           {exp.description && (
-                            <p className="text-[#5e6670] text-xs mt-2 leading-relaxed">{exp.description}</p>
+                            <p className="text-[#5e6670] text-xs mt-3 leading-relaxed">{exp.description}</p>
                           )}
-                          {exp.skills.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {exp.skills.map((skill) => (
-                                <span key={skill} className="bg-[#f3f5f7] text-[#5e6670] text-[11px] px-2 py-0.5 rounded-full border border-[#e4e5e8]">
+
+                          {/* Skills tags */}
+                          {exp.skills && exp.skills.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {exp.skills.map((skill, i) => (
+                                <span
+                                  key={i}
+                                  className="px-4 py-1.5 rounded-full border border-[#ff9400] text-[#ff9400] text-xs font-medium bg-white hover:bg-[#fff8ee] transition-colors cursor-default"
+                                >
                                   {skill}
                                 </span>
                               ))}
@@ -617,12 +670,9 @@ export default function ProfilePage() {
                       </div>
                     ))}
                   </div>
-                  {MOCK_EXPERIENCES.length > 1 && (
-                    <button
-                      onClick={() => setShowAllExp((v) => !v)}
-                      className="mt-4 text-[#ff9400] text-sm font-medium hover:underline"
-                    >
-                      {showAllExp ? 'Show less' : `Show ${MOCK_EXPERIENCES.length - 1} more experiences`}
+                  {experiences.length > 2 && (
+                    <button onClick={() => setShowAllExp((v) => !v)} className="mt-4 text-[#ff9400] text-sm font-medium hover:underline">
+                      {showAllExp ? 'Show less' : `Show ${experiences.length - 2} more experiences`}
                     </button>
                   )}
                 </div>
@@ -631,17 +681,13 @@ export default function ProfilePage() {
 
                 {/* Reviews */}
                 <div>
-                  <SectionHeader
-                    title="Reviews"
-                    action={
-                      <button className="h-[34px] px-5 bg-[#ff9400] text-white text-xs font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">
-                        Write a Review
-                      </button>
-                    }
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[#18191c] text-base font-semibold">Reviews</h3>
+                    <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {MOCK_REVIEWS.map((review) => (
-                      <div key={review.id} className="border border-[#f2f2f3] rounded-[10px] p-4 flex flex-col gap-2">
+                      <div key={review.id} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2">
                         <div className="flex items-center justify-between">
                           <p className="text-[#18191c] text-sm font-semibold">{review.name}</p>
                           <StarRating rating={review.rating} />
@@ -656,18 +702,37 @@ export default function ProfilePage() {
 
                 {/* Personal Achievements */}
                 <div>
-                  <SectionHeader
-                    title="Personal Achievements"
-                    action={<button className="text-[#ff9400] text-xs font-medium hover:underline">View All</button>}
-                  />
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-[#18191c] text-base font-semibold">Personal Achievements</h3>
+                    </div>
+                    {isOwn && (
+                      <button onClick={() => setAddAchievementOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                        Add
+                      </button>
+                    )}
+                  </div>
+                  {achievements.length === 0 && (
+                    <p className="text-[#9199a3] text-sm">No personal achievements added yet.</p>
+                  )}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {MOCK_PERSONAL_ACHIEVEMENTS.map((a) => (
-                      <div key={a.id} className="border border-[#f2f2f3] rounded-[10px] overflow-hidden">
-                        <img src={a.img} alt={a.title} className="w-full h-[80px] object-cover" />
-                        <div className="p-2">
-                          <p className="text-[#18191c] text-[11px] font-medium leading-tight">{a.title}</p>
+                    {achievements.map((a) => (
+                      <button
+                        key={a.id}
+                        onClick={() => setSelectedAchievement(a)}
+                        className="border border-[#ffd9a0] rounded-xl p-3.5 relative bg-white hover:bg-[#fffaf4] transition-colors text-left"
+                      >
+                        <div className="absolute top-2.5 right-2.5">
+                          <BadgeIcon />
                         </div>
-                      </div>
+                        <p className="text-[#18191c] text-xs font-semibold leading-snug pr-6 mt-1">{a.title}</p>
+                        {a.achieved_date && (
+                          <p className="text-[#9199a3] text-[10px] mt-2">
+                            Achieved on: {new Date(a.achieved_date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          </p>
+                        )}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -676,16 +741,24 @@ export default function ProfilePage() {
 
                 {/* Collaborative Achievements */}
                 <div>
-                  <SectionHeader
-                    title="Collaborative Achievements"
-                    action={<button className="text-[#ff9400] text-xs font-medium hover:underline">View All</button>}
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[#18191c] text-base font-semibold">
+                      Collaborative Achievements <span className="text-[#9199a3] font-normal text-sm">({MOCK_COLLAB_ACHIEVEMENTS.length})</span>
+                    </h3>
+                    <button className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                      View All
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {MOCK_COLLAB_ACHIEVEMENTS.map((a) => (
-                      <div key={a.id} className="border border-[#f2f2f3] rounded-[10px] p-4">
-                        <p className="text-[#18191c] text-sm font-semibold leading-snug">{a.title}</p>
-                        <p className="text-[#9199a3] text-xs mt-1">{a.org}</p>
-                        <p className="text-[#9199a3] text-xs">{a.period}</p>
+                      <div key={a.id} className="border border-[#ffd9a0] rounded-xl p-3.5 relative bg-white hover:bg-[#fffaf4] transition-colors">
+                        <div className="absolute top-2.5 right-2.5">
+                          <BadgeIcon />
+                        </div>
+                        <p className="text-[#18191c] text-xs font-semibold leading-snug pr-6 mt-1">{a.title}</p>
+                        <p className="text-[#9199a3] text-[10px] mt-1.5">{a.collaborators}</p>
+                        <p className="text-[#9199a3] text-[10px] mt-0.5">Achieved on: {a.date}</p>
                       </div>
                     ))}
                   </div>
@@ -695,7 +768,13 @@ export default function ProfilePage() {
 
                 {/* Educations */}
                 <div>
-                  <SectionHeader title="Educations" />
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[#18191c] text-base font-semibold">Educations</h3>
+                    {isOwn && <AddButton onClick={() => setAddEduOpen(true)} />}
+                  </div>
+                  {educations.length === 0 && (
+                    <p className="text-[#9199a3] text-sm">No education added yet.</p>
+                  )}
                   <div className="flex flex-col gap-5">
                     {displayedEdu.map((edu) => (
                       <div key={edu.id} className="flex gap-3">
@@ -703,22 +782,43 @@ export default function ProfilePage() {
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[#18191c] text-sm font-semibold">{edu.school}</p>
-                          <p className="text-[#5e6670] text-xs mt-0.5">{edu.degree}</p>
-                          <p className="text-[#9199a3] text-xs mt-0.5">{edu.period}</p>
-                          {edu.description && (
-                            <p className="text-[#5e6670] text-xs mt-2 leading-relaxed">{edu.description}</p>
-                          )}
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-[#18191c] text-sm font-semibold">{edu.school}</p>
+                              {formatEducationDegree(edu) && (
+                                <p className="text-[#5e6670] text-xs mt-0.5">{formatEducationDegree(edu)}</p>
+                              )}
+                              {formatEducationPeriod(edu) && (
+                                <p className="text-[#9199a3] text-xs mt-0.5">{formatEducationPeriod(edu)}</p>
+                              )}
+                              {edu.grade && (
+                                <p className="text-[#9199a3] text-xs mt-0.5">Grade: {edu.grade}</p>
+                              )}
+                            </div>
+                            {isOwn && (
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  onClick={() => setEditEdu(edu)}
+                                  className="text-[#9199a3] hover:text-[#ff9400] transition-colors p-1"
+                                >
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                                <button
+                                  onClick={async () => { await deleteEducation(edu.id); loadEducations(); }}
+                                  className="text-[#9199a3] hover:text-red-400 transition-colors p-1"
+                                >
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  {MOCK_EDUCATIONS.length > 1 && (
-                    <button
-                      onClick={() => setShowAllEdu((v) => !v)}
-                      className="mt-4 text-[#ff9400] text-sm font-medium hover:underline"
-                    >
-                      {showAllEdu ? 'Show less' : `Show ${MOCK_EDUCATIONS.length - 1} more educations`}
+                  {educations.length > 2 && (
+                    <button onClick={() => setShowAllEdu((v) => !v)} className="mt-4 text-[#ff9400] text-sm font-medium hover:underline">
+                      {showAllEdu ? 'Show less' : `Show ${educations.length - 2} more educations`}
                     </button>
                   )}
                 </div>
@@ -727,24 +827,33 @@ export default function ProfilePage() {
 
                 {/* Recent Posts */}
                 <div>
-                  <SectionHeader
-                    title="Recent Posts"
-                    action={<button className="text-[#ff9400] text-xs font-medium hover:underline">View All</button>}
-                  />
-                  <div className="grid grid-cols-3 gap-3">
-                    {MOCK_POSTS.map((post) => (
-                      <div key={post.id} className="rounded-[10px] overflow-hidden border border-[#f2f2f3]">
-                        <img src={post.img} alt={post.title} className="w-full h-[90px] object-cover" />
-                        <div className="p-2">
-                          <p className="text-[#18191c] text-[11px] font-medium leading-tight line-clamp-2">{post.title}</p>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[#18191c] text-base font-semibold">Recent Posts</h3>
+                    <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
+                  {posts.length === 0 ? (
+                    <p className="text-[#9199a3] text-sm">No posts yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {posts.slice(0, 3).map((post) => {
+                        const img = post.media_urls?.[0] || post.cover_image_url || postImg1;
+                        const title = post.event_title || post.poll_question || post.question_text || post.content?.slice(0, 50) || 'Post';
+                        const desc = post.content || post.event_description || '';
+                        return (
+                          <div key={post.id} className="rounded-xl overflow-hidden border border-[#f2f2f3] cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col h-full">
+                            <img src={img} alt={title} className="w-full h-[110px] object-cover bg-slate-50" />
+                            <div className="p-3 flex-1 flex flex-col">
+                              <p className="text-[#18191c] text-xs font-semibold leading-snug line-clamp-2">{title}</p>
+                              {desc && <p className="text-[#9199a3] text-[10px] mt-1.5 leading-snug line-clamp-2">{desc}</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
               </div>
-              {/* end body */}
             </div>
           )}
         </div>
@@ -756,25 +865,19 @@ export default function ProfilePage() {
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3]">
               <h2 className="text-[#18191c] text-base font-semibold">Add To Profile</h2>
-              <button onClick={() => setAddSectionOpen(false)} className="text-[#9199a3] hover:text-[#18191c] transition-colors">
+              <button onClick={() => setAddSectionOpen(false)} className="text-[#9199a3] hover:text-[#18191c]">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
               </button>
             </div>
             {[
-              { label: 'Experience', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>, onClick: () => { setAddSectionOpen(false); setAddExpOpen(true); } },
-              { label: 'Education', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>, onClick: () => setAddSectionOpen(false) },
-              { label: 'Personal Achievement', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>, onClick: () => setAddSectionOpen(false) },
-              { label: 'Collaborative Accomplishment', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>, onClick: () => setAddSectionOpen(false) },
-            ].map(({ label, icon, onClick }) => (
-              <button
-                key={label}
-                className="w-full flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3] last:border-0 text-[#18191c] text-sm hover:bg-[#f8f8f8] transition-colors text-left"
-                onClick={onClick}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-[#9199a3]">{icon}</span>
-                  {label}
-                </div>
+              { label: 'Experience', onClick: () => { setAddSectionOpen(false); setAddExpOpen(true); } },
+              { label: 'Education', onClick: () => { setAddSectionOpen(false); setAddEduOpen(true); } },
+              { label: 'Personal Achievement', onClick: () => { setAddSectionOpen(false); setAddAchievementOpen(true); } },
+              { label: 'Collaborative Accomplishment', onClick: () => setAddSectionOpen(false) },
+            ].map(({ label, onClick }) => (
+              <button key={label} onClick={onClick}
+                className="w-full flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3] last:border-0 text-[#18191c] text-sm hover:bg-[#f8f8f8] text-left">
+                {label}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
               </button>
             ))}
@@ -782,10 +885,38 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Add Experience modal */}
-      {addExpOpen && <AddExperienceModal onClose={() => setAddExpOpen(false)} />}
+      {(addExpOpen || editExp) && (
+        <AddExperienceModal
+          experience={editExp ?? undefined}
+          onClose={() => { setAddExpOpen(false); setEditExp(null); }}
+          onSaved={() => { loadExperiences(); setAddExpOpen(false); setEditExp(null); }}
+        />
+      )}
 
-      {/* Edit modal */}
+      {(addEduOpen || editEdu) && (
+        <AddEducationModal
+          education={editEdu ?? undefined}
+          onClose={() => { setAddEduOpen(false); setEditEdu(null); }}
+          onSaved={() => { loadEducations(); setAddEduOpen(false); setEditEdu(null); }}
+        />
+      )}
+
+      {addAchievementOpen && (
+        <AddPersonalAchievementModal
+          onClose={() => setAddAchievementOpen(false)}
+          onSaved={loadAchievements}
+        />
+      )}
+
+      {selectedAchievement && (
+        <AchievementDetailModal
+          achievement={selectedAchievement}
+          onClose={() => setSelectedAchievement(null)}
+          onDeleted={loadAchievements}
+          isOwn={isOwn}
+        />
+      )}
+
       {editOpen && profile && (
         <EditProfileModal
           profile={profile}

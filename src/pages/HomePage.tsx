@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
 import PostCard from "../components/PostCard";
@@ -6,15 +6,10 @@ import RightPanel from "../components/RightPanel";
 import PhotoUploadModal from "../components/PhotoUploadModal";
 import EventModal from "../components/EventModal";
 import PollModal from "../components/PollModal";
+import { fetchFeedPosts } from "../services/postService";
+import type { FeedPost, FeedFilter } from "../services/postService";
+import { useProfile } from "../hooks/useProfile";
 
-const avatar1 =
-  "https://www.figma.com/api/mcp/asset/0b4a16eb-d2da-476e-8cc7-d562ca381d0e";
-const avatar2 =
-  "https://www.figma.com/api/mcp/asset/6f2e34ed-3fed-4f73-971d-50cff5a9f7e0";
-const postImg1 =
-  "https://www.figma.com/api/mcp/asset/d208c4d3-690e-45f8-8437-d98e914f6319";
-const userAvatar2 =
-  "https://www.figma.com/api/mcp/asset/b8def0bd-be89-4228-b92c-723a61f1b1df";
 const photoIcon =
   "https://www.figma.com/api/mcp/asset/c696f684-d3f3-4907-b008-73ed5cba4a1a";
 const videoIcon =
@@ -24,39 +19,37 @@ const calendarIcon =
 const pollIcon =
   "https://www.figma.com/api/mcp/asset/0725c9c3-1452-4a15-9b96-ef174d64e430";
 
-const posts = [
-  {
-    id: 1,
-    avatar: avatar1,
-    name: "Sarah Johnson",
-    title: "UI/UX Designer · Accenture",
-    time: "1h",
-    content:
-      "Excited to share my latest project on sustainable development! 🌱 We've been working hard to create impactful solutions",
-    image: postImg1,
-    reactions: 1507,
-    comments: 14,
-  },
-  {
-    id: 2,
-    avatar: avatar2,
-    name: "Sarah Johnson",
-    title: "MBA Aspirant",
-    time: "1h",
-    badge: "· 2nd",
-    content: "Poll Time!",
-    hashtags:
-      "#jobseeker #Job #IndianEconomy #CurrentAffairs #ImpactshaalaPool #Business #JobCrisis",
-    pollOptions: [
-      { label: "Work-Life Balance" },
-      { label: "Salary & Benefits" },
-      { label: "Growth Opportunities" },
-      { label: "Company Culture" },
-    ],
-    pollMeta: "17 votes · 2 days",
-    reactions: 1507,
-    comments: 14,
-  },
+function getStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem("user") ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function UserAvatar({ name, url }: { name: string; url?: string | null }) {
+  if (url) {
+    return <img src={url} alt={name} className="w-11 h-11 rounded-full object-cover shrink-0" />;
+  }
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="w-11 h-11 rounded-full bg-[#FF9400] flex items-center justify-center text-white font-bold text-sm shrink-0">
+      {initials || "?"}
+    </div>
+  );
+}
+
+const FILTERS: { key: FeedFilter; label: string }[] = [
+  { key: "all", label: "All Posts" },
+  { key: "media", label: "Media" },
+  { key: "polls", label: "Polls & Questions" },
+  { key: "event", label: "Event" },
 ];
 
 export default function HomePage() {
@@ -65,39 +58,67 @@ export default function HomePage() {
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [pollModalOpen, setPollModalOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FeedFilter>("all");
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const { profile: liveProfile } = useProfile("me");
+  const storedUser = getStoredUser();
+  
+  const userName = liveProfile
+    ? [liveProfile.firstName, liveProfile.lastName].filter(Boolean).join(" ") || liveProfile.orgName
+    : [storedUser.first_name, storedUser.last_name].filter(Boolean).join(" ") || storedUser.org_name || "You";
+
+  const userAvatarUrl = liveProfile?.avatarUrl || storedUser.avatar_url;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPosts(true);
+    setFeedError(null);
+    fetchFeedPosts(activeFilter)
+      .then((data) => { if (!cancelled) setPosts(data); })
+      .catch((err) => { if (!cancelled) setFeedError(err.message ?? "Failed to load posts."); })
+      .finally(() => { if (!cancelled) setLoadingPosts(false); });
+    return () => { cancelled = true; };
+  }, [activeFilter, refreshKey]);
+
+  function closeAndRefresh(setter: (v: boolean) => void) {
+    return () => {
+      setter(false);
+      setRefreshKey((k) => k + 1);
+    };
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <PhotoUploadModal
         isOpen={photoModalOpen}
-        onClose={() => setPhotoModalOpen(false)}
-        userAvatar={userAvatar2}
+        onClose={closeAndRefresh(setPhotoModalOpen)}
+        userAvatar=""
         mode="photo"
       />
       <PhotoUploadModal
         isOpen={videoModalOpen}
-        onClose={() => setVideoModalOpen(false)}
-        userAvatar={userAvatar2}
+        onClose={closeAndRefresh(setVideoModalOpen)}
+        userAvatar=""
         mode="video"
       />
       <EventModal
         isOpen={eventModalOpen}
-        onClose={() => setEventModalOpen(false)}
-        userAvatar={userAvatar2}
+        onClose={closeAndRefresh(setEventModalOpen)}
+        userAvatar=""
       />
       <PollModal
         isOpen={pollModalOpen}
-        onClose={() => setPollModalOpen(false)}
-        userAvatar={userAvatar2}
+        onClose={closeAndRefresh(setPollModalOpen)}
+        userAvatar=""
       />
 
-      {/* Header — full width, always on top */}
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
-
-      {/* Sidebar — starts below the 64px header */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Page body — shifted right of sidebar on desktop */}
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 flex gap-6">
           {/* Center Feed */}
@@ -105,11 +126,7 @@ export default function HomePage() {
             {/* Create Post Card */}
             <div className="bg-white border border-[#f2f2f3] rounded-[17px] shadow-[0px_4px_2px_rgba(231,231,231,0.25)] px-5 py-4">
               <div className="flex items-center gap-3 mb-4">
-                <img
-                  src={userAvatar2}
-                  alt="You"
-                  className="w-11 h-11 rounded-full object-cover shrink-0"
-                />
+                <UserAvatar name={userName} url={userAvatarUrl} />
                 <div className="flex-1 bg-white border border-[#f2f2f3] rounded-full px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
                   <span className="text-[#474d57] text-base font-medium">
                     Start a post
@@ -119,49 +136,32 @@ export default function HomePage() {
               <div className="flex items-center justify-around pt-2 border-t border-[#f2f2f3] flex-wrap gap-2">
                 <button
                   onClick={() => setPhotoModalOpen(true)}
-                  className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#f77f00] transition-colors py-1"
+                  className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img
-                    src={photoIcon}
-                    alt=""
-                    className="w-6 h-6 sm:w-7 sm:h-7"
-                  />
+                  <img src={photoIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
                   Photo
                 </button>
                 <button
                   onClick={() => setVideoModalOpen(true)}
-                  className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#f77f00] transition-colors py-1"
+                  className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img
-                    src={videoIcon}
-                    alt=""
-                    className="w-6 h-6 sm:w-7 sm:h-7"
-                  />
+                  <img src={videoIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
                   Video
                 </button>
                 <button
                   onClick={() => setEventModalOpen(true)}
-                  className="flex items-center gap-2 text-[#605f5f] text-sm sm:text-base font-medium hover:text-[#f77f00] transition-colors py-1"
+                  className="flex items-center gap-2 text-[#605f5f] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img
-                    src={calendarIcon}
-                    alt=""
-                    className="w-6 h-6 sm:w-7 sm:h-7"
-                  />
-                  Event
+                  <img src={calendarIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <span className="hidden sm:inline">Event</span>
+                  <span className="sm:hidden">Event</span>
                 </button>
                 <button
                   onClick={() => setPollModalOpen(true)}
-                  className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#f77f00] transition-colors py-1"
+                  className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img
-                    src={pollIcon}
-                    alt=""
-                    className="w-6 h-6 sm:w-7 sm:h-7"
-                  />
-                  <span className="hidden sm:inline">
-                    Polls &amp; Questions
-                  </span>
+                  <img src={pollIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <span className="hidden sm:inline">Polls &amp; Questions</span>
                   <span className="sm:hidden">Polls</span>
                 </button>
               </div>
@@ -169,43 +169,48 @@ export default function HomePage() {
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
-              <button className="bg-[#f77f00] text-white text-sm sm:text-base font-medium px-4 sm:px-6 py-2 rounded-full h-[38px] whitespace-nowrap shrink-0">
-                All Posts
-              </button>
-              <button className="bg-white border border-[#ff9400] text-[#ff9400] text-sm sm:text-base font-medium px-4 sm:px-6 py-2 rounded-full h-[38px] whitespace-nowrap shrink-0 hover:bg-[#fff8ee] transition-colors">
-                Media
-              </button>
-              <button className="bg-white border border-[#ff9400] text-[#ff9400] text-sm sm:text-base font-medium px-4 sm:px-6 py-2 rounded-full h-[38px] whitespace-nowrap shrink-0 hover:bg-[#fff8ee] transition-colors">
-                Polls &amp; Questions
-              </button>
-              <button className="bg-white border border-[#ff9400] text-[#ff9400] text-sm sm:text-base font-medium px-4 sm:px-6 py-2 rounded-full h-[38px] whitespace-nowrap shrink-0 hover:bg-[#fff8ee] transition-colors">
-                Event
-              </button>
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setActiveFilter(f.key)}
+                  className={`text-sm sm:text-base font-medium px-4 sm:px-6 py-2 rounded-full h-[38px] whitespace-nowrap shrink-0 transition-colors ${
+                    activeFilter === f.key
+                      ? "bg-[#FF9400] text-white"
+                      : "bg-white border border-[#FF9400] text-[#FF9400] hover:bg-[#fff8ee]"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
-            {/* Feed Posts */}
+            {/* Feed */}
             <div className="flex flex-col gap-5">
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  avatar={post.avatar}
-                  name={post.name}
-                  title={post.title}
-                  time={post.time}
-                  badge={post.badge}
-                  content={post.content}
-                  image={post.image}
-                  hashtags={post.hashtags}
-                  pollOptions={post.pollOptions}
-                  pollMeta={post.pollMeta}
-                  reactions={post.reactions}
-                  comments={post.comments}
-                />
+              {loadingPosts && (
+                <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center text-[#9ca3af] text-sm">
+                  Loading posts…
+                </div>
+              )}
+
+              {!loadingPosts && feedError && (
+                <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center text-red-400 text-sm">
+                  {feedError}
+                </div>
+              )}
+
+              {!loadingPosts && !feedError && posts.length === 0 && (
+                <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center text-[#9ca3af] text-sm">
+                  No posts yet. Be the first to share something!
+                </div>
+              )}
+
+              {!loadingPosts && posts.map((post) => (
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           </div>
 
-          {/* Right Panel — hidden on mobile/tablet, visible on large screens */}
+          {/* Right Panel */}
           <div className="hidden xl:block w-[340px] shrink-0">
             <RightPanel />
           </div>

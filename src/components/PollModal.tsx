@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { VisibleToDropdown } from "./VisibleToDropdown";
+import { createPollPost, createQuestionPost } from "../services/postService";
+import type { PostVisibility } from "../services/postService";
 
 type PollType = "poll" | "question";
 
@@ -13,6 +15,9 @@ export default function PollModal({ isOpen, onClose, userAvatar }: Props) {
   const [pollType, setPollType] = useState<PollType>("poll");
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
+  const [visibility, setVisibility] = useState<PostVisibility>("public");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -37,7 +42,29 @@ export default function PollModal({ isOpen, onClose, userAvatar }: Props) {
     setPollType("poll");
     setQuestion("");
     setOptions(["", ""]);
+    setVisibility("public");
+    setError(null);
     onClose();
+  }
+
+  async function handlePost() {
+    if (!question.trim()) { setError("Please enter a question."); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      if (pollType === "poll") {
+        const validOptions = options.filter(o => o.trim());
+        if (validOptions.length < 2) { setError("Add at least 2 options."); setLoading(false); return; }
+        await createPollPost({ question, options, visibility });
+      } else {
+        await createQuestionPost({ question, visibility });
+      }
+      handleClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to post.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const optionPlaceholders = [
@@ -187,11 +214,18 @@ export default function PollModal({ isOpen, onClose, userAvatar }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-[#f2f2f3]">
-          <VisibleToDropdown />
-          <button className="bg-[#f77f00] text-white font-semibold text-sm px-8 py-2.5 rounded-full hover:bg-[#e88500] transition-colors">
-            Post
-          </button>
+        <div className="flex flex-col gap-2 px-6 py-4 border-t border-[#f2f2f3]">
+          {error && <p className="text-red-500 text-xs">{error}</p>}
+          <div className="flex items-center justify-between">
+            <VisibleToDropdown value={visibility} onChange={setVisibility} />
+            <button
+              onClick={handlePost}
+              disabled={loading}
+              className="bg-[#ff9400] text-white font-semibold text-sm px-8 py-2.5 rounded-full hover:bg-[#e88500] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loading ? "Posting…" : "Post"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

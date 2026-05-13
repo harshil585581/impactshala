@@ -1,5 +1,7 @@
 import { useState, useRef } from "react";
 import { VisibleToDropdown } from "./VisibleToDropdown";
+import { createPhotoPost, createVideoPost } from "../services/postService";
+import type { PostVisibility } from "../services/postService";
 
 type Step = "select" | "editor" | "compose";
 type Mode = "photo" | "video";
@@ -287,7 +289,11 @@ export default function PhotoUploadModal({
   const [urls, setUrls] = useState<string[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [postText, setPostText] = useState("");
+  const [visibility, setVisibility] = useState<PostVisibility>("public");
+  const [loading, setLoading] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileMapRef = useRef<Map<string, File>>(new Map());
 
   const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
   const userName =
@@ -298,16 +304,21 @@ export default function PhotoUploadModal({
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const newFiles = Array.from(e.target.files ?? []);
     if (!newFiles.length) return;
-    const newUrls = isVideo
-      ? [URL.createObjectURL(newFiles[0])]
-      : newFiles.map((f) => URL.createObjectURL(f));
+    const filesToAdd = isVideo ? [newFiles[0]] : newFiles;
+    const newUrls = filesToAdd.map((f) => {
+      const url = URL.createObjectURL(f);
+      fileMapRef.current.set(url, f);
+      return url;
+    });
     setUrls((prev) => (isVideo ? newUrls : [...prev, ...newUrls]));
     setStep("editor");
     e.target.value = "";
   }
 
   function removeFile(idx: number) {
-    URL.revokeObjectURL(urls[idx]);
+    const url = urls[idx];
+    URL.revokeObjectURL(url);
+    fileMapRef.current.delete(url);
     const next = urls.filter((_, i) => i !== idx);
     setUrls(next);
     if (next.length === 0) setStep("select");
@@ -315,19 +326,39 @@ export default function PhotoUploadModal({
   }
 
   function handleClose() {
-    urls.forEach((u) => URL.revokeObjectURL(u));
+    urls.forEach((u) => { URL.revokeObjectURL(u); fileMapRef.current.delete(u); });
     setUrls([]);
     setStep("select");
     setActiveIdx(0);
     setPostText("");
+    setPostError(null);
     onClose();
   }
 
   function goBackToSelect() {
-    urls.forEach((u) => URL.revokeObjectURL(u));
+    urls.forEach((u) => { URL.revokeObjectURL(u); fileMapRef.current.delete(u); });
     setUrls([]);
     setStep("select");
     setActiveIdx(0);
+  }
+
+  async function handlePost() {
+    const files = urls.map((u) => fileMapRef.current.get(u)).filter((f): f is File => !!f);
+    if (!files.length) return;
+    setLoading(true);
+    setPostError(null);
+    try {
+      if (isVideo) {
+        await createVideoPost({ file: files[0], content: postText, visibility });
+      } else {
+        await createPhotoPost({ files, content: postText, visibility });
+      }
+      handleClose();
+    } catch (err) {
+      setPostError(err instanceof Error ? err.message : "Failed to post.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (!isOpen) return null;
@@ -793,14 +824,18 @@ export default function PhotoUploadModal({
             </div>
 
             {/* Visibility + Post */}
-            <div className="px-5 py-3 border-t border-[#f3f4f6] flex items-center justify-between">
-              <VisibleToDropdown />
-              <button
-                onClick={handleClose}
-                className="px-6 py-2 bg-[#f77f00] text-white rounded-full font-semibold hover:bg-[#e68500] transition-colors"
-              >
-                Post
-              </button>
+            <div className="px-5 py-3 border-t border-[#f3f4f6] flex flex-col gap-1">
+              {postError && <p className="text-red-500 text-xs">{postError}</p>}
+              <div className="flex items-center justify-between">
+                <VisibleToDropdown value={visibility} onChange={setVisibility} />
+                <button
+                  onClick={handlePost}
+                  disabled={loading}
+                  className="px-6 py-2 bg-[#f77f00] text-white rounded-full font-semibold hover:bg-[#e68500] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Posting…" : "Post"}
+                </button>
+              </div>
             </div>
           </>
         )}
