@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   -- Individual-only fields
   first_name    TEXT,
   last_name     TEXT,
+  title         TEXT,
+  company       TEXT,
   dob           DATE,
   interests     TEXT,
 
