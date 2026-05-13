@@ -65,12 +65,38 @@ export default function PostCard({ post }: { post: FeedPost }) {
       <div className="flex items-start justify-between px-6 pt-5 pb-4">
         <div className="flex items-center gap-3">
           <UserAvatar name={name} url={post.user?.avatar_url} />
-          <div>
-            <span className="font-semibold text-[#282828] text-sm">{name}</span>
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-[#666] text-xs">{relativeTime(post.created_at)}</span>
-              <span className="text-[#666] text-xs">·</span>
-              <img src={globeIcon} alt="" className="w-3.5 h-3.5 opacity-50" />
+          <div className="flex flex-col">
+            <span className="font-bold text-[#18191c] text-base leading-tight block">{name}</span>
+            {post.user && (
+              <div className="flex items-center gap-1.5 text-[#5e6670] text-xs mt-1">
+                {(() => {
+                  const current = post.user.experiences?.find(e => e.is_current) || post.user.experiences?.[0];
+                  if (current) {
+                    return (
+                      <>
+                        <span className="truncate max-w-[150px]">{current.role}</span>
+                        <span className="opacity-60">·</span>
+                        <span className="truncate max-w-[150px]">{current.company}</span>
+                      </>
+                    );
+                  }
+                  if (post.user.title || post.user.company) {
+                    return (
+                      <>
+                        {post.user.title && <span className="truncate max-w-[150px]">{post.user.title}</span>}
+                        {post.user.title && post.user.company && <span className="opacity-60">·</span>}
+                        {post.user.company && <span className="truncate max-w-[150px]">{post.user.company}</span>}
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[#9199a3] text-xs">{relativeTime(post.created_at)}</span>
+              <span className="text-[#9199a3] text-xs">·</span>
+              <img src={globeIcon} alt="" className="w-3.5 h-3.5 opacity-40" />
             </div>
           </div>
         </div>
