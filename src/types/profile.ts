@@ -42,6 +42,7 @@ export interface UserProfile {
   resumeUrl?: string;
   educationLevel?: string;
   instituteName?: string;
+  orgName?: string;
 }
 
 export interface EditProfileForm {

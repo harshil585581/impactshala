@@ -1,5 +1,7 @@
 import { useState, useRef } from "react";
 import { VisibleToDropdown } from "./VisibleToDropdown";
+import { createEventPost } from "../services/postService";
+import type { PostVisibility } from "../services/postService";
 
 type EventType = "online" | "inperson";
 
@@ -22,6 +24,10 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [visibility, setVisibility] = useState<PostVisibility>("public");
+  const [loading, setLoading] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+  const coverFileRef = useRef<File | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -37,6 +43,7 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
 
   function handleCoverFile(file: File) {
     if (coverUrl) URL.revokeObjectURL(coverUrl);
+    coverFileRef.current = file;
     setCoverUrl(URL.createObjectURL(file));
   }
 
@@ -55,6 +62,7 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
 
   function handleClose() {
     if (coverUrl) URL.revokeObjectURL(coverUrl);
+    coverFileRef.current = null;
     setCoverUrl(null);
     setEventType("online");
     setTitle("");
@@ -66,7 +74,36 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
     setEndDate("");
     setEndTime("");
     setDescription("");
+    setVisibility("public");
+    setPostError(null);
     onClose();
+  }
+
+  async function handlePost() {
+    if (!title.trim()) { setPostError("Event title is required."); return; }
+    setLoading(true);
+    setPostError(null);
+    try {
+      await createEventPost({
+        coverFile: coverFileRef.current,
+        eventType,
+        title,
+        registrationLink,
+        eventLocation,
+        startDate,
+        startTime,
+        addEndDateTime,
+        endDate,
+        endTime,
+        description,
+        visibility,
+      });
+      handleClose();
+    } catch (err) {
+      setPostError(err instanceof Error ? err.message : "Failed to post.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const calendarIcon = (
@@ -431,11 +468,18 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
         </div>
 
         {/* Sticky footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-[#f2f2f3] shrink-0">
-          <VisibleToDropdown />
-          <button className="bg-[#f77f00] text-white font-semibold text-sm px-8 py-2.5 rounded-full hover:bg-[#e88500] transition-colors">
-            Post
-          </button>
+        <div className="flex flex-col gap-2 px-6 py-4 border-t border-[#f2f2f3] shrink-0">
+          {postError && <p className="text-red-500 text-xs">{postError}</p>}
+          <div className="flex items-center justify-between">
+            <VisibleToDropdown value={visibility} onChange={setVisibility} />
+            <button
+              onClick={handlePost}
+              disabled={loading}
+              className="bg-[#ff9400] text-white font-semibold text-sm px-8 py-2.5 rounded-full hover:bg-[#e88500] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loading ? "Posting…" : "Post"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

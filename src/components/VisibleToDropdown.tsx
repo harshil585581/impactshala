@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
+import type { PostVisibility } from '../services/postService';
 
-type Visibility = 'public' | 'community';
-
-const OPTIONS: { value: Visibility; label: string; sub: string }[] = [
-  { value: 'public',    label: 'Public',       sub: 'show to everyone in web'      },
-  { value: 'community', label: 'My Community', sub: 'show to my community only'    },
+const OPTIONS: { value: PostVisibility; label: string; sub: string }[] = [
+  { value: 'public',    label: 'Public',       sub: 'show to everyone in web'   },
+  { value: 'community', label: 'My Community', sub: 'show to my community only' },
 ];
 
-export function VisibleToDropdown() {
-  const [open, setOpen]   = useState(false);
-  const [value, setValue] = useState<Visibility>('public');
+type Props = {
+  value: PostVisibility;
+  onChange: (v: PostVisibility) => void;
+};
+
+export function VisibleToDropdown({ value, onChange }: Props) {
+  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,7 +43,7 @@ export function VisibleToDropdown() {
           {OPTIONS.map(opt => (
             <button
               key={opt.value}
-              onClick={() => { setValue(opt.value); setOpen(false); }}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
               className={`w-full text-left px-4 py-3 transition-colors hover:bg-[#fff8ee] ${value === opt.value ? 'bg-[#fff8ee]' : ''}`}
             >
               <span className="font-semibold text-[#374151] text-sm">{opt.label}:</span>
