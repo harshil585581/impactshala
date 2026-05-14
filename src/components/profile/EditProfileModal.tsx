@@ -17,6 +17,7 @@ const SOCIAL_PLATFORMS = [
 
 interface Props {
   profile: UserProfile;
+  experiences: any[];
   saving: boolean;
   onSave: (data: Partial<EditProfileForm>) => void;
   onClose: () => void;
@@ -84,15 +85,18 @@ const labelCls = "text-[#374151] text-sm font-medium mb-1.5 block";
 
 export default function EditProfileModal({
   profile,
+  experiences,
   saving,
   onSave,
   onClose,
 }: Props) {
+  const current = experiences.find(e => e.is_current) || experiences[0];
+  
   const [form, setForm] = useState<EditProfileForm>({
     firstName: profile.firstName,
     lastName: profile.lastName,
-    title: profile.title,
-    company: profile.company,
+    title: profile.title || current?.role || "",
+    company: profile.company || current?.company || "",
     location: profile.location,
     bio: profile.bio,
     phone: profile.phone,

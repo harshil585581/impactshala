@@ -27,26 +27,8 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
-const MOCK_REVIEWS = [
-  { id: '1', name: 'David Chen', rating: 4, text: 'Great collaboration experience. Michael brings both creativity and strategic thinking to every project.' },
-  { id: '2', name: 'Sarah Johnson', rating: 5, text: "Exceptional UX designer with a keen eye for detail. Michael's work on our healthcare platform was transformative." },
-  { id: '3', name: 'David Chen', rating: 4, text: 'Great collaboration experience. Michael brings both creativity and strategic thinking to every project.' },
-];
-
-
-const MOCK_COLLAB_ACHIEVEMENTS = [
-  { id: '1', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
-  { id: '2', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
-  { id: '3', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
-  { id: '4', title: 'Launched a Community Clean up Drive', collaborators: 'Sarah Johnson and 3 others', date: '12/12/2024' },
-];
-
-
-const MOCK_POSTS = [
-  { id: '1', img: postImg1, title: 'Redesigning the Healthcare Dashboard', desc: 'A case study on improving patient management interface' },
-  { id: '2', img: postImg1, title: 'Mobile App Wire framing', desc: 'Behind the scene of our design process' },
-  { id: '3', img: postImg1, title: 'User Testing Insights', desc: 'Key finding from our latest research' },
-];
+const MOCK_REVIEWS: any[] = [];
+const MOCK_COLLAB_ACHIEVEMENTS: any[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function SocialIcon({ platform }: { platform: string }) {
@@ -331,8 +313,8 @@ export default function ProfilePage() {
   const displayedExp = showAllExp ? experiences : experiences.slice(0, 2);
   const displayedEdu = showAllEdu ? educations : educations.slice(0, 2);
 
-  const reachForTags = profile?.reachFor ?? ['UX Research', 'Design Systems', 'Product Strategy', 'Accessibility', 'Workshop Facilitation'];
-  const interests = profile?.skills ?? ['UX Design', 'UI Design', 'User Research'];
+  const reachForTags = profile?.reachFor ?? [];
+  const interests = profile?.skills ?? [];
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -474,10 +456,10 @@ export default function ProfilePage() {
                 <div className="mt-5 mb-1">
                   <div className="flex items-stretch border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
                     {[
-                      { label: 'Endorsements', value: '183' },
-                      { label: 'Review', value: '24' },
-                      { label: 'Achievements', value: '56' },
-                      { label: 'Community Members', value: '1.2K' },
+                      { label: 'Endorsements', value: '0' },
+                      { label: 'Review', value: '0' },
+                      { label: 'Achievements', value: String(achievements.length) },
+                      { label: 'Community Members', value: '0' },
                     ].map((s) => (
                       <button
                         key={s.label}
@@ -497,13 +479,18 @@ export default function ProfilePage() {
                 {/* Reach out */}
                 <div>
                   <p className="text-[#18191c] text-sm font-semibold mb-3">Reach out to me for:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {reachForTags.map((tag) => (
-                      <span key={tag} className="bg-[#fff6ed] text-[#ff9400] text-xs font-medium px-3.5 py-1.5 rounded-full border border-[#ffeacc]">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                  {reachForTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {reachForTags.map((tag) => (
+                        <span key={tag} className="bg-[#fff6ed] text-[#ff9400] text-xs font-medium px-3.5 py-1.5 rounded-full border border-[#ffeacc]">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {reachForTags.length === 0 && (
+                    <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                  )}
                 </div>
 
                 <Divider />
@@ -513,9 +500,11 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-[#18191c] text-sm font-semibold mb-3">Interest</p>
                     <div className="flex flex-col gap-1.5">
-                      {interests.map((item) => (
+                      {interests.length > 0 ? interests.map((item) => (
                         <span key={item} className="text-[#5e6670] text-sm">{item}</span>
-                      ))}
+                      )) : (
+                        <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                      )}
                     </div>
                   </div>
 
@@ -539,16 +528,7 @@ export default function ProfilePage() {
                         </div>
                       )}
                       {!profile?.languages && !profile?.website && (
-                        <>
-                          <div className="flex items-start gap-2 text-[#5e6670] text-sm">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" strokeWidth="1.8"/></svg>
-                            <span><span className="text-[#18191c] font-medium">Languages</span><br />English, French</span>
-                          </div>
-                          <div className="flex items-start gap-2 text-[#5e6670] text-sm">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                            <span><span className="text-[#18191c] font-medium">Profile URL</span><br />www.jakegyll.com</span>
-                          </div>
-                        </>
+                        <p className="text-[#9199a3] text-sm">No additional details added yet.</p>
                       )}
                     </div>
                   </div>
@@ -686,7 +666,7 @@ export default function ProfilePage() {
                     <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {MOCK_REVIEWS.map((review) => (
+                    {MOCK_REVIEWS.length > 0 ? MOCK_REVIEWS.map((review) => (
                       <div key={review.id} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2">
                         <div className="flex items-center justify-between">
                           <p className="text-[#18191c] text-sm font-semibold">{review.name}</p>
@@ -694,7 +674,9 @@ export default function ProfilePage() {
                         </div>
                         <p className="text-[#5e6670] text-xs leading-relaxed">{review.text}</p>
                       </div>
-                    ))}
+                    )) : (
+                      <p className="text-[#9199a3] text-sm col-span-3">No reviews yet.</p>
+                    )}
                   </div>
                 </div>
 
@@ -751,7 +733,7 @@ export default function ProfilePage() {
                     </button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {MOCK_COLLAB_ACHIEVEMENTS.map((a) => (
+                    {MOCK_COLLAB_ACHIEVEMENTS.length > 0 ? MOCK_COLLAB_ACHIEVEMENTS.map((a) => (
                       <div key={a.id} className="border border-[#ffd9a0] rounded-xl p-3.5 relative bg-white hover:bg-[#fffaf4] transition-colors">
                         <div className="absolute top-2.5 right-2.5">
                           <BadgeIcon />
@@ -760,7 +742,9 @@ export default function ProfilePage() {
                         <p className="text-[#9199a3] text-[10px] mt-1.5">{a.collaborators}</p>
                         <p className="text-[#9199a3] text-[10px] mt-0.5">Achieved on: {a.date}</p>
                       </div>
-                    ))}
+                    )) : (
+                      <p className="text-[#9199a3] text-sm col-span-4">No collaborative achievements yet.</p>
+                    )}
                   </div>
                 </div>
 
@@ -920,6 +904,7 @@ export default function ProfilePage() {
       {editOpen && profile && (
         <EditProfileModal
           profile={profile}
+          experiences={experiences}
           saving={saving}
           onSave={async (data) => { await saveProfile(data); setEditOpen(false); }}
           onClose={() => setEditOpen(false)}

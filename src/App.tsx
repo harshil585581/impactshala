@@ -20,6 +20,8 @@ import AuthCallbackPage from './pages/auth/AuthCallbackPage';
 import MyApplicationsPage from './pages/applications/MyApplicationsPage';
 import ApplicantsDetailPage from './pages/applications/ApplicantsDetailPage';
 import DiscoverPage from './pages/DiscoverPage';
+import SavedPostsPage from './pages/SavedPostsPage';
+import SavedCategoryPage from './pages/SavedCategoryPage';
 
 export default function App() {
   return (
@@ -56,6 +58,10 @@ export default function App() {
         <Route path="/account/update/entrepreneur" element={<EntrepreneurAccountUpdatePage />} />
         <Route path="/account/update/professional" element={<ProfessionalAccountUpdatePage />} />
         <Route path="/account/update/educator" element={<EducatorAccountUpdatePage />} />
+
+        {/* Saved Posts */}
+        <Route path="/saved" element={<SavedPostsPage />} />
+        <Route path="/saved/:category" element={<SavedCategoryPage />} />
       </Routes>
     </BrowserRouter>
   );
