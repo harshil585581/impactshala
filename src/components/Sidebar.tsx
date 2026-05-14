@@ -91,20 +91,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 viewBox="0 0 24 24"
                 fill="none"
               >
-                <g clip-path="url(#clip0_303897_69596)">
+                <g clipPath="url(#clip0_303897_69596)">
                   <path
                     d="M5 12H3L12 3L21 12H19"
                     stroke="#7C8493"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                   <path
                     d="M5 12V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V12"
                     stroke="#7C8493"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 </g>
                 <defs>
@@ -283,14 +283,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   fill="#7C8493"
                 />
                 <path
-                  fill-rule="evenodd"
-                  clip-rule="evenodd"
+                  fillRule="evenodd"
+                  clipRule="evenodd"
                   d="M7 1C5.34315 1 4 2.34315 4 4V20C4 20.3905 4.22734 20.7453 4.58214 20.9085C4.93694 21.0717 5.35428 21.0134 5.65079 20.7593L12 15.3171L18.3492 20.7593C18.6457 21.0134 19.0631 21.0717 19.4179 20.9085C19.7727 20.7453 20 20.3905 20 20V4C20 2.34315 18.6569 1 17 1H7ZM6 4C6 3.44772 6.44772 3 7 3H17C17.5523 3 18 3.44772 18 4V17.8258L12.6508 13.2407C12.2763 12.9198 11.7237 12.9198 11.3492 13.2407L6 17.8258V4Z"
                   fill="#7C8493"
                 />
               </svg>
             }
             label="Saved Posts"
+            active={location.pathname.startsWith('/saved')}
+            onClick={() => { navigate('/saved'); onClose(); }}
           />
         </nav>
 

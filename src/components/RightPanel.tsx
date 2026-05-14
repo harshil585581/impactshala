@@ -11,7 +11,7 @@ const announcementIcon =
 export default function RightPanel() {
   const [helpDismissed, setHelpDismissed] = useState(false);
   const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
-  const { profile, loading } = useProfile("me");
+  const { profile } = useProfile("me");
   const [currentExp, setCurrentExp] = useState<Experience | null>(null);
 
   useEffect(() => {
