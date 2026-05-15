@@ -11,7 +11,7 @@ const primaryLogo =
   "https://www.figma.com/api/mcp/asset/a3a385c6-9a03-4ff2-80f5-4be7c423e643";
 
 const inputCls =
-  "w-full h-[48px] sm:h-[50px] border border-[#e5e7eb] rounded-full px-4 text-[#1e1e1e] text-sm placeholder-[#7e8793] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
+  "w-full h-[40px] sm:h-[44px] border border-[#e5e7eb] rounded-full px-4 text-[#1e1e1e] text-sm placeholder-[#7e8793] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
 
 function EyeIcon({ open }: { open: boolean }) {
   if (open) {
@@ -129,26 +129,26 @@ export default function LoginPage() {
         </div>
 
         {/* Form area */}
-        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 lg:py-4">
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-4 lg:py-2">
           <div className="w-full max-w-[576px]">
-            <div className="bg-white rounded-[12px] shadow-[0px_4px_3px_rgba(0,0,0,0.07),0px_10px_20px_rgba(0,0,0,0.1)] px-6 sm:px-8 py-8">
+            <div className="bg-white rounded-[12px] shadow-[0px_4px_3px_rgba(0,0,0,0.07),0px_10px_20px_rgba(0,0,0,0.1)] px-6 sm:px-8 py-5 sm:py-6">
               {/* Card heading */}
-              <div className="text-center mb-6 sm:mb-8">
-                <h2 className="text-[#18191c] text-2xl sm:text-[32px] font-semibold leading-tight">
+              <div className="text-center mb-4 sm:mb-5">
+                <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-tight">
                   Welcome Back!
                 </h2>
-                <p className="text-[#5e6670] text-sm sm:text-base mt-1">
+                <p className="text-[#5e6670] text-xs sm:text-sm mt-0.5">
                   Please login to your account
                 </p>
               </div>
 
               <form
                 onSubmit={handleSubmit}
-                className="flex flex-col gap-4 sm:gap-5"
+                className="flex flex-col gap-2.5 sm:gap-3.5"
               >
                 {/* Email */}
                 <div>
-                  <label className="block text-[#1e1e1e] text-sm font-medium mb-1.5">
+                  <label className="block text-[#1e1e1e] text-xs font-medium mb-1">
                     Email
                   </label>
                   <input
@@ -163,7 +163,7 @@ export default function LoginPage() {
 
                 {/* Password */}
                 <div>
-                  <label className="block text-[#1e1e1e] text-sm font-medium mb-1.5">
+                  <label className="block text-[#1e1e1e] text-xs font-medium mb-1">
                     Password
                   </label>
                   <div className="relative">
@@ -216,7 +216,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-[48px] sm:h-[52px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full h-[40px] sm:h-[44px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] mt-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? "Logging in…" : "Login"}
                 </button>

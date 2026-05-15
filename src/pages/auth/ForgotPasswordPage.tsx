@@ -53,18 +53,18 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col justify-center px-5 sm:px-8 md:px-12 lg:px-14 xl:px-20 py-10 lg:py-8">
+        <div className="flex-1 flex flex-col justify-center px-5 sm:px-8 md:px-12 lg:px-14 xl:px-20 py-6 lg:py-8">
           {/* Mobile logo */}
           <img
             src={primaryLogo}
             alt="Impactshaala"
-            className="lg:hidden h-8 w-auto object-contain self-start mb-8"
+            className="lg:hidden h-8 w-auto object-contain self-start mb-5"
           />
 
           {/* Back link (mobile) */}
           <Link
             to="/"
-            className="lg:hidden flex items-center gap-1 text-[#8692a6] font-semibold text-sm hover:text-[#f77f00] transition-colors mb-6 w-fit"
+            className="lg:hidden flex items-center gap-1 text-[#8692a6] font-semibold text-sm hover:text-[#f77f00] transition-colors mb-4 w-fit"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path
@@ -78,13 +78,13 @@ export default function ForgotPasswordPage() {
             Back
           </Link>
 
-          <h1 className="text-[#18191c] text-2xl sm:text-[32px] font-semibold leading-tight mb-8">
+          <h1 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-tight mb-5 lg:mb-6">
             Forgot Password
           </h1>
 
           <form
             onSubmit={handleSubmit}
-            className="flex flex-col gap-6 w-full max-w-[536px]"
+            className="flex flex-col gap-4 sm:gap-5 w-full max-w-[536px]"
           >
             {/* Email input */}
             <input
@@ -93,16 +93,16 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full h-[48px] border border-[#e4e5e8] rounded-full px-4 text-[#1e1e1e] text-sm sm:text-base placeholder-[#767f8c] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white"
+              className="w-full h-[40px] sm:h-[44px] border border-[#e4e5e8] rounded-full px-4 text-[#1e1e1e] text-sm sm:text-base placeholder-[#767f8c] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white"
             />
 
             {/* Reset button */}
             <button
               type="submit"
-              className="flex items-center justify-center gap-3 w-full h-[56px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
+              className="flex items-center justify-center gap-3 w-full h-[46px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
             >
               Reset Password
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M5 12h14M13 6l6 6-6 6"
                   stroke="white"
@@ -114,7 +114,7 @@ export default function ForgotPasswordPage() {
             </button>
 
             {/* Links */}
-            <div className="flex flex-col gap-2 text-sm sm:text-base">
+            <div className="flex flex-col gap-1.5 text-sm sm:text-base">
               <p>
                 <span className="text-[#5e6670]">Go back to </span>
                 <Link

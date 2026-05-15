@@ -108,7 +108,7 @@ export default function SignupTypePage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col justify-center px-5 sm:px-8 md:px-12 lg:px-14 xl:px-20 py-8 lg:py-10">
+        <div className="flex-1 flex flex-col justify-center px-5 sm:px-8 md:px-12 lg:px-14 xl:px-20 py-4 lg:py-6">
           {/* Mobile back link */}
           <Link
             to="/"
@@ -142,36 +142,38 @@ export default function SignupTypePage() {
           </p>
 
           {/* Account type cards */}
-          <div className="flex flex-col gap-3 sm:gap-4 w-full max-w-[440px]">
+          <div className="flex flex-col gap-2.5 sm:gap-3 w-full max-w-[440px]">
             {/* Individual */}
             <button
               onClick={() => handleSelect("individual")}
-              className={`flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-[6px] border transition-all text-left w-full group ${
+              className={`flex items-center gap-4 p-3 rounded-[12px] border transition-all text-left w-full group ${
                 selected === "individual"
-                  ? "border-[#f77f00] bg-[#fff6ed] shadow-[0px_4px_14px_1px_rgba(0,0,0,0.04)]"
+                  ? "border-[#f77f00] bg-[#fff6ed] shadow-[0px_4px_20px_rgba(0,0,0,0.05)]"
                   : "border-transparent bg-white shadow-[0px_2px_14px_1px_rgba(0,0,0,0.06)] hover:border-[#f77f00] hover:bg-[#fffbf5]"
               }`}
             >
-              <div className="relative w-11 h-11 sm:w-[52px] sm:h-[52px] shrink-0">
-                <img
-                  src={iconIndividual}
-                  alt=""
-                  className="absolute inset-0 w-full h-full"
-                />
+              <div className="relative w-[52px] h-[52px] shrink-0 flex items-center justify-center">
                 <svg
-                  className="absolute inset-0 m-auto"
-                  width="18"
-                  height="18"
+                  className="absolute inset-0 w-full h-full"
                   viewBox="0 0 24 24"
                   fill="none"
+                  stroke="#f77f00"
+                  strokeWidth="1.2"
                 >
-                  <circle cx="12" cy="7" r="4" stroke="white" strokeWidth="2" />
-                  <path
-                    d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
+                  <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" />
+                </svg>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#f77f00"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
@@ -182,56 +184,41 @@ export default function SignupTypePage() {
                   Personal account to manage all your activities.
                 </p>
               </div>
-              <div className="shrink-0 w-7 h-7 rounded-full bg-[#fff0de] flex items-center justify-center group-hover:bg-[#f77f00] transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M5 12h14M13 6l6 6-6 6"
-                    stroke="#f77f00"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="group-hover:stroke-white"
-                  />
-                </svg>
-              </div>
             </button>
 
             {/* Organisation */}
             <button
               onClick={() => handleSelect("organisation")}
-              className={`flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-[6px] border transition-all text-left w-full group ${
+              className={`flex items-center gap-4 p-3 rounded-[12px] border transition-all text-left w-full group ${
                 selected === "organisation"
-                  ? "border-[#f77f00] bg-[#fff6ed] shadow-[0px_4px_14px_1px_rgba(0,0,0,0.04)]"
+                  ? "border-[#f77f00] bg-[#fff6ed] shadow-[0px_4px_20px_rgba(0,0,0,0.05)]"
                   : "border-transparent bg-white shadow-[0px_2px_14px_1px_rgba(0,0,0,0.06)] hover:border-[#f77f00] hover:bg-[#fffbf5]"
               }`}
             >
-              <div className="relative w-11 h-11 sm:w-[52px] sm:h-[52px] shrink-0">
-                <img
-                  src={iconOrganisation}
-                  alt=""
-                  className="absolute inset-0 w-full h-full"
-                />
+              <div className="relative w-[52px] h-[52px] shrink-0 flex items-center justify-center">
                 <svg
-                  className="absolute inset-0 m-auto"
-                  width="18"
-                  height="18"
+                  className="absolute inset-0 w-full h-full"
                   viewBox="0 0 24 24"
                   fill="none"
+                  stroke="#f77f00"
+                  strokeWidth="1.2"
                 >
-                  <rect
-                    x="2"
-                    y="7"
-                    width="20"
-                    height="14"
-                    rx="2"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
+                  <path d="M12 2.5L21.5 9.5L18 20.5H6L2.5 9.5L12 2.5Z" />
+                </svg>
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#f77f00"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="7" width="18" height="13" rx="1.5" />
+                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                  <line x1="8" y1="7" x2="8" y2="20" />
+                  <line x1="16" y1="7" x2="16" y2="20" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
@@ -242,22 +229,11 @@ export default function SignupTypePage() {
                   Own or belong to a company, this is for you.
                 </p>
               </div>
-              <div className="shrink-0 w-7 h-7 rounded-full bg-[#f5f5f5] flex items-center justify-center group-hover:bg-[#f77f00] transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M5 12h14M13 6l6 6-6 6"
-                    stroke="#aaa"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="group-hover:stroke-white"
-                  />
-                </svg>
-              </div>
             </button>
           </div>
 
-          <p className="mt-7 sm:mt-8 text-sm sm:text-base">
+
+          <p className="mt-5 sm:mt-6 text-sm sm:text-base">
             <span className="text-[#5e6670]">Already have an account?</span>{" "}
             <Link
               to="/"

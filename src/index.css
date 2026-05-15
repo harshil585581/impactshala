@@ -31,3 +31,10 @@ body {
     scrollbar-width: none;
   }
 }
+
+/* Hide browser default password reveal and clear buttons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+

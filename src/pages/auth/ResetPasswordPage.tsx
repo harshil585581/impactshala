@@ -43,7 +43,7 @@ function EyeOffIcon() {
 }
 
 const inputCls =
-  "w-full h-[48px] border border-[#e4e5e8] rounded-full px-4 pr-12 text-[#1e1e1e] text-sm sm:text-base placeholder-[#767f8c] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
+  "w-full h-[40px] sm:h-[44px] border border-[#e4e5e8] rounded-full px-4 pr-12 text-[#1e1e1e] text-sm sm:text-base placeholder-[#767f8c] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -65,7 +65,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <div className="flex justify-center px-5 pt-8 sm:pt-10 pb-4 shrink-0">
+      <div className="flex justify-center px-5 pt-4 pb-2 shrink-0">
         <img
           src={primaryLogo}
           alt="Impactshaala"
@@ -74,11 +74,11 @@ export default function ResetPasswordPage() {
       </div>
 
       {/* Centered content */}
-      <div className="flex-1 flex items-center justify-center px-5 sm:px-8 py-8 sm:py-12">
-        <div className="flex flex-col gap-8 sm:gap-9 w-full max-w-[536px]">
+      <div className="flex-1 flex items-center justify-center px-5 sm:px-8 py-4 lg:py-6">
+        <div className="flex flex-col gap-5 sm:gap-6 w-full max-w-[536px]">
           {/* Heading */}
-          <div className="flex flex-col gap-3 text-center sm:text-left">
-            <h1 className="text-[#18191c] text-2xl sm:text-[32px] font-semibold leading-tight">
+          <div className="flex flex-col gap-2 text-center sm:text-left">
+            <h1 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-tight">
               Reset Password
             </h1>
             <p className="text-[#64748b] text-sm leading-relaxed">
@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
             {/* New Password */}
             <div className="relative">
               <input
@@ -139,10 +139,10 @@ export default function ResetPasswordPage() {
             {/* Submit */}
             <button
               type="submit"
-              className="flex items-center justify-center gap-3 w-full h-[56px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] mt-1"
+              className="flex items-center justify-center gap-3 w-full h-[46px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] mt-0.5"
             >
               Reset Password
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M5 12h14M13 6l6 6-6 6"
                   stroke="white"

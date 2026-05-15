@@ -71,7 +71,7 @@ export default function SignupStep2Page() {
       </div>
 
       {/* Card */}
-      <div className="relative z-10 bg-white rounded-2xl shadow-[0px_8px_40px_rgba(0,0,0,0.14)] w-full max-w-[700px] mx-4 px-8 sm:px-12 py-10">
+      <div className="relative z-10 bg-white rounded-2xl shadow-[0px_8px_40px_rgba(0,0,0,0.14)] w-full max-w-[700px] mx-4 px-8 sm:px-12 py-5 sm:py-6 lg:py-8">
         {/* Close / back */}
         <button
           onClick={() => navigate("/signup")}
@@ -89,24 +89,24 @@ export default function SignupStep2Page() {
         </button>
 
         {/* Header */}
-        <div className="text-center mb-7">
-          <h2 className="text-[#1f2937] text-2xl sm:text-[32px] font-semibold leading-snug">
+        <div className="text-center mb-5 lg:mb-6">
+          <h2 className="text-[#1f2937] text-xl sm:text-2xl font-semibold leading-snug">
             Select Individual Type
           </h2>
-          <p className="text-[#6b7280] text-sm sm:text-[18px] mt-2">
+          <p className="text-[#6b7280] text-sm sm:text-base mt-1.5">
             Choose the category that best represents you
           </p>
         </div>
 
         {/* 2×2 grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
           {roles.map((role) => {
             const active = selected === role.id;
             return (
               <button
                 key={role.id}
                 onClick={() => setSelected(role.id)}
-                className={`flex items-center gap-4 p-4 rounded-[6px] border text-left transition-all w-full ${
+                className={`flex items-center gap-3.5 p-3 rounded-[6px] border text-left transition-all w-full ${
                   active
                     ? "border-[#f77f00] bg-[#fff6ed] shadow-[0px_4px_14px_1px_rgba(0,0,0,0.04)]"
                     : "border-transparent bg-white shadow-[0px_4px_14px_1px_rgba(0,0,0,0.04)] hover:border-[#f77f00] hover:bg-[#fffbf5]"
@@ -131,11 +131,11 @@ export default function SignupStep2Page() {
         </div>
 
         {/* Continue */}
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center mt-5 sm:mt-6">
           <button
             onClick={handleContinue}
             disabled={!selected}
-            className={`flex items-center gap-2 px-8 py-3.5 rounded-full text-sm sm:text-base font-semibold transition-all ${
+            className={`flex items-center gap-2 px-8 py-2.5 sm:py-3 rounded-full text-sm sm:text-base font-semibold transition-all ${
               selected
                 ? "bg-[#f77f00] text-white hover:bg-[#e68500] shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
                 : "bg-[#f2f2f3] text-[#aaa] cursor-not-allowed"
@@ -155,7 +155,7 @@ export default function SignupStep2Page() {
         </div>
 
         {/* Sign in link */}
-        <p className="text-center text-sm sm:text-base mt-5">
+        <p className="text-center text-sm sm:text-base mt-3 sm:mt-4">
           <span className="text-[#6b7280]">Already have an account?</span>{" "}
           <Link to="/" className="text-[#f77f00] font-semibold hover:underline">
             Sign In

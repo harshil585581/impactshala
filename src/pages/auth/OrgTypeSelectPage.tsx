@@ -123,13 +123,26 @@ export default function OrgTypeSelectPage() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* ── Background layer (desktop) ── */}
-      <div className="fixed inset-0 lg:block hidden -z-10">
-        <img
-          src={bgPhoto}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-[rgba(255,148,0,0.5)]" />
+      <div className="fixed inset-0 lg:flex hidden -z-10">
+        {/* Left: Image with overlay */}
+        <div className="relative w-1/2 h-full overflow-hidden">
+          <img
+            src={bgPhoto}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[rgba(255,148,0,0.5)]" />
+          {/* Logo */}
+          <div className="relative z-10 px-10 py-8">
+            <img
+              src={whiteLogo}
+              alt="Impactshaala"
+              className="h-11 w-auto object-contain"
+            />
+          </div>
+        </div>
+        {/* Right: Solid light orange */}
+        <div className="w-1/2 h-full bg-[#fedbb3]" />
       </div>
 
       {/* ── Mobile/Tablet top banner ── */}
@@ -169,10 +182,10 @@ export default function OrgTypeSelectPage() {
       </div>
 
       {/* ── Main content ── */}
-      <div className="flex-1 flex items-start lg:items-center justify-center px-3 sm:px-4 lg:px-6 py-4 lg:py-8">
+      <div className="flex-1 flex items-start lg:items-center justify-center px-3 sm:px-4 lg:px-6 py-2 lg:py-4">
         <div className="w-full max-w-[1020px] bg-white lg:rounded-[17px] lg:shadow-2xl overflow-hidden">
           {/* Card header */}
-          <div className="hidden lg:flex items-center justify-between px-8 pt-8 pb-0">
+          <div className="hidden lg:flex items-center justify-between px-8 pt-6 pb-0">
             <div /> {/* spacer */}
             <button
               onClick={() => navigate("/signup")}
@@ -190,21 +203,21 @@ export default function OrgTypeSelectPage() {
             </button>
           </div>
 
-          <div className="px-5 sm:px-8 lg:px-12 py-6 lg:py-8">
-            <h2 className="hidden lg:block text-[#1f2937] text-2xl sm:text-3xl font-semibold text-center mb-2">
+          <div className="px-5 sm:px-8 lg:px-12 py-4 lg:py-6">
+            <h2 className="hidden lg:block text-[#1f2937] text-xl sm:text-2xl font-semibold text-center mb-1">
               Select Organization Type
             </h2>
-            <p className="hidden lg:block text-[#6b7280] text-base sm:text-lg text-center mb-6 sm:mb-8">
+            <p className="hidden lg:block text-[#6b7280] text-sm sm:text-base text-center mb-4 sm:mb-5">
               Choose the category that best represents your organization
             </p>
 
             {/* Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3.5">
               {visibleTypes.map((type) => (
                 <button
                   key={type.id}
                   onClick={() => setSelected(type.id)}
-                  className={`flex flex-col items-center text-center p-4 sm:p-5 lg:p-6 rounded-2xl border-2 transition-all shadow-sm hover:shadow-md ${
+                  className={`flex flex-col items-center text-center p-3 sm:p-4 rounded-xl border-2 transition-all shadow-sm hover:shadow-md ${
                     selected === type.id
                       ? "border-[#f77f00] bg-[#fff6ed] shadow-[0px_1px_1px_rgba(0,0,0,0.05)]"
                       : "border-transparent bg-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:border-[#f77f00] hover:bg-[#fffbf5]"
@@ -213,12 +226,12 @@ export default function OrgTypeSelectPage() {
                   <img
                     src={type.icon}
                     alt=""
-                    className="w-10 h-10 sm:w-11 sm:h-11 object-contain mb-3"
+                    className="w-8 h-8 sm:w-9 sm:h-9 object-contain mb-2"
                   />
-                  <p className="font-semibold text-[#18191c] text-sm sm:text-base leading-snug mb-1">
+                  <p className="font-semibold text-[#18191c] text-xs sm:text-sm leading-tight mb-0.5">
                     {type.label}
                   </p>
-                  <p className="text-[#5e6670] text-xs sm:text-sm leading-relaxed">
+                  <p className="text-[#5e6670] text-[10px] sm:text-xs leading-snug">
                     {type.desc}
                   </p>
                 </button>
@@ -226,24 +239,24 @@ export default function OrgTypeSelectPage() {
             </div>
 
             {/* Show more / less */}
-            <div className="text-center mt-4 sm:mt-5">
+            <div className="text-center mt-3 sm:mt-4">
               <button
                 onClick={() => setShowMore((v) => !v)}
-                className="text-[#f77f00] text-sm sm:text-base font-medium underline underline-offset-2 hover:text-[#e07000] transition-colors"
+                className="text-[#f77f00] text-xs sm:text-sm font-medium underline underline-offset-2 hover:text-[#e07000] transition-colors"
               >
                 {showMore ? "Show less" : "Show more"}
               </button>
             </div>
 
             {/* Continue */}
-            <div className="flex justify-center mt-6 sm:mt-8">
+            <div className="flex justify-center mt-4 sm:mt-6">
               <button
                 onClick={() => navigate(`/signup/org/form?orgType=${selected}`)}
                 disabled={!selected}
-                className="flex items-center gap-2 px-8 sm:px-10 py-3 sm:py-3.5 bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] w-full sm:w-auto justify-center"
+                className="flex items-center gap-2 px-8 sm:px-10 py-2.5 sm:py-3 bg-[#f77f00] text-white text-xs sm:text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)] w-full sm:w-auto justify-center"
               >
                 Continue
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M5 12h14M13 6l6 6-6 6"
                     stroke="white"

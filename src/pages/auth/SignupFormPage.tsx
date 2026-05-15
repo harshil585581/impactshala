@@ -23,7 +23,7 @@ const interestOptions = [
 ];
 
 const inputCls =
-  "w-full h-[48px] sm:h-[50px] border border-[#e5e7eb] rounded-full px-4 text-[#1e1e1e] text-sm placeholder-[#adaebc] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
+  "w-full h-[40px] sm:h-[44px] border border-[#e5e7eb] rounded-full px-4 text-[#1e1e1e] text-sm placeholder-[#adaebc] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
 
 export default function SignupFormPage() {
   const navigate = useNavigate();
@@ -113,25 +113,25 @@ export default function SignupFormPage() {
         </div>
 
         {/* Form area */}
-        <div className="flex-1 flex items-start justify-center px-4 sm:px-6 lg:px-8 pb-10">
+        <div className="flex-1 flex items-start justify-center px-4 sm:px-6 lg:px-8 pb-4">
           <div className="w-full max-w-[576px]">
             {/* Card — shadow on md+, flat on mobile */}
-            <div className="bg-white sm:rounded-[23px] sm:shadow-[0px_4px_3px_rgba(0,0,0,0.07),0px_10px_20px_rgba(0,0,0,0.08)] px-0 sm:px-6 md:px-8 py-0 sm:py-8">
+            <div className="bg-white sm:rounded-[23px] sm:shadow-[0px_4px_3px_rgba(0,0,0,0.07),0px_10px_20px_rgba(0,0,0,0.08)] px-0 sm:px-6 md:px-8 py-0 sm:py-5 lg:py-6">
               {/* Card header */}
-              <div className="text-center mb-5 sm:mb-6">
-                <h2 className="text-[#003049] text-2xl sm:text-3xl font-semibold leading-snug">
+              <div className="text-center mb-4 sm:mb-5">
+                <h2 className="text-[#003049] text-xl sm:text-2xl font-semibold leading-snug">
                   Create Account
                 </h2>
-                <p className="text-[#4b5563] text-sm sm:text-base mt-1">
+                <p className="text-[#4b5563] text-xs sm:text-sm mt-0.5">
                   Join our community today
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 sm:gap-3">
                 {/* First + Last name — side by side on sm+, stacked on mobile */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1">
-                    <label className="block text-[#374151] text-sm font-medium mb-1.5">
+                    <label className="block text-[#374151] text-xs font-medium mb-1">
                       First Name
                     </label>
                     <input
@@ -228,7 +228,7 @@ export default function SignupFormPage() {
                   <button
                     type="button"
                     onClick={() => setShowInterests((v) => !v)}
-                    className="w-full h-[48px] sm:h-[50px] border border-[#d6d6d6] rounded-full px-4 text-left flex items-center justify-between hover:border-[#f77f00] transition-colors focus:outline-none focus:border-[#f77f00] bg-white"
+                    className="w-full h-[40px] sm:h-[44px] border border-[#d6d6d6] rounded-full px-4 text-left flex items-center justify-between hover:border-[#f77f00] transition-colors focus:outline-none focus:border-[#f77f00] bg-white"
                   >
                     <span
                       className={`text-sm truncate pr-2 ${form.interests ? "text-[#1e1e1e]" : "text-[#adaebc]"}`}
@@ -301,7 +301,7 @@ export default function SignupFormPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-[48px] sm:h-[52px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors mt-1 shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full h-[42px] sm:h-[46px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors mt-0.5 shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? "Creating Account…" : "Create Account"}
                 </button>
