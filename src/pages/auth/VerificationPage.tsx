@@ -49,32 +49,32 @@ export default function VerificationPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <div className="flex justify-center px-5 pt-8 sm:pt-10 pb-4 shrink-0">
+      <div className="flex justify-center px-5 pt-4 pb-2 shrink-0">
         <img
           src={primaryLogo}
           alt="Impactshaala"
-          className="h-9 sm:h-10 w-auto object-contain"
+          className="h-8 sm:h-9 w-auto object-contain"
         />
       </div>
 
       {/* Centered content */}
-      <div className="flex-1 flex items-center justify-center px-5 sm:px-8 py-8 sm:py-12">
-        <div className="flex flex-col items-center gap-6 sm:gap-8 text-center w-full max-w-[420px]">
+      <div className="flex-1 flex items-center justify-center px-5 sm:px-8 py-4 lg:py-6">
+        <div className="flex flex-col items-center gap-4 sm:gap-5 text-center w-full max-w-[420px]">
           {/* Illustration */}
-          <div className="bg-[#fff8f0] rounded-full p-6 sm:p-8">
+          <div className="bg-[#fff8f0] rounded-full p-5 sm:p-6">
             <img
               src={emailIllustration}
               alt="Email sent"
-              className="w-24 h-auto sm:w-[120px]"
+              className="w-16 h-auto sm:w-[80px]"
             />
           </div>
 
           {/* Text */}
-          <div className="flex flex-col gap-2 sm:gap-3">
-            <h2 className="text-[#0f172a] text-xl sm:text-2xl font-semibold tracking-[0.2px] leading-snug">
+          <div className="flex flex-col gap-1.5 sm:gap-2">
+            <h2 className="text-[#0f172a] text-lg sm:text-xl font-semibold tracking-[0.2px] leading-snug">
               Verification Email Sent
             </h2>
-            <p className="text-[#64748b] text-sm leading-relaxed px-2">
+            <p className="text-[#64748b] text-xs sm:text-sm leading-relaxed px-2">
               A verification email has been sent to your registered email
               address. Please verify to complete your registration.
             </p>
@@ -83,7 +83,7 @@ export default function VerificationPage() {
           {/* Skip Now */}
           <button
             onClick={() => navigate(getRoleRoute())}
-            className="w-full h-[50px] sm:h-[56px] bg-[#f77f00] text-white text-sm sm:text-base font-bold rounded-full hover:bg-[#e68500] transition-colors tracking-[0.2px] shadow-[0px_4px_16px_rgba(255,148,0,0.35)]"
+            className="w-full h-[42px] sm:h-[46px] bg-[#f77f00] text-white text-sm sm:text-base font-bold rounded-full hover:bg-[#e68500] transition-colors tracking-[0.2px] shadow-[0px_4px_16px_rgba(255,148,0,0.35)]"
           >
             Skip Now
           </button>
