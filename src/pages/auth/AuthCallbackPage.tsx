@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
-
-const primaryLogo =
-  "https://www.figma.com/api/mcp/asset/8a750235-40b0-42cf-b263-a81e8356a5bb";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -39,11 +36,12 @@ export default function AuthCallbackPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <div className="flex justify-center px-5 pt-8 pb-4">
-        <img
-          src={primaryLogo}
-          alt="Impactshaala"
-          className="h-9 w-auto object-contain"
-        />
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
+          </div>
+          <span className="text-[#18191c] font-bold text-lg">Impactshaala</span>
+        </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center px-5 py-12">

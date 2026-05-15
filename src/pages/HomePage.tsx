@@ -10,14 +10,6 @@ import { fetchFeedPosts } from "../services/postService";
 import type { FeedPost, FeedFilter } from "../services/postService";
 import { useProfile } from "../hooks/useProfile";
 
-const photoIcon =
-  "https://www.figma.com/api/mcp/asset/c696f684-d3f3-4907-b008-73ed5cba4a1a";
-const videoIcon =
-  "https://www.figma.com/api/mcp/asset/9d704024-5c9b-4ffa-98a4-721c38438562";
-const calendarIcon =
-  "https://www.figma.com/api/mcp/asset/48f6342c-cac0-4bf5-9852-32a8e961d946";
-const pollIcon =
-  "https://www.figma.com/api/mcp/asset/0725c9c3-1452-4a15-9b96-ef174d64e430";
 
 function getStoredUser() {
   try {
@@ -67,9 +59,14 @@ export default function HomePage() {
   const { profile: liveProfile } = useProfile("me");
   const storedUser = getStoredUser();
   
+  function formatName(f?: string, l?: string, org?: string) {
+    const full = [f, l].filter(s => s && s !== "unknown").join(" ");
+    return full || org || "User";
+  }
+
   const userName = liveProfile
-    ? [liveProfile.firstName, liveProfile.lastName].filter(Boolean).join(" ") || liveProfile.orgName
-    : [storedUser.first_name, storedUser.last_name].filter(Boolean).join(" ") || storedUser.org_name || "You";
+    ? formatName(liveProfile.firstName, liveProfile.lastName, liveProfile.orgName)
+    : formatName(storedUser.first_name, storedUser.last_name, storedUser.org_name);
 
   const userAvatarUrl = liveProfile?.avatarUrl || storedUser.avatar_url;
 
@@ -138,21 +135,21 @@ export default function HomePage() {
                   onClick={() => setPhotoModalOpen(true)}
                   className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img src={photoIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Photo
                 </button>
                 <button
                   onClick={() => setVideoModalOpen(true)}
                   className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img src={videoIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/><rect x="1" y="5" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/></svg>
                   Video
                 </button>
                 <button
                   onClick={() => setEventModalOpen(true)}
                   className="flex items-center gap-2 text-[#605f5f] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img src={calendarIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   <span className="hidden sm:inline">Event</span>
                   <span className="sm:hidden">Event</span>
                 </button>
@@ -160,7 +157,7 @@ export default function HomePage() {
                   onClick={() => setPollModalOpen(true)}
                   className="flex items-center gap-2 text-[#474d57] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
-                  <img src={pollIcon} alt="" className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   <span className="hidden sm:inline">Polls &amp; Questions</span>
                   <span className="sm:hidden">Polls</span>
                 </button>

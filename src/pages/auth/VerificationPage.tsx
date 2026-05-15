@@ -1,12 +1,7 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
-const primaryLogo =
-  "https://www.figma.com/api/mcp/asset/8a750235-40b0-42cf-b263-a81e8356a5bb";
-const emailIllustration =
-  "https://www.figma.com/api/mcp/asset/c6880028-f78c-41b8-b8bb-c0cbf3b1f908";
 
 function getRoleRoute(): string {
   const role = localStorage.getItem("pending_signup_role") ?? "";
@@ -50,11 +45,12 @@ export default function VerificationPage() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <div className="flex justify-center px-5 pt-4 pb-2 shrink-0">
-        <img
-          src={primaryLogo}
-          alt="Impactshaala"
-          className="h-8 sm:h-9 w-auto object-contain"
-        />
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
+          </div>
+          <span className="text-[#18191c] font-bold text-lg">Impactshaala</span>
+        </div>
       </div>
 
       {/* Centered content */}
@@ -62,11 +58,10 @@ export default function VerificationPage() {
         <div className="flex flex-col items-center gap-4 sm:gap-5 text-center w-full max-w-[420px]">
           {/* Illustration */}
           <div className="bg-[#fff8f0] rounded-full p-5 sm:p-6">
-            <img
-              src={emailIllustration}
-              alt="Email sent"
-              className="w-16 h-auto sm:w-[80px]"
-            />
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="2" stroke="#ff9400" strokeWidth="1.5"/>
+              <path d="M2 7l10 7 10-7" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </div>
 
           {/* Text */}

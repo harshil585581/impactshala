@@ -1,45 +1,20 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-const bgPhoto =
-  "https://www.figma.com/api/mcp/asset/51f58c05-824a-41b1-9997-1d8792234420";
-const whiteLogo =
-  "https://www.figma.com/api/mcp/asset/6f950d39-decc-4cd7-bdc2-5bdb6459cf3f";
-const iconStudent =
-  "https://www.figma.com/api/mcp/asset/c1fdc34e-d873-4f90-8bdc-26893630c9ff";
-const iconProfessional =
-  "https://www.figma.com/api/mcp/asset/445ad34a-fcb9-456e-b4ce-c579343b4c86";
-const iconEntrepreneur =
-  "https://www.figma.com/api/mcp/asset/be8f216d-f01d-4a40-b5f0-9713bcd3636b";
-const iconCreative =
-  "https://www.figma.com/api/mcp/asset/5b13bea0-558d-49a9-bb05-efc476221cc2";
-
 const roles = [
-  {
-    id: "student",
-    label: "Student",
-    desc: "School or college learners",
-    icon: iconStudent,
-  },
-  {
-    id: "professional",
-    label: "Working Professional",
-    desc: "Employed individuals across fields",
-    icon: iconProfessional,
-  },
-  {
-    id: "entrepreneur",
-    label: "Entrepreneur",
-    desc: "Startup founders or business owners.",
-    icon: iconEntrepreneur,
-  },
-  {
-    id: "educator",
-    label: "Creative Arts and Enrichment Educator",
-    desc: "Educators in arts, wellness, or hobbies.",
-    icon: iconCreative,
-  },
+  { id: "student", label: "Student", desc: "School or college learners" },
+  { id: "professional", label: "Working Professional", desc: "Employed individuals across fields" },
+  { id: "entrepreneur", label: "Entrepreneur", desc: "Startup founders or business owners." },
+  { id: "educator", label: "Creative Arts and Enrichment Educator", desc: "Educators in arts, wellness, or hobbies." },
 ];
+
+function RoleIcon({ id }: { id: string }) {
+  const cls = "w-10 h-10 shrink-0";
+  if (id === "student") return <svg className={cls} viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  if (id === "professional") return <svg className={cls} viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="#f77f00" strokeWidth="1.5"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round"/><line x1="12" y1="12" x2="12" y2="16" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round"/><line x1="10" y1="14" x2="14" y2="14" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round"/></svg>;
+  if (id === "entrepreneur") return <svg className={cls} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="4" stroke="#f77f00" strokeWidth="1.5"/><path d="M3 20c0-4 3.6-7 8-7h2c4.4 0 8 3 8 7" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 6V2M15 7l2-2M9 7L7 5" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round"/></svg>;
+  return <svg className={cls} viewBox="0 0 24 24" fill="none"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
 
 export default function SignupStep2Page() {
   const navigate = useNavigate();
@@ -52,22 +27,13 @@ export default function SignupStep2Page() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Full-screen background */}
-      <img
-        src={bgPhoto}
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover"
-      />
-      <div className="absolute inset-0 bg-[rgba(255,148,0,0.5)]" />
-
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#ff9400] to-[#003049]">
       {/* White logo — top left */}
-      <div className="absolute top-6 left-8 sm:top-8 sm:left-10 z-10">
-        <img
-          src={whiteLogo}
-          alt="Impactshaala"
-          className="h-9 sm:h-11 w-auto object-contain"
-        />
+      <div className="absolute top-6 left-8 sm:top-8 sm:left-10 z-10 flex items-center gap-2">
+        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
+        </div>
+        <span className="text-white font-bold text-xl">Impactshaala</span>
       </div>
 
       {/* Card */}
@@ -112,11 +78,7 @@ export default function SignupStep2Page() {
                     : "border-transparent bg-white shadow-[0px_4px_14px_1px_rgba(0,0,0,0.04)] hover:border-[#f77f00] hover:bg-[#fffbf5]"
                 }`}
               >
-                <img
-                  src={role.icon}
-                  alt=""
-                  className="w-10 h-10 object-contain shrink-0"
-                />
+                <RoleIcon id={role.id} />
                 <div className="min-w-0">
                   <p className="font-semibold text-[#18191c] text-sm sm:text-base leading-snug">
                     {role.label}

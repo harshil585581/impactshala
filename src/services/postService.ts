@@ -181,6 +181,8 @@ export type FeedPost = {
     first_name: string | null;
     last_name: string | null;
     org_name: string | null;
+    user_type: 'individual' | 'organization' | null;
+    org_type: string | null;
     avatar_url: string | null;
     title: string | null;
     company: string | null;
@@ -196,7 +198,7 @@ export async function fetchFeedPosts(filter: FeedFilter = 'all'): Promise<FeedPo
   const client = getAuthClient();
   let query = client
     .from('posts')
-    .select('*, user:users(first_name, last_name, org_name, avatar_url, title, company, experiences(role, company, is_current))')
+    .select('*, user:users(first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
     .order('created_at', { ascending: false });
 
   if (filter === 'media') query = query.in('post_type', ['photo', 'video']);
@@ -212,7 +214,7 @@ export async function fetchUserPosts(userId: string): Promise<FeedPost[]> {
   const client = getAuthClient();
   const { data, error } = await client
     .from('posts')
-    .select('*, user:users(first_name, last_name, org_name, avatar_url, title, company, experiences(role, company, is_current))')
+    .select('*, user:users(first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 

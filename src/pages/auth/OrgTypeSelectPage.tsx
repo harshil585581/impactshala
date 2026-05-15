@@ -1,114 +1,22 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const bgPhoto =
-  "https://www.figma.com/api/mcp/asset/c784576f-a49e-4bcb-a273-86e794818310";
-const whiteLogo =
-  "https://www.figma.com/api/mcp/asset/ec38bac6-44ca-4b11-9177-8580a10af1eb";
-
-// icons — first 9 (457:780)
-const iconEdu =
-  "https://www.figma.com/api/mcp/asset/021842c7-8c85-4a72-86c6-f10fffe27ad1";
-const iconProfit =
-  "https://www.figma.com/api/mcp/asset/da16aa3b-5602-4f1b-bccb-0594494fb72b";
-const iconNGO =
-  "https://www.figma.com/api/mcp/asset/8588121f-0429-406d-a882-d26649ca6b19";
-const iconHealth =
-  "https://www.figma.com/api/mcp/asset/5a2be5ea-e1a4-4572-973f-97adf073b066";
-const iconUtil =
-  "https://www.figma.com/api/mcp/asset/512f1e59-07ef-4cc0-9c08-3ec97bc151e1";
-const iconWelfare =
-  "https://www.figma.com/api/mcp/asset/a4714e1a-7aed-4cab-8961-4f1eefd82e68";
-const iconFieldTrip =
-  "https://www.figma.com/api/mcp/asset/23713d1e-49d9-4ae6-a51b-b1faa577ff67";
-const iconStartup =
-  "https://www.figma.com/api/mcp/asset/ca2039b4-9592-4947-8c93-c48532de6bc7";
-const iconTalent =
-  "https://www.figma.com/api/mcp/asset/7c855475-a34d-493d-913b-036455b82e5c";
-// icons — "show more" set (1164:61846)
-const iconSafety =
-  "https://www.figma.com/api/mcp/asset/792a133a-653f-446d-be1c-1e8f324b1ab1";
-const iconIntl =
-  "https://www.figma.com/api/mcp/asset/12e2f97e-04e2-4e5d-abdf-47dfdc5fe132";
-const iconOthers =
-  "https://www.figma.com/api/mcp/asset/b83fdf8d-0e73-4162-b41d-dc080ba64a01";
-
 const INITIAL_TYPES = [
-  {
-    id: "educational",
-    label: "Educational Institutions",
-    desc: "Schools, colleges, and universities",
-    icon: iconEdu,
-  },
-  {
-    id: "forprofit",
-    label: "For Profit Companies",
-    desc: "Businesses and private enterprises",
-    icon: iconProfit,
-  },
-  {
-    id: "nonprofit",
-    label: "Non Profit NGOs",
-    desc: "Charitable and social impact organizations",
-    icon: iconNGO,
-  },
-  {
-    id: "health",
-    label: "Health Services",
-    desc: "Healthcare and medical facilities",
-    icon: iconHealth,
-  },
-  {
-    id: "utilities",
-    label: "Public Utilities",
-    desc: "Government operated utilities",
-    icon: iconUtil,
-  },
-  {
-    id: "welfare",
-    label: "Public Welfare Services",
-    desc: "Government social support services",
-    icon: iconWelfare,
-  },
-  {
-    id: "fieldtrip",
-    label: "Educational Field Trip Venues",
-    desc: "Experiential learning centers",
-    icon: iconFieldTrip,
-  },
-  {
-    id: "startup",
-    label: "Startup Support Organization",
-    desc: "Incubators, accelerators, and VC firms",
-    icon: iconStartup,
-  },
-  {
-    id: "talent",
-    label: "Talent Showcase & Learning",
-    desc: "Showcase learning & stage",
-    icon: iconTalent,
-  },
+  { id: "educational", label: "Educational Institutions", desc: "Schools, colleges, and universities", emoji: "🎓" },
+  { id: "forprofit", label: "For Profit Companies", desc: "Businesses and private enterprises", emoji: "💼" },
+  { id: "nonprofit", label: "Non Profit NGOs", desc: "Charitable and social impact organizations", emoji: "🤝" },
+  { id: "health", label: "Health Services", desc: "Healthcare and medical facilities", emoji: "🏥" },
+  { id: "utilities", label: "Public Utilities", desc: "Government operated utilities", emoji: "⚡" },
+  { id: "welfare", label: "Public Welfare Services", desc: "Government social support services", emoji: "🌱" },
+  { id: "fieldtrip", label: "Educational Field Trip Venues", desc: "Experiential learning centers", emoji: "🗺️" },
+  { id: "startup", label: "Startup Support Organization", desc: "Incubators, accelerators, and VC firms", emoji: "🚀" },
+  { id: "talent", label: "Talent Showcase & Learning", desc: "Showcase learning & stage", emoji: "🎭" },
 ];
 
 const MORE_TYPES = [
-  {
-    id: "safety",
-    label: "Public Safety & Law",
-    desc: "Police, legal, and emergency services",
-    icon: iconSafety,
-  },
-  {
-    id: "international",
-    label: "International Organization",
-    desc: "Global institutions and networks",
-    icon: iconIntl,
-  },
-  {
-    id: "others",
-    label: "Others",
-    desc: "Any organization not listed above",
-    icon: iconOthers,
-  },
+  { id: "safety", label: "Public Safety & Law", desc: "Police, legal, and emergency services", emoji: "🛡️" },
+  { id: "international", label: "International Organization", desc: "Global institutions and networks", emoji: "🌐" },
+  { id: "others", label: "Others", desc: "Any organization not listed above", emoji: "📋" },
 ];
 
 export default function OrgTypeSelectPage() {
@@ -124,21 +32,13 @@ export default function OrgTypeSelectPage() {
     <div className="min-h-screen flex flex-col">
       {/* ── Background layer (desktop) ── */}
       <div className="fixed inset-0 lg:flex hidden -z-10">
-        {/* Left: Image with overlay */}
-        <div className="relative w-1/2 h-full overflow-hidden">
-          <img
-            src={bgPhoto}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-[rgba(255,148,0,0.5)]" />
-          {/* Logo */}
-          <div className="relative z-10 px-10 py-8">
-            <img
-              src={whiteLogo}
-              alt="Impactshaala"
-              className="h-11 w-auto object-contain"
-            />
+        {/* Left: gradient with logo */}
+        <div className="relative w-1/2 h-full overflow-hidden bg-gradient-to-br from-[#ff9400] to-[#003049]">
+          <div className="relative z-10 px-10 py-8 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
+            </div>
+            <span className="text-white font-bold text-xl">Impactshaala</span>
           </div>
         </div>
         {/* Right: Solid light orange */}
@@ -146,19 +46,14 @@ export default function OrgTypeSelectPage() {
       </div>
 
       {/* ── Mobile/Tablet top banner ── */}
-      <div className="lg:hidden relative overflow-hidden shrink-0">
-        <img
-          src={bgPhoto}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-[rgba(255,148,0,0.55)]" />
+      <div className="lg:hidden relative overflow-hidden shrink-0 bg-gradient-to-br from-[#ff9400] to-[#003049]">
         <div className="relative z-10 flex items-center justify-between px-5 sm:px-8 py-5">
-          <img
-            src={whiteLogo}
-            alt="Impactshaala"
-            className="h-9 sm:h-11 w-auto object-contain"
-          />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
+            </div>
+            <span className="text-white font-bold text-xl">Impactshaala</span>
+          </div>
           <button
             onClick={() => navigate("/signup")}
             className="text-white/80 hover:text-white transition-colors"
@@ -223,11 +118,7 @@ export default function OrgTypeSelectPage() {
                       : "border-transparent bg-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:border-[#f77f00] hover:bg-[#fffbf5]"
                   }`}
                 >
-                  <img
-                    src={type.icon}
-                    alt=""
-                    className="w-8 h-8 sm:w-9 sm:h-9 object-contain mb-2"
-                  />
+                  <span className="text-2xl sm:text-3xl mb-2" role="img">{type.emoji}</span>
                   <p className="font-semibold text-[#18191c] text-xs sm:text-sm leading-tight mb-0.5">
                     {type.label}
                   </p>

@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import type { FeedPost } from '../services/postService';
 
-const thumbsUp = "https://www.figma.com/api/mcp/asset/092c6e79-91ce-4791-8f41-c5cb008743e7";
-const heart = "https://www.figma.com/api/mcp/asset/bcbffbcb-b12e-42ae-821f-b8c199325a1b";
-const clapping = "https://www.figma.com/api/mcp/asset/f6cd896e-60fe-4c92-be76-448468a9ee64";
-const likeIcon = "https://www.figma.com/api/mcp/asset/a9024820-e2d0-4d64-88c2-c327a505bfa7";
-const commentIcon = "https://www.figma.com/api/mcp/asset/3c50c38d-b5d0-4d47-88cf-a30418e6ece0";
-const shareIcon = "https://www.figma.com/api/mcp/asset/ad231854-cd0f-408d-9ac7-b8085743a489";
-const saveIcon = "https://www.figma.com/api/mcp/asset/319fafae-432a-4c02-8f5e-b9e6d71902a8";
-const globeIcon = "https://www.figma.com/api/mcp/asset/2cd0f3e5-8141-4257-9123-c4e5cc770cfa";
+function ThumbsUpIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="#4a90d9"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" fill="#5a9ce8"/></svg>;
+}
+function HeartIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="#e74c3c"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>;
+}
+function ClapIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="#f39c12"><path d="M12 2a1 1 0 011 1v8h4a2 2 0 012 2v2a6 6 0 01-6 6H9a6 6 0 01-6-6v-4a1 1 0 011-1h2V5a1 1 0 012 0v5h2V3a1 1 0 011-1z"/></svg>;
+}
+function GlobeIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="opacity-40"><circle cx="12" cy="12" r="10" stroke="#9199a3" strokeWidth="1.5"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/></svg>;
+}
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -23,8 +27,9 @@ function relativeTime(dateStr: string): string {
 }
 
 function getDisplayName(user: FeedPost['user']): string {
-  if (!user) return 'Unknown';
-  return [user.first_name, user.last_name].filter(Boolean).join(' ') || user.org_name || 'Unknown';
+  if (!user) return 'User';
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+  return fullName || user.org_name || 'User';
 }
 
 function formatEventDate(date: string | null, time: string | null): string {
@@ -68,27 +73,33 @@ export default function PostCard({ post }: { post: FeedPost }) {
           <div className="flex flex-col">
             <span className="font-bold text-[#18191c] text-base leading-tight block">{name}</span>
             {post.user && (
-              <div className="flex items-center gap-1.5 text-[#5e6670] text-xs mt-1">
+              <div className="flex items-center gap-1.5 text-[#5e6670] text-xs mt-0.5">
                 {(() => {
+                  if (post.user.user_type === 'organization') {
+                    return <span className="capitalize">{post.user.org_type || 'Organization'}</span>;
+                  }
+                  
                   const current = post.user.experiences?.find(e => e.is_current) || post.user.experiences?.[0];
                   if (current) {
                     return (
                       <>
-                        <span className="truncate max-w-[150px]">{current.role}</span>
+                        <span className="truncate">{current.role}</span>
                         <span className="opacity-60">·</span>
-                        <span className="truncate max-w-[150px]">{current.company}</span>
+                        <span className="truncate">{current.company}</span>
                       </>
                     );
                   }
+                  
                   if (post.user.title || post.user.company) {
                     return (
                       <>
-                        {post.user.title && <span className="truncate max-w-[150px]">{post.user.title}</span>}
+                        {post.user.title && <span className="truncate">{post.user.title}</span>}
                         {post.user.title && post.user.company && <span className="opacity-60">·</span>}
-                        {post.user.company && <span className="truncate max-w-[150px]">{post.user.company}</span>}
+                        {post.user.company && <span className="truncate">{post.user.company}</span>}
                       </>
                     );
                   }
+                  
                   return null;
                 })()}
               </div>
@@ -96,7 +107,7 @@ export default function PostCard({ post }: { post: FeedPost }) {
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[#9199a3] text-xs">{relativeTime(post.created_at)}</span>
               <span className="text-[#9199a3] text-xs">·</span>
-              <img src={globeIcon} alt="" className="w-3.5 h-3.5 opacity-40" />
+              <GlobeIcon />
             </div>
           </div>
         </div>
@@ -254,9 +265,9 @@ export default function PostCard({ post }: { post: FeedPost }) {
       <div className="px-6 py-2 flex items-center justify-between border-t border-[#f2f2f3]">
         <div className="flex items-center gap-1.5">
           <div className="flex">
-            <img src={thumbsUp} alt="" className="w-5 h-5" />
-            <img src={heart} alt="" className="w-5 h-5 -ml-1" />
-            <img src={clapping} alt="" className="w-5 h-5 -ml-1" />
+            <ThumbsUpIcon />
+            <span className="-ml-1"><HeartIcon /></span>
+            <span className="-ml-1"><ClapIcon /></span>
           </div>
           <span className="text-[#646464] text-sm">{liked ? 1 : 0}</span>
         </div>
@@ -269,22 +280,22 @@ export default function PostCard({ post }: { post: FeedPost }) {
           onClick={() => setLiked(v => !v)}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${liked ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}
         >
-          <img src={likeIcon} alt="" className="w-5 h-5" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           Like
         </button>
         <button className="flex items-center gap-1.5 text-[#575555] text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-          <img src={commentIcon} alt="" className="w-5 h-5" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Comment
         </button>
         <button className="flex items-center gap-1.5 text-[#575555] text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-          <img src={shareIcon} alt="" className="w-5 h-5" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           Share
         </button>
         <button
           onClick={() => setSaved(v => !v)}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${saved ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}
         >
-          <img src={saveIcon} alt="" className="w-5 h-5" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'}><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Save
         </button>
       </div>

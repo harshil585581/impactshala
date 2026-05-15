@@ -1,12 +1,5 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-const bgPhoto =
-  "https://www.figma.com/api/mcp/asset/6e36ccb9-2f0d-417b-94fe-f82f224c652f";
-const whiteLogo =
-  "https://www.figma.com/api/mcp/asset/d6e5d9b3-489f-4758-9655-08263b2209f7";
-const primaryLogo =
-  "https://www.figma.com/api/mcp/asset/ddd2c871-24a1-460d-83c1-50b77614f1c0";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -20,19 +13,14 @@ export default function ForgotPasswordPage() {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen">
       {/* ── Mobile / Tablet brand banner (hidden on lg+) ── */}
-      <div className="lg:hidden relative overflow-hidden shrink-0">
-        <img
-          src={bgPhoto}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-[rgba(255,148,0,0.55)]" />
+      <div className="lg:hidden relative overflow-hidden shrink-0 bg-gradient-to-br from-[#ff9400] to-[#003049]">
         <div className="relative z-10 flex items-center justify-between px-5 sm:px-8 py-5">
-          <img
-            src={whiteLogo}
-            alt="Impactshaala"
-            className="h-9 sm:h-11 w-auto object-contain"
-          />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
+            </div>
+            <span className="text-white font-bold text-xl">Impactshaala</span>
+          </div>
         </div>
         <div className="relative z-10 px-5 sm:px-8 pb-6 sm:pb-8">
           <p className="text-white text-lg sm:text-xl font-semibold leading-snug max-w-xs">
@@ -44,22 +32,22 @@ export default function ForgotPasswordPage() {
       {/* ── Desktop left panel ── */}
       <div className="flex-1 bg-white flex flex-col">
         {/* Desktop logo */}
-        <div className="hidden lg:flex items-center px-8 xl:px-10 py-5 shrink-0">
-          <img
-            src={primaryLogo}
-            alt="Impactshaala"
-            className="h-9 xl:h-10 w-auto object-contain"
-          />
+        <div className="hidden lg:flex items-center gap-2 px-8 xl:px-10 py-5 shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[#ff9400] flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
+          </div>
+          <span className="text-[#18191c] font-bold text-xl">Impactshaala</span>
         </div>
 
         {/* Content */}
         <div className="flex-1 flex flex-col justify-center px-5 sm:px-8 md:px-12 lg:px-14 xl:px-20 py-6 lg:py-8">
           {/* Mobile logo */}
-          <img
-            src={primaryLogo}
-            alt="Impactshaala"
-            className="lg:hidden h-8 w-auto object-contain self-start mb-5"
-          />
+          <div className="lg:hidden flex items-center gap-2 self-start mb-5">
+            <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
+            </div>
+            <span className="text-[#18191c] font-bold text-lg">Impactshaala</span>
+          </div>
 
           {/* Back link (mobile) */}
           <Link
@@ -139,19 +127,14 @@ export default function ForgotPasswordPage() {
       </div>
 
       {/* ── Right orange photo panel (desktop only) ── */}
-      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col">
-        <img
-          src={bgPhoto}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-[rgba(255,148,0,0.5)]" />
+      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-gradient-to-br from-[#ff9400] to-[#003049]">
         <div className="relative z-10 flex flex-col h-full px-10 py-8">
-          <img
-            src={whiteLogo}
-            alt="Impactshaala"
-            className="h-11 w-auto object-contain self-start"
-          />
+          <div className="flex items-center gap-2 self-start">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
+            </div>
+            <span className="text-white font-bold text-xl">Impactshaala</span>
+          </div>
           <div className="flex-1 flex items-center">
             <div>
               <span className="text-white text-8xl font-bold leading-none">

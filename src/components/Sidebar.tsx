@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-const profileImg =
-  "https://www.figma.com/api/mcp/asset/1f04a459-ed45-4c11-b98c-705bd79a1d88";
-const iconDiscover =
-  "https://www.figma.com/api/mcp/asset/33957c94-21e7-47ce-9657-96e9fbd3bac3";
-const iconLearning =
-  "https://www.figma.com/api/mcp/asset/6ababa2b-751d-40af-866b-af8f9d39c1a5";
-const iconEmployment =
-  "https://www.figma.com/api/mcp/asset/00e0afc2-5675-43c9-92ae-6058ee27da4f";
-const iconCommunity =
-  "https://www.figma.com/api/mcp/asset/f8f2c300-4dc2-438b-afe0-940f229c5523";
+// Icons replaced with inline SVGs — no external dependencies
 
 type SidebarProps = {
   isOpen: boolean;
@@ -124,7 +115,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           <NavItem
             icon={
-              <img src={iconDiscover} alt="" className="w-5 h-5 shrink-0" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                <circle cx="12" cy="12" r="10" stroke="#7c8493" strokeWidth="1.5"/>
+                <path d="M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             }
             label="Discover"
             active={isOnDiscoverRoute}
@@ -135,19 +129,30 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           />
           <NavItem
             icon={
-              <img src={iconLearning} alt="" className="w-5 h-5 shrink-0" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             }
             label="Learning Directory"
           />
           <NavItem
             icon={
-              <img src={iconEmployment} alt="" className="w-5 h-5 shrink-0" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                <rect x="2" y="7" width="20" height="14" rx="2" stroke="#7c8493" strokeWidth="1.5"/>
+                <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <line x1="12" y1="12" x2="12" y2="16" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="10" y1="14" x2="14" y2="14" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
             }
             label="Employment Hub"
           />
           <NavItem
             icon={
-              <img src={iconCommunity} alt="" className="w-5 h-5 shrink-0" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="9" cy="7" r="4" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             }
             label="My Community"
           />
@@ -237,7 +242,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     <div
                       key={item.label}
                       onClick={() => handleSubItem(item.label, item.route)}
-                      className={`flex items-center gap-2 pl-10 pr-4 py-2.5 cursor-pointer transition-colors ${
+                      className={`flex items-center gap-2 w-full pl-10 pr-4 py-2.5 cursor-pointer transition-colors ${
                         isActive ? "bg-[#fff3e0]" : "hover:bg-gray-50"
                       }`}
                     >
@@ -371,10 +376,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
         </div>
 
-        {/* Profile at bottom */}
-        <div className="shrink-0">
-          <img src={profileImg} alt="Profile" className="w-full object-cover" />
-        </div>
       </aside>
     </>
   );
@@ -392,17 +393,30 @@ function NavItem({
   onClick?: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <div 
+      onClick={onClick}
+      className="relative flex items-center w-full cursor-pointer group"
+    >
+      {/* Active Indicator Bar */}
       {active && (
-        <div className="w-1 h-8 bg-[#f77f00] rounded-r-full shrink-0" />
+        <div className="absolute left-0 w-1.5 h-8 bg-[#f77f00] rounded-r-full z-10" />
       )}
+      
+      {/* Link Content Container */}
       <div
-        onClick={onClick}
-        className={`flex items-center gap-4 ${active ? "bg-[#ffeacc] rounded-[100px] px-4 py-2.5 w-[228px]" : "pl-7 pr-4 py-2.5 hover:bg-gray-50"} cursor-pointer transition-colors`}
+        className={`
+          flex items-center gap-4 w-full py-2.5 transition-all duration-200
+          ${active 
+            ? "bg-[#ffeacc] rounded-full mx-4 px-5" 
+            : "pl-11 pr-4 hover:bg-gray-50 rounded-xl mx-0"
+          }
+        `}
       >
-        {icon}
+        <div className={`${active ? "text-[#ff9400]" : "text-[#7c8493]"} shrink-0 flex items-center justify-center w-6 h-6`}>
+          {icon}
+        </div>
         <span
-          className={`text-[15px] font-medium ${active ? "text-[#ff9400]" : "text-[#7c8493]"}`}
+          className={`text-[15px] font-medium truncate ${active ? "text-[#ff9400]" : "text-[#7c8493]"}`}
         >
           {label}
         </span>

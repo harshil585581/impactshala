@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
+import testImg from '../assets/images/test/tes.png';
 
-const CODE_IMG = 'https://www.figma.com/api/mcp/asset/d208c4d3-690e-45f8-8437-d98e914f6319';
+const CODE_IMG = 'https://placehold.co/400x300/f5f5f5/cccccc';
 
 const COMMUNITY_POSTS = [
   { id: '1', user: 'Sarah Johnson', title: 'UX/UX Designer', time: '2 hours ago', text: "Excited to share my latest project on sustainable development! 🌱 #Innovation #Sustainability", img: CODE_IMG },
@@ -13,17 +14,17 @@ const COMMUNITY_POSTS = [
 ];
 
 const DISCOVER_POSTS = [
-  { id: '1', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: CODE_IMG },
-  { id: '2', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: CODE_IMG },
-  { id: '3', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: CODE_IMG },
-  { id: '4', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: CODE_IMG },
+  { id: '1', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: testImg },
+  { id: '2', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: testImg },
+  { id: '3', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: testImg },
+  { id: '4', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education', 'Experiential learning', 'Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: testImg },
 ];
 
 const LEARNING_POSTS = [
-  { id: '1', img: CODE_IMG, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-  { id: '2', img: CODE_IMG, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-  { id: '3', img: CODE_IMG, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-  { id: '4', img: CODE_IMG, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
+  { id: '1', img: testImg, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
+  { id: '2', img: testImg, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
+  { id: '3', img: testImg, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
+  { id: '4', img: testImg, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
 ];
 
 const EMPLOYMENT_POSTS = [
@@ -108,40 +109,151 @@ function CommunityMiniCard({ post }: { post: typeof COMMUNITY_POSTS[0] }) {
 
 function DiscoverMiniCard({ post }: { post: typeof DISCOVER_POSTS[0] }) {
   return (
-    <div className="border border-[#f2f2f3] rounded-xl overflow-hidden bg-white hover:shadow-md transition-shadow cursor-pointer">
-      <div className="p-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-1.5">
+    <div className="border border-[#f2f2f3] rounded-2xl bg-white hover:shadow-md transition-shadow cursor-pointer overflow-hidden flex flex-col">
+      <div className="p-4 flex flex-col gap-3">
+        {/* Header: avatar + name/role/time | Get Started + bookmark */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
             <UserInitials name={post.user} />
             <div className="min-w-0">
-              <p className="text-[#18191c] text-[10px] font-semibold truncate">{post.user}</p>
-              <p className="text-[#9199a3] text-[9px] truncate">{post.role}</p>
+              <p className="text-[#18191c] text-sm font-bold leading-tight">{post.user}</p>
+              <p className="text-[#5e6670] text-xs leading-tight">{post.role}</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-[#9199a3] text-xs">{post.time}</span>
+                <span className="text-[#9199a3] text-xs">•</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9199a3" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
+                </svg>
+              </div>
             </div>
           </div>
-          <button className="h-[20px] px-2 bg-[#ff9400] text-white text-[9px] font-bold rounded-full shrink-0">Get Started</button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button className="bg-[#ff9400] text-white text-sm font-bold px-6 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
+              Get Started
+            </button>
+            <button className="text-[#ff9400]">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              </svg>
+            </button>
+          </div>
         </div>
-        <p className="text-[#18191c] text-xs font-bold line-clamp-1 mb-1.5">{post.title}</p>
-        <div className="flex flex-wrap gap-1 mb-2">
-          {post.tags.slice(0, 2).map(t => (
-            <span key={t} className="text-[8px] border border-[#e4e5e8] rounded-full px-1.5 py-0.5 text-[#5e6670]">{t}</span>
+
+        {/* Title */}
+        <p className="text-[#18191c] text-base font-bold leading-snug">{post.title}</p>
+
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1.5">
+          {post.tags.map(t => (
+            <span key={t} className="text-xs bg-[#fff6ed] border border-[#ffd5a0] rounded-full px-3 py-1 text-[#ff9400] font-medium">{t}</span>
           ))}
         </div>
+
+        {/* Divider */}
+        <div className="h-px bg-[#f2f2f2]" />
+
+        {/* Details grid */}
+        <div className="grid grid-cols-2 gap-y-2 text-sm">
+          <div>
+            <span className="text-[#18191c] font-medium">Mode : </span>
+            <span className="text-[#5e6670]">{post.mode}</span>
+          </div>
+          <div>
+            <span className="text-[#18191c] font-medium">Payment : </span>
+            <span className="text-[#5e6670]">{post.payment}</span>
+          </div>
+          <div>
+            <span className="text-[#18191c] font-medium">Target audience : </span>
+            <span className="text-[#5e6670]">{post.audience}</span>
+          </div>
+          <div>
+            <span className="text-[#18191c] font-medium">Last date to apply : </span>
+            <span className="text-[#5e6670]">{post.lastDate}</span>
+          </div>
+        </div>
       </div>
-      <img src={post.img} alt="" className="w-full h-[60px] object-cover" />
+
+      {/* Bottom image with gap from card border */}
+      <div className="px-3 pb-3 mt-auto">
+        <div className="w-full h-[155px] overflow-hidden" style={{ borderRadius: '0.35rem' }}>
+          <img src={post.img} alt="" className="w-full h-full object-cover" />
+        </div>
+      </div>
     </div>
   );
 }
 
 function LearningMiniCard({ post }: { post: typeof LEARNING_POSTS[0] }) {
   return (
-    <div className="border border-[#f2f2f3] rounded-xl overflow-hidden bg-white hover:shadow-md transition-shadow cursor-pointer">
-      <img src={post.img} alt="" className="w-full h-[70px] object-cover" />
-      <div className="p-2.5">
-        <p className="text-[#9199a3] text-[9px] mb-0.5">{post.university}</p>
-        <p className="text-[#18191c] text-xs font-bold line-clamp-2 mb-1.5">{post.title}</p>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-          <div><p className="text-[#ff9400] text-[8px]">Course Fee</p><p className="text-[#18191c] text-[9px]">{post.fee}</p></div>
-          <div><p className="text-[#ff9400] text-[8px]">Duration</p><p className="text-[#18191c] text-[9px]">{post.duration}</p></div>
+    <div className="rounded-[16px] bg-white border border-[#f0f0f0] shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col overflow-hidden">
+      {/* Cover image with padding so there's a gap from card border */}
+      <div className="px-3 pt-3 shrink-0">
+        <div className="w-full h-[155px] overflow-hidden" style={{ borderRadius: '0.35rem' }}>
+          <img src={post.img} alt="" className="w-full h-full object-cover" />
+        </div>
+      </div>
+
+      <div className="px-4 pt-3 pb-4 flex flex-col gap-2.5">
+        {/* Top section: left (university + title) | right (buttons stacked) */}
+        <div className="flex gap-3 items-start">
+          {/* Left: university + title */}
+          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+            <div className="flex items-center gap-1 min-w-0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#ff9400" strokeWidth="2"/>
+                <circle cx="12" cy="9" r="2.5" stroke="#ff9400" strokeWidth="2"/>
+              </svg>
+              <span className="text-[#5e6670] text-[12px] truncate">{post.university}</span>
+            </div>
+            <p className="text-[#18191c] text-[15px] font-bold leading-snug">{post.title}</p>
+          </div>
+          {/* Right: Get Started + bookmark, then Download Brochure same width */}
+          <div className="flex flex-col gap-2 shrink-0 w-[150px]">
+            <div className="flex items-center gap-1.5">
+              <button className="flex-1 bg-[#ff9400] text-white text-[13px] font-bold py-2 rounded-full hover:bg-[#e68500] transition-colors">
+                Get Started
+              </button>
+              <button className="text-[#ff9400] shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                </svg>
+              </button>
+            </div>
+            <button className="w-[calc(100%-28px)] border border-[#d0d0d0] text-[#5e6670] text-[10px] font-medium py-1.5 rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
+              Download Brochure
+            </button>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="h-px bg-[#f2f2f2]" />
+
+        {/* Academic level + Mode */}
+        <div className="grid grid-cols-2 gap-x-4">
+          <div>
+            <p className="text-[#ff9400] text-[11px] font-semibold">Academic level</p>
+            <p className="text-[#18191c] text-[13px] mt-0.5">{post.level}</p>
+          </div>
+          <div>
+            <p className="text-[#ff9400] text-[11px] font-semibold">Mode</p>
+            <p className="text-[#18191c] text-[13px] mt-0.5">{post.mode}</p>
+          </div>
+        </div>
+
+        {/* Course Fee | Duration | Application Deadline */}
+        <div className="grid grid-cols-3 gap-x-2">
+          <div>
+            <p className="text-[#ff9400] text-[11px] font-semibold">Course Fee</p>
+            <p className="text-[#18191c] text-[13px] font-medium mt-0.5">{post.fee}</p>
+          </div>
+          <div>
+            <p className="text-[#ff9400] text-[11px] font-semibold">Duration</p>
+            <p className="text-[#18191c] text-[13px] font-medium mt-0.5">{post.duration}</p>
+          </div>
+          <div>
+            <p className="text-[#ff9400] text-[11px] font-semibold">Application Deadline</p>
+            <p className="text-[#18191c] text-[13px] font-medium mt-0.5">{post.deadline}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -212,7 +324,7 @@ export default function SavedPostsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 flex flex-col gap-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 flex flex-col gap-16">
 
           {/* My Community Post */}
           <section>
@@ -225,7 +337,7 @@ export default function SavedPostsPage() {
           {/* Discover */}
           <section>
             <SectionHeader title="Discover" onViewAll={() => navigate('/saved/discover')} />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {DISCOVER_POSTS.map(p => <DiscoverMiniCard key={p.id} post={p} />)}
             </div>
           </section>
@@ -233,7 +345,7 @@ export default function SavedPostsPage() {
           {/* Learning Directory */}
           <section>
             <SectionHeader title="Learning Directory" onViewAll={() => navigate('/saved/learning')} />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {LEARNING_POSTS.map(p => <LearningMiniCard key={p.id} post={p} />)}
             </div>
           </section>

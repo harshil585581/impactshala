@@ -40,17 +40,12 @@ CREATE POLICY "anon_can_insert_profile" ON users
   TO anon
   WITH CHECK (true);
 
--- Allow backend (anon key) to read profile for login response
-CREATE POLICY "anon_can_read_profile" ON users
-  FOR SELECT
-  TO anon
-  USING (true);
 
--- Allow authenticated users to read and update their own profile
-CREATE POLICY "user_can_read_own" ON users
+-- Allow all users to read any profile
+CREATE POLICY "anyone_can_read_profiles" ON users
   FOR SELECT
-  TO authenticated
-  USING (auth.uid() = id);
+  TO public
+  USING (true);
 
 CREATE POLICY "user_can_update_own" ON users
   FOR UPDATE
@@ -197,4 +192,39 @@ CREATE POLICY "Users update own achievements"
 
 CREATE POLICY "Users delete own achievements"
   ON personal_achievements FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Collaborative Accomplishments table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS collaborative_accomplishments (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title           TEXT        NOT NULL,
+  collaborators   JSONB       NOT NULL DEFAULT '[]',
+  description     TEXT,
+  achieved_month  TEXT,
+  achieved_year   TEXT,
+  media_urls      TEXT[],
+  visibility      TEXT        NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'only_me', 'community')),
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE collaborative_accomplishments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public collab accomplishments readable"
+  ON collaborative_accomplishments FOR SELECT
+  USING (visibility = 'public' OR auth.uid() = user_id);
+
+CREATE POLICY "Users insert own collab accomplishments"
+  ON collaborative_accomplishments FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users update own collab accomplishments"
+  ON collaborative_accomplishments FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users delete own collab accomplishments"
+  ON collaborative_accomplishments FOR DELETE
   USING (auth.uid() = user_id);

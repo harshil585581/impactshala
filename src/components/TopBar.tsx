@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-const logo =
-  "https://www.figma.com/api/mcp/asset/d643d316-0055-4e66-93e3-4abd763761cd";
-const defaultAvatar =
-  "https://www.figma.com/api/mcp/asset/1f794d22-cc5e-4fd9-9a69-52e5d98eef02";
+const logo = null; // replaced inline with SVG text
+const defaultAvatar = null;
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -22,15 +20,18 @@ const roleLabels: Record<string, string> = {
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const navigate = useNavigate();
   const [meOpen, setMeOpen] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string>(defaultAvatar);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const meRef = useRef<HTMLDivElement>(null);
 
   const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
   const userRole: string = storedUser.role ?? "";
   const userType: string = storedUser.user_type ?? "";
-  const displayName: string = storedUser.first_name
-    ? `${storedUser.first_name} ${storedUser.last_name ?? ""}`.trim()
-    : (storedUser.org_name ?? "My Profile");
+  const displayName = (() => {
+    const f = storedUser.first_name;
+    const l = storedUser.last_name;
+    const full = [f, l].filter(s => s && s !== "unknown").join(" ");
+    return full || storedUser.org_name || "My Profile";
+  })();
   const roleLabel: string =
     userType === "organization"
       ? "Organization"
@@ -102,8 +103,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       </button>
 
       {/* Logo */}
-      <a href="/home" className="shrink-0">
-        <img src={logo} alt="Impactshaala" className="h-9 object-contain" />
+      <a href="/home" className="shrink-0 flex items-center gap-1.5">
+        <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
+          </svg>
+        </div>
+        <span className="text-[#18191c] font-bold text-base hidden sm:block">Impactshaala</span>
       </a>
 
       {/* Search bar */}
@@ -186,11 +192,15 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             onClick={() => setMeOpen((v) => !v)}
             className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#f77f00] transition-colors"
           >
-            <img
-              src={avatarUrl}
-              alt="Me"
-              className="w-7 h-7 rounded-full object-cover"
-            />
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Me" className="w-7 h-7 rounded-full object-cover" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">
+                  {(storedUser.first_name?.[0] ?? storedUser.org_name?.[0] ?? 'U').toUpperCase()}
+                </span>
+              </div>
+            )}
             <div className="flex items-center">
               <span className="text-[11px] leading-none">Me</span>
               <svg
@@ -216,11 +226,15 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             <div className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.12)] border border-[#f2f2f3] z-50 overflow-hidden py-1">
               {/* Profile header */}
               <div className="flex items-center gap-3 px-4 py-3 border-b border-[#f2f2f3]">
-                <img
-                  src={avatarUrl}
-                  alt="Me"
-                  className="w-9 h-9 rounded-full object-cover shrink-0"
-                />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Me" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-[#ff9400] flex items-center justify-center shrink-0">
+                    <span className="text-white text-xs font-bold">
+                      {(storedUser.first_name?.[0] ?? storedUser.org_name?.[0] ?? 'U').toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-[#18191c] text-sm font-semibold truncate">
                     {displayName}

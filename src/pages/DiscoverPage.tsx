@@ -18,10 +18,8 @@ const FILTER_SECTIONS = [
   "Level of participant",
 ];
 
-const postImg =
-  "https://www.figma.com/api/mcp/asset/d208c4d3-690e-45f8-8437-d98e914f6319";
-const avatarImg =
-  "https://www.figma.com/api/mcp/asset/0b4a16eb-d2da-476e-8cc7-d562ca381d0e";
+const postImg = "https://placehold.co/400x300/f5f5f5/cccccc";
+const avatarImg = "https://placehold.co/80x80/ff9400/ffffff";
 
 const POSTS = [
   {

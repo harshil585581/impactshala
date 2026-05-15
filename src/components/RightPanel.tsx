@@ -3,10 +3,7 @@ import { useProfile } from "../hooks/useProfile";
 import { fetchExperiences } from "../services/experienceService";
 import type { Experience } from "../services/experienceService";
 
-const courseImg =
-  "https://www.figma.com/api/mcp/asset/3e343bdd-8744-4851-8006-14dbcae6fa4e";
-const announcementIcon =
-  "https://www.figma.com/api/mcp/asset/aa7d9acc-23fc-4bfd-9415-0dfae5eafb68";
+const courseImg = "https://placehold.co/354x120/003049/ffffff?text=UI/UX+Course";
 
 export default function RightPanel() {
   const [helpDismissed, setHelpDismissed] = useState(false);
@@ -25,11 +22,27 @@ export default function RightPanel() {
     }
   }, [storedUser.id]);
 
+  function formatName(f?: string, l?: string, org?: string) {
+    const full = [f, l].filter(s => s && s !== "unknown").join(" ");
+    return full || org || "User";
+  }
+
   const name = profile
-    ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.orgName
-    : [storedUser.first_name, storedUser.last_name].filter(Boolean).join(" ") || storedUser.org_name || "You";
+    ? formatName(profile.firstName, profile.lastName, profile.orgName)
+    : formatName(storedUser.first_name, storedUser.last_name, storedUser.org_name);
 
   const avatar = profile?.avatarUrl || storedUser.avatar_url;
+
+  const headline = (() => {
+    if (currentExp) return `${currentExp.role} at ${currentExp.company}`;
+    if (profile?.title || profile?.company) {
+      return [profile.title, profile.company].filter(Boolean).join(" at ");
+    }
+    if (storedUser.title || storedUser.company) {
+      return [storedUser.title, storedUser.company].filter(Boolean).join(" at ");
+    }
+    return "Add your experience";
+  })();
 
   return (
     <aside className="w-[354px] shrink-0 flex flex-col gap-6">
@@ -54,16 +67,8 @@ export default function RightPanel() {
             <h3 className="text-[#282828] text-lg font-semibold truncate">
               {name}
             </h3>
-            <div className="flex items-center gap-1 justify-center mt-1 text-[#666] text-xs">
-              {currentExp ? (
-                <>
-                  <span className="truncate max-w-[120px]">{currentExp.role}</span>
-                  <span>·</span>
-                  <span className="truncate max-w-[120px]">{currentExp.company}</span>
-                </>
-              ) : (
-                <span>Add your experience</span>
-              )}
+            <div className="mt-1 text-[#666] text-xs px-4 truncate w-full text-center">
+              {headline}
             </div>
           </div>
 
@@ -128,11 +133,10 @@ export default function RightPanel() {
       {!helpDismissed && (
         <div className="bg-[#fffcf8] border border-[#ffeacc] rounded-[17px] p-4 flex flex-col gap-2 relative shadow-sm">
           <div className="flex items-start justify-between">
-            <img
-              src={announcementIcon}
-              alt=""
-              className="w-9 h-7 object-contain"
-            />
+            <svg width="32" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M22 2L11 13" stroke="#FF9400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="#FF9400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             <button
               onClick={() => setHelpDismissed(true)}
               className="text-[#9ca3af] hover:text-[#6b7280] transition-colors"

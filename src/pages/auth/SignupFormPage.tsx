@@ -1,16 +1,7 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
-const bgPhoto =
-  "https://www.figma.com/api/mcp/asset/ff7c19f8-999c-4f34-8e4b-6cea4269938c";
-const whiteLogo =
-  "https://www.figma.com/api/mcp/asset/d6e5d9b3-489f-4758-9655-08263b2209f7";
-const primaryLogo =
-  "https://www.figma.com/api/mcp/asset/74afddfa-47ae-4e56-bb54-0ef8d74734aa";
-const calendarIcon =
-  "https://www.figma.com/api/mcp/asset/cf259d59-49ad-45ed-850d-b566af53d11e";
 
 const interestOptions = [
   "Education & Learning",
@@ -90,11 +81,12 @@ export default function SignupFormPage() {
       <div className="flex-1 bg-white flex flex-col overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 sm:px-8 lg:px-10 py-4 sm:py-5 shrink-0">
-          <img
-            src={primaryLogo}
-            alt="Impactshaala"
-            className="h-8 sm:h-10 w-auto object-contain"
-          />
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
+            </div>
+            <span className="text-[#18191c] font-bold text-lg">Impactshaala</span>
+          </div>
           <Link
             to="/signup/step2"
             className="flex items-center gap-1 text-[#8692a6] font-semibold text-sm sm:text-base hover:text-[#f77f00] transition-colors"
@@ -168,11 +160,7 @@ export default function SignupFormPage() {
                       onChange={(e) => update("dob", e.target.value)}
                       className={`${inputCls} appearance-none`}
                     />
-                    <img
-                      src={calendarIcon}
-                      alt=""
-                      className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
-                    />
+                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#9ca3af]" width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   </div>
                 </div>
 
@@ -322,19 +310,14 @@ export default function SignupFormPage() {
       </div>
 
       {/* ── Right orange photo panel (desktop only) ── */}
-      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col">
-        <img
-          src={bgPhoto}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-[rgba(255,148,0,0.5)]" />
+      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-gradient-to-br from-[#ff9400] to-[#003049]">
         <div className="relative z-10 flex flex-col h-full px-10 py-8">
-          <img
-            src={whiteLogo}
-            alt="Impactshaala"
-            className="h-11 w-auto object-contain self-start"
-          />
+          <div className="flex items-center gap-2 self-start">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
+            </div>
+            <span className="text-white font-bold text-xl">Impactshaala</span>
+          </div>
           <div className="flex-1 flex items-center">
             <div>
               <span className="text-white text-8xl font-bold leading-none">
