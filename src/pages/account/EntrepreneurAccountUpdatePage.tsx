@@ -6,19 +6,6 @@ import { useAccountUpdate } from "../../hooks/useAccountUpdate";
 import { uploadProfileImage } from "../../services/accountService";
 
 // Tab icons from Figma
-const userIcon =
-  "https://www.figma.com/api/mcp/asset/aeacde15-44b6-45d0-a0e0-273e0d60de81";
-const userCircleIcon =
-  "https://www.figma.com/api/mcp/asset/6c1ee040-0e10-4e32-91cd-3efdea837772";
-const atIcon =
-  "https://www.figma.com/api/mcp/asset/bd19a781-f45c-4caf-bc9a-bb683b56f3c6";
-const envelopeIcon =
-  "https://www.figma.com/api/mcp/asset/f721fa21-d26c-4c12-9c82-2861f364f58a";
-const languageIcon =
-  "https://www.figma.com/api/mcp/asset/3ed2ca26-93a4-4801-99a0-45959d2e7c2c";
-const linkIcon =
-  "https://www.figma.com/api/mcp/asset/c12f4e16-6f90-478a-8500-58c37f19cd2b";
-
 type Tab = "profile" | "more" | "contact" | "complete";
 
 const DESCRIBE_OPTIONS: Record<"established" | "aspiring", string[]> = {
@@ -35,6 +22,10 @@ const SOCIAL_PLATFORMS = [
   "Medium / Substack",
   "LinkedIn",
 ];
+
+const linkIcon = `data:image/svg+xml,${encodeURIComponent('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="#9199a3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="#9199a3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>')}`;
+const envelopeIcon = `data:image/svg+xml,${encodeURIComponent('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="#9199a3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 6l-10 7L2 6" stroke="#9199a3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>')}`;
+const languageIcon = `data:image/svg+xml,${encodeURIComponent('<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 8c.667-1 1.5-2 2.5-2.5m.5 8c-2 0-4-1-4-1s2-4 5-4" stroke="#9199a3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11l4 8M20 11l-4 8m0 0h4" stroke="#9199a3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>')}`;
 
 const inputCls =
   "w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors";
@@ -271,10 +262,10 @@ export default function EntrepreneurAccountUpdatePage() {
     complete: 100,
   };
 
-  const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: "profile", label: "Profile Info", icon: userIcon },
-    { id: "more", label: "More Info", icon: userCircleIcon },
-    { id: "contact", label: "Contact", icon: atIcon },
+  const TABS: { id: Tab; label: string }[] = [
+    { id: "profile", label: "Profile Info" },
+    { id: "more", label: "More Info" },
+    { id: "contact", label: "Contact" },
   ];
 
   async function handleAvatarChange(file: File) {
@@ -439,7 +430,9 @@ export default function EntrepreneurAccountUpdatePage() {
                         : "text-[#4f5665] font-medium hover:text-[#18191c]"
                     }`}
                   >
-                    <img src={t.icon} alt="" className="w-5 h-5 shrink-0" />
+                    {t.id === 'profile' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+                    {t.id === 'more' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M6 20c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+                    {t.id === 'contact' && <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M2 7l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}
                     <span className="hidden xs:inline sm:inline">
                       {t.label}
                     </span>

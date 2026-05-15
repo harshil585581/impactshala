@@ -21,14 +21,20 @@ import { fetchEducations, deleteEducation, formatEducationPeriod, formatEducatio
 import type { Education } from '../../services/educationService';
 import AddEducationModal from '../../components/profile/AddEducationModal';
 import { fetchUserPosts, type FeedPost } from '../../services/postService';
+import {
+  fetchCollaborativeAccomplishments,
+  deleteCollaborativeAccomplishment,
+} from '../../services/collaborativeAccomplishmentService';
+import type { CollaborativeAccomplishment } from '../../services/collaborativeAccomplishmentService';
+import AddCollaborativeAccomplishmentModal from '../../components/profile/AddCollaborativeAccomplishmentModal';
+import CollaborativeAccomplishmentDetailModal from '../../components/profile/CollaborativeAccomplishmentDetailModal';
 
-const postImg1 = "https://www.figma.com/api/mcp/asset/d208c4d3-690e-45f8-8437-d98e914f6319";
+const postImg1 = "https://placehold.co/400x300/f5f5f5/cccccc";
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_REVIEWS: any[] = [];
-const MOCK_COLLAB_ACHIEVEMENTS: any[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function SocialIcon({ platform }: { platform: string }) {
@@ -251,10 +257,12 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
 // ── Badge icon for achievements ───────────────────────────────────────────────
 function BadgeIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="8" r="6" stroke="#ff9400" strokeWidth="1.5"/>
-      <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
+    <div className="w-6 h-6 rounded-full bg-[#ff9400] flex items-center justify-center shadow-md">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <path d="M8 21h8M12 17v4M7 4H4a2 2 0 00-2 2v2a4 4 0 004 4h.5M17 4h3a2 2 0 012 2v2a4 4 0 01-4 4h-.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M7 4h10v7a5 5 0 01-10 0V4z" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </div>
   );
 }
 
@@ -284,6 +292,9 @@ export default function ProfilePage() {
   const [educations, setEducations] = useState<Education[]>([]);
   const [addEduOpen, setAddEduOpen] = useState(false);
   const [editEdu, setEditEdu] = useState<Education | null>(null);
+  const [collabAccomplishments, setCollabAccomplishments] = useState<CollaborativeAccomplishment[]>([]);
+  const [addCollabOpen, setAddCollabOpen] = useState(false);
+  const [selectedCollab, setSelectedCollab] = useState<CollaborativeAccomplishment | null>(null);
 
   const loadExperiences = () => {
     if (!resolvedUserId) return;
@@ -305,10 +316,16 @@ export default function ProfilePage() {
     fetchUserPosts(resolvedUserId).then(setPosts).catch(() => {});
   };
 
+  const loadCollabAccomplishments = () => {
+    if (!resolvedUserId) return;
+    fetchCollaborativeAccomplishments(resolvedUserId).then(setCollabAccomplishments).catch(() => {});
+  };
+
   useEffect(() => { loadExperiences(); }, [resolvedUserId]);
   useEffect(() => { loadAchievements(); }, [resolvedUserId]);
   useEffect(() => { loadEducations(); }, [resolvedUserId]);
   useEffect(() => { loadPosts(); }, [resolvedUserId]);
+  useEffect(() => { loadCollabAccomplishments(); }, [resolvedUserId]);
 
   const displayedExp = showAllExp ? experiences : experiences.slice(0, 2);
   const displayedEdu = showAllEdu ? educations : educations.slice(0, 2);
@@ -691,7 +708,7 @@ export default function ProfilePage() {
                     {isOwn && (
                       <button onClick={() => setAddAchievementOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                        Add
+                        View All
                       </button>
                     )}
                   </div>
@@ -703,14 +720,14 @@ export default function ProfilePage() {
                       <button
                         key={a.id}
                         onClick={() => setSelectedAchievement(a)}
-                        className="border border-[#ffd9a0] rounded-xl p-3.5 relative bg-white hover:bg-[#fffaf4] transition-colors text-left"
+                        className="border-2 border-[#ffd9a0] rounded-xl p-5 pt-6 relative bg-white hover:bg-[#fffaf4] transition-colors flex flex-col items-center text-center min-h-[130px] justify-center"
                       >
                         <div className="absolute top-2.5 right-2.5">
                           <BadgeIcon />
                         </div>
-                        <p className="text-[#18191c] text-xs font-semibold leading-snug pr-6 mt-1">{a.title}</p>
+                        <p className="text-[#18191c] text-base font-bold leading-snug">{a.title}</p>
                         {a.achieved_date && (
-                          <p className="text-[#9199a3] text-[10px] mt-2">
+                          <p className="text-[#9199a3] text-sm mt-2">
                             Achieved on: {new Date(a.achieved_date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                           </p>
                         )}
@@ -725,27 +742,56 @@ export default function ProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#18191c] text-base font-semibold">
-                      Collaborative Achievements <span className="text-[#9199a3] font-normal text-sm">({MOCK_COLLAB_ACHIEVEMENTS.length})</span>
+                      Collaborative Achievements{' '}
+                      <span className="text-[#9199a3] font-normal text-sm">({collabAccomplishments.length})</span>
                     </h3>
-                    <button className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                      View All
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {isOwn && (
+                        <button
+                          onClick={() => setAddCollabOpen(true)}
+                          className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                          View All
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {MOCK_COLLAB_ACHIEVEMENTS.length > 0 ? MOCK_COLLAB_ACHIEVEMENTS.map((a) => (
-                      <div key={a.id} className="border border-[#ffd9a0] rounded-xl p-3.5 relative bg-white hover:bg-[#fffaf4] transition-colors">
-                        <div className="absolute top-2.5 right-2.5">
-                          <BadgeIcon />
-                        </div>
-                        <p className="text-[#18191c] text-xs font-semibold leading-snug pr-6 mt-1">{a.title}</p>
-                        <p className="text-[#9199a3] text-[10px] mt-1.5">{a.collaborators}</p>
-                        <p className="text-[#9199a3] text-[10px] mt-0.5">Achieved on: {a.date}</p>
-                      </div>
-                    )) : (
-                      <p className="text-[#9199a3] text-sm col-span-4">No collaborative achievements yet.</p>
-                    )}
-                  </div>
+                  {collabAccomplishments.length === 0 ? (
+                    <p className="text-[#9199a3] text-sm">No collaborative achievements yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {collabAccomplishments.map(a => {
+                        const collabs = a.collaborators ?? [];
+                        const firstName = collabs[0]?.name ?? '';
+                        const othersCount = collabs.length - 1;
+                        const dateStr = [a.achieved_month, a.achieved_year].filter(Boolean).join(' ');
+                        return (
+                          <button
+                            key={a.id}
+                            onClick={() => setSelectedCollab(a)}
+                            className="border-2 border-[#ffd9a0] rounded-xl p-5 pt-6 relative bg-white hover:bg-[#fffaf4] transition-colors flex flex-col items-center text-center min-h-[130px] justify-center"
+                          >
+                            <div className="absolute top-2.5 right-2.5">
+                              <BadgeIcon />
+                            </div>
+                            <p className="text-[#18191c] text-base font-bold leading-snug" style={{marginTop:"12px"}}>{a.title}</p>
+                            {collabs.length > 0 && (
+                              <p className="text-[#5e6670] text-sm mt-2 leading-relaxed">
+                                {firstName}
+                                {othersCount > 0 && (
+                                  <> and <span className="text-[#ff9400] font-semibold">{othersCount} others</span></>
+                                )}
+                              </p>
+                            )}
+                            {dateStr && (
+                              <p className="text-[#9199a3] text-sm mt-0.5">Achieved on &nbsp;{dateStr}</p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <Divider />
@@ -783,13 +829,13 @@ export default function ProfilePage() {
                               <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   onClick={() => setEditEdu(edu)}
-                                  className="text-[#9199a3] hover:text-[#ff9400] transition-colors p-1"
+                                  className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1"
                                 >
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </button>
                                 <button
                                   onClick={async () => { await deleteEducation(edu.id); loadEducations(); }}
-                                  className="text-[#9199a3] hover:text-red-400 transition-colors p-1"
+                                  className="text-[#ff9400] hover:text-red-500 transition-colors p-1"
                                 >
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                 </button>
@@ -857,7 +903,7 @@ export default function ProfilePage() {
               { label: 'Experience', onClick: () => { setAddSectionOpen(false); setAddExpOpen(true); } },
               { label: 'Education', onClick: () => { setAddSectionOpen(false); setAddEduOpen(true); } },
               { label: 'Personal Achievement', onClick: () => { setAddSectionOpen(false); setAddAchievementOpen(true); } },
-              { label: 'Collaborative Accomplishment', onClick: () => setAddSectionOpen(false) },
+              { label: 'Collaborative Accomplishment', onClick: () => { setAddSectionOpen(false); setAddCollabOpen(true); } },
             ].map(({ label, onClick }) => (
               <button key={label} onClick={onClick}
                 className="w-full flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3] last:border-0 text-[#18191c] text-sm hover:bg-[#f8f8f8] text-left">
@@ -897,6 +943,22 @@ export default function ProfilePage() {
           achievement={selectedAchievement}
           onClose={() => setSelectedAchievement(null)}
           onDeleted={loadAchievements}
+          isOwn={isOwn}
+        />
+      )}
+
+      {addCollabOpen && (
+        <AddCollaborativeAccomplishmentModal
+          onClose={() => setAddCollabOpen(false)}
+          onSaved={loadCollabAccomplishments}
+        />
+      )}
+
+      {selectedCollab && (
+        <CollaborativeAccomplishmentDetailModal
+          accomplishment={selectedCollab}
+          onClose={() => setSelectedCollab(null)}
+          onDeleted={loadCollabAccomplishments}
           isOwn={isOwn}
         />
       )}

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
 
-const CODE_IMG = 'https://www.figma.com/api/mcp/asset/d208c4d3-690e-45f8-8437-d98e914f6319';
+const CODE_IMG = 'https://placehold.co/400x300/f5f5f5/cccccc';
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 

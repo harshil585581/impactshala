@@ -1,8 +1,5 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const primaryLogo =
-  "https://www.figma.com/api/mcp/asset/e0e7b988-96c4-4b52-b3fa-190c7cd06977";
 
 function EyeIcon() {
   return (
@@ -66,11 +63,12 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <div className="flex justify-center px-5 pt-4 pb-2 shrink-0">
-        <img
-          src={primaryLogo}
-          alt="Impactshaala"
-          className="h-9 sm:h-10 w-auto object-contain"
-        />
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
+          </div>
+          <span className="text-[#18191c] font-bold text-lg">Impactshaala</span>
+        </div>
       </div>
 
       {/* Centered content */}
