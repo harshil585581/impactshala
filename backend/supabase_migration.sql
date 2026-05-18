@@ -27,9 +27,67 @@ CREATE TABLE IF NOT EXISTS users (
   contact_name  TEXT,
   phone         TEXT,
 
+  -- Shared profile fields
+  bio           TEXT,
+  avatar_url    TEXT,
+  cover_url     TEXT,
+  location      TEXT,
+  social_links  JSONB       NOT NULL DEFAULT '[]',
+  reach_for     TEXT[]      NOT NULL DEFAULT '{}',
+  setup_complete BOOLEAN    NOT NULL DEFAULT false,
+
+  -- Individual profile fields
+  role          TEXT,
+  education_level TEXT,
+  institute_name  TEXT,
+  resume_url    TEXT,
+  skills        TEXT[]      NOT NULL DEFAULT '{}',
+  work_sector   TEXT,
+  work_industry TEXT,
+  teach_subject TEXT,
+  experience_years TEXT,
+  entrepreneur_type TEXT,
+  describe_as   TEXT,
+  languages     TEXT,
+
+  -- Organization profile fields
+  sector        TEXT        CHECK (sector IN ('government', 'private')),
+  edu_levels_offered TEXT[] NOT NULL DEFAULT '{}',
+  services      TEXT[]      NOT NULL DEFAULT '{}',
+  industries    JSONB       NOT NULL DEFAULT '[]',
+
   agreed_terms  BOOLEAN     NOT NULL DEFAULT false,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ============================================================
+-- Migration: add profile columns to existing tables
+-- (safe to re-run — uses IF NOT EXISTS / IF EXISTS guards)
+-- ============================================================
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS bio              TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_url       TEXT,
+  ADD COLUMN IF NOT EXISTS cover_url        TEXT,
+  ADD COLUMN IF NOT EXISTS location         TEXT,
+  ADD COLUMN IF NOT EXISTS social_links     JSONB       DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS reach_for        TEXT[]      DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS setup_complete   BOOLEAN     DEFAULT false,
+  ADD COLUMN IF NOT EXISTS role             TEXT,
+  ADD COLUMN IF NOT EXISTS education_level  TEXT,
+  ADD COLUMN IF NOT EXISTS institute_name   TEXT,
+  ADD COLUMN IF NOT EXISTS resume_url       TEXT,
+  ADD COLUMN IF NOT EXISTS skills           TEXT[]      DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS work_sector      TEXT,
+  ADD COLUMN IF NOT EXISTS work_industry    TEXT,
+  ADD COLUMN IF NOT EXISTS teach_subject    TEXT,
+  ADD COLUMN IF NOT EXISTS experience_years TEXT,
+  ADD COLUMN IF NOT EXISTS entrepreneur_type TEXT,
+  ADD COLUMN IF NOT EXISTS describe_as      TEXT,
+  ADD COLUMN IF NOT EXISTS languages        TEXT,
+  ADD COLUMN IF NOT EXISTS sector           TEXT        CHECK (sector IN ('government', 'private')),
+  ADD COLUMN IF NOT EXISTS edu_levels_offered TEXT[]    DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS services         TEXT[]      DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS industries       JSONB       DEFAULT '[]';
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
