@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const INITIAL_TYPES = [
+const ORG_TYPES = [
   { id: "educational", label: "Educational Institutions", desc: "Schools, colleges, and universities", emoji: "🎓" },
   { id: "forprofit", label: "For Profit Companies", desc: "Businesses and private enterprises", emoji: "💼" },
   { id: "nonprofit", label: "Non Profit NGOs", desc: "Charitable and social impact organizations", emoji: "🤝" },
@@ -11,9 +11,6 @@ const INITIAL_TYPES = [
   { id: "fieldtrip", label: "Educational Field Trip Venues", desc: "Experiential learning centers", emoji: "🗺️" },
   { id: "startup", label: "Startup Support Organization", desc: "Incubators, accelerators, and VC firms", emoji: "🚀" },
   { id: "talent", label: "Talent Showcase & Learning", desc: "Showcase learning & stage", emoji: "🎭" },
-];
-
-const MORE_TYPES = [
   { id: "safety", label: "Public Safety & Law", desc: "Police, legal, and emergency services", emoji: "🛡️" },
   { id: "international", label: "International Organization", desc: "Global institutions and networks", emoji: "🌐" },
   { id: "others", label: "Others", desc: "Any organization not listed above", emoji: "📋" },
@@ -22,11 +19,6 @@ const MORE_TYPES = [
 export default function OrgTypeSelectPage() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState("educational");
-  const [showMore, setShowMore] = useState(false);
-
-  const visibleTypes = showMore
-    ? [...INITIAL_TYPES, ...MORE_TYPES]
-    : INITIAL_TYPES;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -108,7 +100,7 @@ export default function OrgTypeSelectPage() {
 
             {/* Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3.5">
-              {visibleTypes.map((type) => (
+              {ORG_TYPES.map((type) => (
                 <button
                   key={type.id}
                   onClick={() => setSelected(type.id)}
@@ -127,16 +119,6 @@ export default function OrgTypeSelectPage() {
                   </p>
                 </button>
               ))}
-            </div>
-
-            {/* Show more / less */}
-            <div className="text-center mt-3 sm:mt-4">
-              <button
-                onClick={() => setShowMore((v) => !v)}
-                className="text-[#f77f00] text-xs sm:text-sm font-medium underline underline-offset-2 hover:text-[#e07000] transition-colors"
-              >
-                {showMore ? "Show less" : "Show more"}
-              </button>
             </div>
 
             {/* Continue */}

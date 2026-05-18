@@ -59,27 +59,37 @@ class ResendRequest(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
+    # Individual fields
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     title: Optional[str] = None
     company: Optional[str] = None
-    location: Optional[str] = None
-    bio: Optional[str] = None
     languages: Optional[str] = None
     skills: Optional[List[str]] = None
-    social_links: Optional[List[Any]] = None
-    reach_for: Optional[List[str]] = None
     work_sector: Optional[str] = None
     work_industry: Optional[str] = None
     teach_subject: Optional[str] = None
     experience_years: Optional[str] = None
     entrepreneur_type: Optional[str] = None
     describe_as: Optional[str] = None
-    website: Optional[str] = None
-    setup_complete: Optional[bool] = None
     education_level: Optional[str] = None
     institute_name: Optional[str] = None
     resume_url: Optional[str] = None
+
+    # Shared fields
+    bio: Optional[str] = None
+    location: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    social_links: Optional[List[Any]] = None
+    reach_for: Optional[List[str]] = None
+    setup_complete: Optional[bool] = None
+
+    # Organization fields
+    sector: Optional[str] = None
+    edu_levels_offered: Optional[List[str]] = None
+    services: Optional[List[str]] = None
+    industries: Optional[List[Any]] = None
 
 
 def get_user_id(authorization: str) -> str:
