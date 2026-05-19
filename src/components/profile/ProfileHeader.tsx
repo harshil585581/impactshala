@@ -124,7 +124,16 @@ export default function ProfileHeader({
                   Edit Profile
                 </button>
                 <button
-                  onClick={() => navigate("/account/update/" + profile.role)}
+                  onClick={() => {
+                    const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
+                    if (storedUser.user_type === 'organization' && storedUser.org_type === 'forprofit') {
+                      navigate('/account/update/org/forprofit');
+                    } else if (storedUser.user_type === 'organization') {
+                      navigate('/account/update/org');
+                    } else {
+                      navigate('/account/update/' + profile.role);
+                    }
+                  }}
                   className="h-[40px] px-5 bg-[#f77f00] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]"
                 >
                   Update Account

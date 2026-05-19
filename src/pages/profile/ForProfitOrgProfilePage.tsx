@@ -24,7 +24,6 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const MOCK_REVIEWS: any[] = [];
 
-// ── Add Industry Experience Modal ──────────────────────────────────────────────
 function AddIndustryExperienceModal({
   currentIndustries,
   onClose,
@@ -101,7 +100,6 @@ function AddIndustryExperienceModal({
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function SocialIcon({ platform }: { platform: string }) {
   const p = platform.toLowerCase();
   if (p.includes('linkedin')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14zm-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79zM6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68zm1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>;
@@ -136,20 +134,9 @@ function AddButton({ onClick }: { onClick?: () => void }) {
   );
 }
 
-function BadgeIcon() {
-  return (
-    <div className="w-6 h-6 rounded-full bg-[#ff9400] flex items-center justify-center shadow-md">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-        <path d="M8 21h8M12 17v4M7 4H4a2 2 0 00-2 2v2a4 4 0 004 4h.5M17 4h3a2 2 0 012 2v2a4 4 0 01-4 4h-.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M7 4h10v7a5 5 0 01-10 0V4z" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </div>
-  );
-}
-
 function OrgSectorLabel({ sector }: { sector?: string }) {
   if (!sector) return null;
-  const label = sector.charAt(0).toUpperCase() + sector.slice(1);
+  const label = sector === 'private' ? 'Private Sector' : sector === 'government' ? 'Government Sector' : sector.charAt(0).toUpperCase() + sector.slice(1);
   return (
     <span className="inline-block text-xs font-semibold text-[#5e6670] rounded-full">
       {label}
@@ -157,15 +144,14 @@ function OrgSectorLabel({ sector }: { sector?: string }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-export default function OrgProfilePage() {
+export default function ForProfitOrgProfilePage() {
   const { userId = 'me' } = useParams<{ userId?: string }>();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [showAllEduLevels, setShowAllEduLevels] = useState(false);
+  const [showAllIndustries, setShowAllIndustries] = useState(false);
   const [showAllInd, setShowAllInd] = useState(false);
   const [addIndExpOpen, setAddIndExpOpen] = useState(false);
 
@@ -207,14 +193,15 @@ export default function OrgProfilePage() {
   useEffect(() => { loadCollabAccomplishments(); }, [resolvedUserId]);
 
   const reachForTags = profile?.reachFor ?? [];
+  const applicableIndustries = profile?.applicableIndustries ?? [];
 
-  const [eduLimit, setEduLimit] = useState((profile?.eduLevelsOffered ?? []).length || 10);
-  const eduMeasureRef = useRef<HTMLDivElement>(null);
+  const [indLimit, setIndLimit] = useState(applicableIndustries.length || 10);
+  const indMeasureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!eduMeasureRef.current) return;
+    if (!indMeasureRef.current) return;
     const observer = new ResizeObserver(() => {
-      const container = eduMeasureRef.current;
+      const container = indMeasureRef.current;
       if (!container) return;
       const children = Array.from(container.children) as HTMLElement[];
       if (children.length === 0) return;
@@ -229,15 +216,15 @@ export default function OrgProfilePage() {
       }
 
       if (wrapIndex !== -1) {
-        setEduLimit(Math.max(1, wrapIndex - 1));
+        setIndLimit(Math.max(1, wrapIndex - 1));
       } else {
-        setEduLimit((profile?.eduLevelsOffered ?? []).length);
+        setIndLimit(applicableIndustries.length);
       }
     });
 
-    observer.observe(eduMeasureRef.current);
+    observer.observe(indMeasureRef.current);
     return () => observer.disconnect();
-  }, [(profile?.eduLevelsOffered ?? []).join(',')]);
+  }, [applicableIndustries.join(',')]);
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -485,46 +472,46 @@ export default function OrgProfilePage() {
 
                 <Divider />
 
-                {/* Educational Levels Offered */}
+                {/* Industry (Applicable Industries) */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[#18191c] text-lg font-bold">Educational Levels Offered</h3>
+                    <h3 className="text-[#18191c] text-lg font-bold">Industry</h3>
                   </div>
-                  {(profile?.eduLevelsOffered ?? []).length > 0 ? (
-                    showAllEduLevels ? (
+                  {applicableIndustries.length > 0 ? (
+                    showAllIndustries ? (
                       <>
                         <div className="flex flex-wrap gap-2">
-                          {(profile?.eduLevelsOffered ?? []).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
-                              {level}
+                          {applicableIndustries.map((ind) => (
+                            <span key={ind} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                              {ind}
                             </span>
                           ))}
                         </div>
-                        <button onClick={() => setShowAllEduLevels(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
+                        <button onClick={() => setShowAllIndustries(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
                           Show less
                         </button>
                       </>
                     ) : (
                       <div className="relative">
                         {/* Hidden measuring container */}
-                        <div ref={eduMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
-                          {(profile?.eduLevelsOffered ?? []).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
-                              {level}
+                        <div ref={indMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
+                          {applicableIndustries.map((ind) => (
+                            <span key={ind} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                              {ind}
                             </span>
                           ))}
                         </div>
 
                         {/* Visible container */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          {(profile?.eduLevelsOffered ?? []).slice(0, eduLimit).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
-                              {level}
+                          {applicableIndustries.slice(0, indLimit).map((ind) => (
+                            <span key={ind} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
+                              {ind}
                             </span>
                           ))}
-                          {eduLimit < (profile?.eduLevelsOffered ?? []).length && (
+                          {indLimit < applicableIndustries.length && (
                             <button
-                              onClick={() => setShowAllEduLevels(true)}
+                              onClick={() => setShowAllIndustries(true)}
                               className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
                             >
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/></svg>
@@ -656,11 +643,9 @@ export default function OrgProfilePage() {
                       Collaborative Accomplishment{' '}
                       <span className="text-[#9199a3] font-normal text-sm">({collabAccomplishments.length})</span>
                     </h3>
-                    <div className="flex items-center gap-3">
-                      {collabAccomplishments.length > 0 && (
-                        <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
-                      )}
-                    </div>
+                    {collabAccomplishments.length > 0 && (
+                      <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
+                    )}
                   </div>
                   {collabAccomplishments.length === 0 ? (
                     <p className="text-[#9199a3] text-sm">No collaborative achievements yet.</p>
@@ -713,13 +698,9 @@ export default function OrgProfilePage() {
                           );
                         })}
                       </div>
-                      {/* Scroll indicator */}
                       <div className="flex gap-1.5 mt-1">
                         {collabAccomplishments.slice(0, 5).map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-1 rounded-full transition-all ${i === 0 ? 'w-6 bg-[#ff9400]' : 'w-2 bg-[#ffd9a0]'}`}
-                          />
+                          <div key={i} className={`h-1 rounded-full transition-all ${i === 0 ? 'w-6 bg-[#ff9400]' : 'w-2 bg-[#ffd9a0]'}`} />
                         ))}
                       </div>
                     </div>

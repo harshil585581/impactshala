@@ -53,6 +53,7 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
     // Organization-specific
     sector: data.sector,
     eduLevelsOffered: data.edu_levels_offered ?? [],
+    applicableIndustries: data.applicable_industries ?? [],
     services: data.services ?? [],
     industries: data.industries ?? [],
   };
@@ -77,6 +78,7 @@ export async function updateProfile(data: Partial<EditProfileForm>): Promise<voi
   const payload: Record<string, unknown> = {};
   if (data.firstName !== undefined) payload.first_name = data.firstName;
   if (data.lastName !== undefined) payload.last_name = data.lastName;
+  if (data.orgName !== undefined) payload.org_name = data.orgName;
   if (data.title !== undefined) payload.title = data.title;
   if (data.company !== undefined) payload.company = data.company;
   if (data.location !== undefined) payload.location = data.location;
@@ -84,6 +86,7 @@ export async function updateProfile(data: Partial<EditProfileForm>): Promise<voi
   if (data.languages !== undefined) payload.languages = data.languages;
   if (data.website !== undefined) payload.website = data.website;
   if (data.skills !== undefined) payload.skills = data.skills;
+  if (data.services !== undefined) payload.services = data.services;
   if (data.socialLinks !== undefined) payload.social_links = data.socialLinks;
   if (data.reachFor !== undefined) payload.reach_for = data.reachFor;
 
