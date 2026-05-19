@@ -259,7 +259,7 @@ export default function ForProfitOrgProfilePage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
                     {/* Avatar */}
-                    <div className="relative shrink-0 -mt-[90px]">
+                    <div className="relative shrink-0 -mt-[18px]">
                       {profile?.avatarUrl ? (
                         <img src={profile.avatarUrl} alt="avatar"
                           className="w-[120px] h-[120px] rounded-full object-cover border-4 border-white shadow-md" />
