@@ -31,6 +31,7 @@ export default function App() {
         {/* Auth */}
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/signin" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
