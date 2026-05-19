@@ -637,9 +637,9 @@ export default function OrgProfilePage() {
                         <button
                           key={a.id}
                           onClick={() => setShowAllAchievements(true)}
-                          className="border-2 border-[#ffd9a0] rounded-xl p-5 bg-white hover:bg-[#fffaf4] transition-colors flex flex-col items-center text-center shrink-0 w-[230px] min-h-[140px] justify-center gap-3"
+                          className="border-2 border-[#ffd9a0] rounded-xl py-3 px-4 bg-white hover:bg-[#fffaf4] transition-colors flex flex-col items-center text-center shrink-0 w-[230px] min-h-[110px] justify-center gap-2"
                         >
-                          <img src={cupSvg} alt="achievement" className="w-14 h-14 object-contain" />
+                          <img src={cupSvg} alt="achievement" className="w-11 h-11 object-contain" />
                           <p className="text-[#18191c] text-sm font-semibold leading-snug line-clamp-2">{a.title}</p>
                         </button>
                       ))}
