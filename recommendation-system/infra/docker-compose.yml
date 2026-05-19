@@ -1,0 +1,107 @@
+version: "3.9"
+
+# Database is Supabase (external) — only Redis, Celery worker, and the API run here.
+
+services:
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: recsys-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI app ─────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: recsys-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Celery worker ───────────────────────────────────────────────────────────
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: recsys-celery-worker
+    command: celery -A apps.worker.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - ../.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Celery Beat (scheduler) ─────────────────────────────────────────────────
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: recsys-celery-beat
+    command: celery -A apps.worker.celery_app beat --loglevel=info
+    env_file:
+      - ../.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Flower (Celery monitoring UI) ───────────────────────────────────────────
+  flower:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: recsys-flower
+    command: celery -A apps.worker.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    env_file:
+      - ../.env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/1
+    depends_on:
+      - celery-worker
+    restart: unless-stopped
+
+volumes:
+  redis-data:
