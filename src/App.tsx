@@ -14,7 +14,7 @@ import UpdateAccountPage from './pages/account/UpdateAccountPage';
 import UpdateOrgAccountPage from './pages/account/UpdateOrgAccountPage';
 import StudentAccountUpdatePage from './pages/account/StudentAccountUpdatePage';
 import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUpdatePage';
-import ProfilePage from './pages/profile/ProfilePage';
+import ProfilePageWrapper from './pages/profile/ProfilePageWrapper';
 import ProfessionalAccountUpdatePage from './pages/account/ProfessionalAccountUpdatePage';
 import EducatorAccountUpdatePage from './pages/account/EducatorAccountUpdatePage';
 import AuthCallbackPage from './pages/auth/AuthCallbackPage';
@@ -47,8 +47,8 @@ export default function App() {
         <Route path="/signup/org/form" element={<OrgFormPage />} />
 
         {/* Profile */}
-        <Route path="/profile/me" element={<ProfilePage />} />
-        <Route path="/profile/:userId" element={<ProfilePage />} />
+        <Route path="/profile/me" element={<ProfilePageWrapper />} />
+        <Route path="/profile/:userId" element={<ProfilePageWrapper />} />
 
         {/* App */}
         <Route path="/home" element={<HomePage />} />

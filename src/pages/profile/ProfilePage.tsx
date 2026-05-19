@@ -23,16 +23,12 @@ import AddEducationModal from '../../components/profile/AddEducationModal';
 import { fetchUserPosts, type FeedPost } from '../../services/postService';
 import {
   fetchCollaborativeAccomplishments,
-  deleteCollaborativeAccomplishment,
 } from '../../services/collaborativeAccomplishmentService';
 import type { CollaborativeAccomplishment } from '../../services/collaborativeAccomplishmentService';
 import AddCollaborativeAccomplishmentModal from '../../components/profile/AddCollaborativeAccomplishmentModal';
 import CollaborativeAccomplishmentDetailModal from '../../components/profile/CollaborativeAccomplishmentDetailModal';
-
-const postImg1 = "https://placehold.co/400x300/f5f5f5/cccccc";
+const postImg1 = 'https://placehold.co/400x300/f5f5f5/cccccc';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_REVIEWS: any[] = [];
 
@@ -63,7 +59,6 @@ function StarRating({ rating }: { rating: number }) {
 function Divider() {
   return <div className="h-px bg-[#f2f2f3] my-6" />;
 }
-
 
 function AddButton({ onClick }: { onClick?: () => void }) {
   return (
@@ -97,9 +92,7 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
 
   const handleAddSkill = () => {
     const trimmed = newSkill.trim();
-    if (trimmed && !skills.includes(trimmed)) {
-      setSkills([...skills, trimmed]);
-    }
+    if (trimmed && !skills.includes(trimmed)) setSkills([...skills, trimmed]);
     setNewSkill('');
     setShowSkillInput(false);
   };
@@ -179,41 +172,22 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
                 <span key={s} className="flex items-center gap-1.5 bg-[#fff8ee] border border-[#ffd9a0] text-[#ff9400] text-xs px-3 py-1.5 rounded-full">
                   {s}
                   <button onClick={() => setSkills((p) => p.filter((x) => x !== s))} className="hover:text-red-500">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </span>
               ))}
             </div>
-            
             {showSkillInput ? (
               <div className="flex items-center gap-2 mt-1">
-                <input
-                  autoFocus
-                  className={`${inp} h-[36px] flex-1`}
-                  placeholder="Type a skill..."
-                  value={newSkill}
-                  onChange={(e) => setNewSkill(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddSkill();
-                    if (e.key === 'Escape') setShowSkillInput(false);
-                  }}
-                  onBlur={() => {
-                    if (!newSkill.trim()) setShowSkillInput(false);
-                  }}
-                />
-                <button
-                  onClick={handleAddSkill}
-                  className="h-[36px] px-4 bg-[#ff9400] text-white text-xs font-semibold rounded-lg hover:bg-[#e68500] transition-colors"
-                >
-                  Add
-                </button>
+                <input autoFocus className={`${inp} h-[36px] flex-1`} placeholder="Type a skill..."
+                  value={newSkill} onChange={(e) => setNewSkill(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddSkill(); if (e.key === 'Escape') setShowSkillInput(false); }}
+                  onBlur={() => { if (!newSkill.trim()) setShowSkillInput(false); }} />
+                <button onClick={handleAddSkill} className="h-[36px] px-4 bg-[#ff9400] text-white text-xs font-semibold rounded-lg hover:bg-[#e68500] transition-colors">Add</button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => setShowSkillInput(true)}
-                className="self-start h-[36px] px-5 border border-[#ff9400] text-[#ff9400] text-sm font-medium rounded-full hover:bg-[#fff6ed] transition-colors"
-              >
+              <button type="button" onClick={() => setShowSkillInput(true)}
+                className="self-start h-[36px] px-5 border border-[#ff9400] text-[#ff9400] text-sm font-medium rounded-full hover:bg-[#fff6ed] transition-colors">
                 + Add Skill
               </button>
             )}
@@ -224,25 +198,14 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
             onClick={async () => {
               if (!title.trim() || !company.trim()) return;
               const data = {
-                role: title.trim(),
-                company: company.trim(),
-                emp_type: empType || null,
-                start_month: startMonth || null,
-                start_year: startYear || null,
-                end_month: current ? null : endMonth || null,
-                end_year: current ? null : endYear || null,
-                is_current: current,
-                location: location.trim() || null,
-                description: description.trim() || null,
-                skills: skills.length > 0 ? skills : undefined,
+                role: title.trim(), company: company.trim(), emp_type: empType || null,
+                start_month: startMonth || null, start_year: startYear || null,
+                end_month: current ? null : endMonth || null, end_year: current ? null : endYear || null,
+                is_current: current, location: location.trim() || null,
+                description: description.trim() || null, skills: skills.length > 0 ? skills : undefined,
               };
-              if (experience) {
-                await updateExperience(experience.id, data);
-              } else {
-                await createExperience(data);
-              }
-              onSaved();
-              onClose();
+              if (experience) { await updateExperience(experience.id, data); } else { await createExperience(data); }
+              onSaved(); onClose();
             }}
             className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors"
           >
@@ -254,7 +217,6 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
   );
 }
 
-// ── Badge icon for achievements ───────────────────────────────────────────────
 function BadgeIcon() {
   return (
     <div className="w-6 h-6 rounded-full bg-[#ff9400] flex items-center justify-center shadow-md">
@@ -329,7 +291,6 @@ export default function ProfilePage() {
 
   const displayedExp = showAllExp ? experiences : experiences.slice(0, 2);
   const displayedEdu = showAllEdu ? educations : educations.slice(0, 2);
-
   const reachForTags = profile?.reachFor ?? [];
   const interests = profile?.skills ?? [];
 
@@ -353,21 +314,19 @@ export default function ProfilePage() {
           ) : (
             <div className="bg-white rounded-[14px] border border-[#f2f2f3] shadow-[0px_2px_8px_rgba(0,0,0,0.06)]">
 
-              {/* Cover — own overflow-hidden keeps image clipped to card's rounded top corners */}
+              {/* Cover */}
               <div className="relative w-full h-[170px] sm:h-[230px] bg-gradient-to-r from-[#5a3e2b] via-[#7a5c3e] to-[#4a3020] rounded-t-[14px] overflow-hidden">
                 {profile?.coverUrl && (
                   <img src={profile.coverUrl} alt="Cover" className="w-full h-full object-cover" />
                 )}
-                {/* White card overlay — inset left/right to match content padding below */}
                 <div className="absolute bottom-0 left-6 right-6 sm:left-8 sm:right-8 h-10 bg-white rounded-t-[24px]" />
               </div>
 
-              {/* Header — px matches the overlay left/right offset above */}
+              {/* Header */}
               <div className="px-6 sm:px-16 pt-0 pb-0">
-                {/* Top row: avatar + name + social icons */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    {/* Avatar — overlaps the banner */}
+                    {/* Avatar */}
                     <div className="relative shrink-0 -mt-[90px]">
                       {profile?.avatarUrl ? (
                         <img src={profile.avatarUrl} alt="avatar"
@@ -385,7 +344,9 @@ export default function ProfilePage() {
                     {/* Name / Info */}
                     <div className="flex flex-col gap-0.5 min-w-0 -mt-3 relative z-10">
                       <h1 className="text-[#18191c] text-xl font-bold leading-tight">
-                        {profile ? `${profile.firstName} ${profile.lastName}`.trim() : `${storedUser.first_name ?? ''} ${storedUser.last_name ?? ''}`.trim() || storedUser.org_name || 'Your Name'}
+                        {profile
+                          ? `${profile.firstName} ${profile.lastName}`.trim()
+                          : `${storedUser.first_name ?? ''} ${storedUser.last_name ?? ''}`.trim() || 'Your Name'}
                       </h1>
                       {(profile?.title || profile?.company || profile?.instituteName) && (
                         <p className="text-[#5e6670] text-sm">
@@ -401,7 +362,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  {/* Social icons — top right */}
+                  {/* Social icons */}
                   {profile?.socialLinks && profile.socialLinks.length > 0 && (
                     <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end -mt-2 relative z-10">
                       {profile.socialLinks.map((link) => (
@@ -415,7 +376,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2 mt-3 mb-1 flex-wrap" style={{paddingLeft:"10%"}}>
+                <div className="flex items-center gap-2 mt-3 mb-1 flex-wrap" style={{ paddingLeft: '10%' }}>
                   {isOwn ? (
                     <>
                       <button onClick={() => setEditOpen(true)}
@@ -478,10 +439,7 @@ export default function ProfilePage() {
                       { label: 'Achievements', value: String(achievements.length) },
                       { label: 'Community Members', value: '0' },
                     ].map((s) => (
-                      <button
-                        key={s.label}
-                        className="flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors"
-                      >
+                      <button key={s.label} className="flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors">
                         <span className="text-[#ff9400] text-xl font-bold leading-tight">{s.value}</span>
                         <span className="text-[#18191c] text-[11px] font-medium text-center mt-0.5">{s.label}</span>
                       </button>
@@ -496,7 +454,7 @@ export default function ProfilePage() {
                 {/* Reach out */}
                 <div>
                   <p className="text-[#18191c] text-sm font-semibold mb-3">Reach out to me for:</p>
-                  {reachForTags.length > 0 && (
+                  {reachForTags.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {reachForTags.map((tag) => (
                         <span key={tag} className="bg-[#fff6ed] text-[#ff9400] text-xs font-medium px-3.5 py-1.5 rounded-full border border-[#ffeacc]">
@@ -504,15 +462,14 @@ export default function ProfilePage() {
                         </span>
                       ))}
                     </div>
-                  )}
-                  {reachForTags.length === 0 && (
+                  ) : (
                     <p className="text-[#9199a3] text-sm">Not specified yet.</p>
                   )}
                 </div>
 
                 <Divider />
 
-                {/* Interest / Additional Details / Portfolio */}
+                {/* 3-column section */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div>
                     <p className="text-[#18191c] text-sm font-semibold mb-3">Interest</p>
@@ -551,8 +508,8 @@ export default function ProfilePage() {
                   </div>
 
                   <div>
-                    <p className="text-[#18191c] text-sm font-semibold mb-3">Portfolio/Resume</p>
-                    <div 
+                    <p className="text-[#18191c] text-sm font-semibold mb-3">Portfolio / Resume</p>
+                    <div
                       onClick={async () => {
                         if (!profile?.resumeUrl) return;
                         try {
@@ -564,18 +521,14 @@ export default function ProfilePage() {
                       }}
                       className={`relative w-[150px] h-[190px] group cursor-pointer overflow-hidden rounded-xl border border-[#e4e5e8] bg-white shadow-sm hover:shadow-md transition-all ${!profile?.resumeUrl ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                      {/* Blurred Resume Preview Image */}
                       <div className="absolute inset-0 bg-[#f8fafc]">
-                        <img 
-                          src="data:image/png;base64,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" 
-                          alt="Resume Preview" 
+                        <img
+                          src="data:image/png;base64,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"
+                          alt="Resume Preview"
                           className="w-full h-full object-cover blur-[1.5px] opacity-50 grayscale-[0.3]"
                         />
-                        {/* Gradient overlay for better contrast */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
                       </div>
-
-                      {/* Eye Icon in Middle */}
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-[#ff9400] transform group-hover:scale-110 transition-transform duration-300">
                           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -584,11 +537,9 @@ export default function ProfilePage() {
                           </svg>
                         </div>
                       </div>
-
-                      {/* Status indicator if no resume */}
                       {!profile?.resumeUrl && (
                         <div className="absolute inset-0 flex items-end justify-center pb-4">
-                           <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">No Resume</span>
+                          <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">No Resume</span>
                         </div>
                       )}
                     </div>
@@ -626,21 +577,10 @@ export default function ProfilePage() {
                             </div>
                             {isOwn && (
                               <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                  onClick={() => setEditExp(exp)}
-                                  className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1"
-                                >
+                                <button onClick={() => setEditExp(exp)} className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1">
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </button>
-                                <button
-                                  onClick={async () => {
-                                    if (window.confirm('Are you sure you want to delete this experience?')) {
-                                      await deleteExperience(exp.id);
-                                      loadExperiences();
-                                    }
-                                  }}
-                                  className="text-[#ff9400] hover:text-red-500 transition-colors p-1"
-                                >
+                                <button onClick={async () => { if (window.confirm('Delete this experience?')) { await deleteExperience(exp.id); loadExperiences(); } }} className="text-[#ff9400] hover:text-red-500 transition-colors p-1">
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                 </button>
                               </div>
@@ -649,15 +589,10 @@ export default function ProfilePage() {
                           {exp.description && (
                             <p className="text-[#5e6670] text-xs mt-3 leading-relaxed">{exp.description}</p>
                           )}
-
-                          {/* Skills tags */}
                           {exp.skills && exp.skills.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-4">
                               {exp.skills.map((skill, i) => (
-                                <span
-                                  key={i}
-                                  className="px-4 py-1.5 rounded-full border border-[#ff9400] text-[#ff9400] text-xs font-medium bg-white hover:bg-[#fff8ee] transition-colors cursor-default"
-                                >
+                                <span key={i} className="px-4 py-1.5 rounded-full border border-[#ff9400] text-[#ff9400] text-xs font-medium bg-white hover:bg-[#fff8ee] transition-colors cursor-default">
                                   {skill}
                                 </span>
                               ))}
@@ -679,7 +614,7 @@ export default function ProfilePage() {
                 {/* Reviews */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[#18191c] text-base font-semibold">Reviews</h3>
+                    <h3 className="text-[#18191c] text-base font-semibold">Credibility</h3>
                     <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -702,13 +637,11 @@ export default function ProfilePage() {
                 {/* Personal Achievements */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-[#18191c] text-base font-semibold">Personal Achievements</h3>
-                    </div>
+                    <h3 className="text-[#18191c] text-base font-semibold">Personal Achievements</h3>
                     {isOwn && (
                       <button onClick={() => setAddAchievementOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                        View All
+                        Add
                       </button>
                     )}
                   </div>
@@ -747,12 +680,9 @@ export default function ProfilePage() {
                     </h3>
                     <div className="flex items-center gap-3">
                       {isOwn && (
-                        <button
-                          onClick={() => setAddCollabOpen(true)}
-                          className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline"
-                        >
+                        <button onClick={() => setAddCollabOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                          View All
+                          Add
                         </button>
                       )}
                     </div>
@@ -775,7 +705,7 @@ export default function ProfilePage() {
                             <div className="absolute top-2.5 right-2.5">
                               <BadgeIcon />
                             </div>
-                            <p className="text-[#18191c] text-base font-bold leading-snug" style={{marginTop:"12px"}}>{a.title}</p>
+                            <p className="text-[#18191c] text-base font-bold leading-snug" style={{ marginTop: '12px' }}>{a.title}</p>
                             {collabs.length > 0 && (
                               <p className="text-[#5e6670] text-sm mt-2 leading-relaxed">
                                 {firstName}
@@ -827,16 +757,10 @@ export default function ProfilePage() {
                             </div>
                             {isOwn && (
                               <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                  onClick={() => setEditEdu(edu)}
-                                  className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1"
-                                >
+                                <button onClick={() => setEditEdu(edu)} className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1">
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </button>
-                                <button
-                                  onClick={async () => { await deleteEducation(edu.id); loadEducations(); }}
-                                  className="text-[#ff9400] hover:text-red-500 transition-colors p-1"
-                                >
+                                <button onClick={async () => { await deleteEducation(edu.id); loadEducations(); }} className="text-[#ff9400] hover:text-red-500 transition-colors p-1">
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                                 </button>
                               </div>

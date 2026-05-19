@@ -25,10 +25,9 @@ export default function AchievementDetailModal({ achievement, onClose, onDeleted
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = scrollRef.current.offsetWidth;
       scrollRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
+        left: direction === 'left' ? -scrollRef.current.offsetWidth : scrollRef.current.offsetWidth,
+        behavior: 'smooth',
       });
     }
   };
@@ -63,7 +62,6 @@ export default function AchievementDetailModal({ achievement, onClose, onDeleted
       >
         {/* Header */}
         <div className="flex items-start gap-5 px-8 pt-8 pb-6">
-          {/* Trophy icon */}
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#ff9400] to-[#ff7b00] flex items-center justify-center shrink-0 shadow-lg shadow-orange-200">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
               <path d="M8 21h8M12 17v4M7 4H4a2 2 0 00-2 2v2a4 4 0 004 4h.5M17 4h3a2 2 0 012 2v2a4 4 0 01-4 4h-.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -80,7 +78,6 @@ export default function AchievementDetailModal({ achievement, onClose, onDeleted
             )}
           </div>
 
-          {/* 3-dot menu (owner only) */}
           <div className="flex items-center gap-3 shrink-0">
             {isOwn && (
               <div className="relative">
@@ -133,7 +130,7 @@ export default function AchievementDetailModal({ achievement, onClose, onDeleted
         {achievement.media_urls && achievement.media_urls.length > 0 && (
           <div className="px-8 pb-8">
             <div className="relative group/slider">
-              <div 
+              <div
                 ref={scrollRef}
                 className="flex gap-5 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory scroll-smooth"
               >
@@ -147,38 +144,33 @@ export default function AchievementDetailModal({ achievement, onClose, onDeleted
                   </div>
                 ))}
               </div>
-              
-              {/* Functional Arrows */}
+
               {achievement.media_urls.length > 2 && (
                 <>
-                  <button 
+                  <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); scroll('left'); }}
                     className="absolute inset-y-0 -left-6 flex items-center z-20"
                   >
-                    <div className="w-12 h-12 rounded-full bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-center text-[#ff9400] border border-[#f2f2f3] hover:scale-110 active:scale-95 transition-all cursor-pointer pointer-events-auto">
+                    <div className="w-12 h-12 rounded-full bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-center text-[#ff9400] border border-[#f2f2f3] hover:scale-110 active:scale-95 transition-all cursor-pointer">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
                     </div>
                   </button>
-                  <button 
+                  <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); scroll('right'); }}
                     className="absolute inset-y-0 -right-6 flex items-center z-20"
                   >
-                    <div className="w-12 h-12 rounded-full bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-center text-[#ff9400] border border-[#f2f2f3] hover:scale-110 active:scale-95 transition-all cursor-pointer pointer-events-auto">
+                    <div className="w-12 h-12 rounded-full bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-center text-[#ff9400] border border-[#f2f2f3] hover:scale-110 active:scale-95 transition-all cursor-pointer">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                     </div>
                   </button>
                 </>
               )}
 
-              {/* Dots at bottom */}
               <div className="flex justify-center gap-2 mt-4">
                 {achievement.media_urls.map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="w-2 h-2 rounded-full bg-[#ff9400]/20 transition-colors"
-                  />
+                  <div key={i} className="w-2 h-2 rounded-full bg-[#ff9400]/20" />
                 ))}
               </div>
             </div>

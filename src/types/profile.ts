@@ -11,14 +11,21 @@ export interface ProfileStats {
   achievement: number;
 }
 
+export interface IndustryEntry {
+  name: string;
+  years?: string | number;
+}
+
 export interface UserProfile {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
   role: UserRole;
-  title: string;           // e.g. "UI/UX Designer"
-  company: string;         // e.g. "Accenture"
+  userType?: string;        // 'individual' | 'organization'
+  orgType?: string;         // e.g. 'private_school', 'ngo'
+  title: string;            // e.g. "UI/UX Designer"
+  company: string;          // e.g. "Accenture"
   location: string;
   bio: string;
   avatarUrl: string;
@@ -30,7 +37,7 @@ export interface UserProfile {
   stats: ProfileStats;
   isOwnProfile: boolean;
   isFollowing: boolean;
-  // Role-specific
+  // Individual role-specific
   workSector?: string;
   workIndustry?: string;
   teachSubject?: string;
@@ -43,6 +50,11 @@ export interface UserProfile {
   educationLevel?: string;
   instituteName?: string;
   orgName?: string;
+  // Organization-specific
+  sector?: string;
+  eduLevelsOffered?: string[];
+  services?: string[];
+  industries?: IndustryEntry[];
 }
 
 export interface EditProfileForm {

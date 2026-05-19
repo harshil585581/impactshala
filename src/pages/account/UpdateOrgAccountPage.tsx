@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
+import userIcon       from '../../assets/images/svg/User.svg';
+import userCircleIcon from '../../assets/images/svg/UserCircle.svg';
+import atIcon         from '../../assets/images/svg/At.svg';
+import linkIcon       from '../../assets/images/svg/LinkSimple.svg';
+import envelopeIcon   from '../../assets/images/svg/Envelope.svg';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-
-const userIcon       = "https://www.figma.com/api/mcp/asset/aeacde15-44b6-45d0-a0e0-273e0d60de81";
-const userCircleIcon = "https://www.figma.com/api/mcp/asset/6c1ee040-0e10-4e32-91cd-3efdea837772";
-const atIcon         = "https://www.figma.com/api/mcp/asset/bd19a781-f45c-4caf-bc9a-bb683b56f3c6";
-const envelopeIcon   = "https://www.figma.com/api/mcp/asset/f721fa21-d26c-4c12-9c82-2861f364f58a";
-const linkIcon       = "https://www.figma.com/api/mcp/asset/c12f4e16-6f90-478a-8500-58c37f19cd2b";
 
 type Tab = 'org' | 'more' | 'contact' | 'complete';
 
@@ -31,10 +30,77 @@ const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram
 const inputCls =
   'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
 
-function UploadArea({ hint, accept }: { hint: string; accept?: string }) {
+function UploadArea({ hint, accept, cover, imageType }: {
+  hint: string; accept?: string; cover?: boolean; imageType: 'avatar' | 'cover';
+}) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Show preview immediately
+    setPreview(URL.createObjectURL(file));
+    setUploadError('');
+    setUploading(true);
+    try {
+      const user = JSON.parse(localStorage.getItem('user') ?? '{}');
+      const token = user.access_token ?? '';
+      const form = new FormData();
+      form.append('file', file);
+      form.append('image_type', imageType);
+      const res = await fetch(`${API_URL}/api/upload/profile-image`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? 'Upload failed');
+      }
+      const data = await res.json();
+      // Replace blob URL with the permanent public URL
+      setPreview(data.url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  if (preview) {
+    return (
+      <label className="relative w-full h-full min-h-[140px] rounded-lg overflow-hidden cursor-pointer block">
+        <img
+          src={preview}
+          alt="preview"
+          className={`w-full h-full object-cover ${cover ? 'object-center' : 'object-top'}`}
+          style={{ minHeight: 140 }}
+        />
+        {uploading && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+            <span className="text-white text-sm font-medium">Uploading…</span>
+          </div>
+        )}
+        {!uploading && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+            <span className="text-white text-sm font-medium">Change photo</span>
+          </div>
+        )}
+        {uploadError && (
+          <div className="absolute bottom-0 left-0 right-0 bg-red-500/90 text-white text-xs text-center py-1">
+            {uploadError}
+          </div>
+        )}
+        <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
+      </label>
+    );
+  }
+
   return (
     <label className="flex flex-col items-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full h-full min-h-[140px] justify-center">
-      <input type="file" accept={accept} className="sr-only" />
+      <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#7c8493]">
         <polyline points="16 16 12 12 8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         <line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -281,6 +347,7 @@ export default function UpdateOrgAccountPage() {
                     <UploadArea
                       hint="A photo larger than 400 pixels work best. Max photo size 5 MB."
                       accept="image/*"
+                      imageType="avatar"
                     />
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
@@ -288,6 +355,8 @@ export default function UpdateOrgAccountPage() {
                     <UploadArea
                       hint="Banner images optimal dimension 1520 × 400. Supported form jpeg, png, max photo size 5 mb."
                       accept="image/*"
+                      cover
+                      imageType="cover"
                     />
                   </div>
                 </div>

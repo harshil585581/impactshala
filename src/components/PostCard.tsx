@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import type { FeedPost } from '../services/postService';
-
-function ThumbsUpIcon() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="#4a90d9"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" fill="#5a9ce8"/></svg>;
-}
-function HeartIcon() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="#e74c3c"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>;
-}
-function ClapIcon() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="#f39c12"><path d="M12 2a1 1 0 011 1v8h4a2 2 0 012 2v2a6 6 0 01-6 6H9a6 6 0 01-6-6v-4a1 1 0 011-1h2V5a1 1 0 012 0v5h2V3a1 1 0 011-1z"/></svg>;
-}
+import likeIcon        from '../assets/images/svg/like.svg';
+import heartIcon       from '../assets/images/svg/heart.svg';
+import congratulateIcon from '../assets/images/svg/congratulate.svg';
 function GlobeIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="opacity-40"><circle cx="12" cy="12" r="10" stroke="#9199a3" strokeWidth="1.5"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/></svg>;
 }
@@ -264,10 +257,10 @@ export default function PostCard({ post }: { post: FeedPost }) {
       {/* Reactions count */}
       <div className="px-6 py-2 flex items-center justify-between border-t border-[#f2f2f3]">
         <div className="flex items-center gap-1.5">
-          <div className="flex">
-            <ThumbsUpIcon />
-            <span className="-ml-1"><HeartIcon /></span>
-            <span className="-ml-1"><ClapIcon /></span>
+          <div className="flex gap-1">
+            <img src={likeIcon} alt="like" className="w-5 h-5" />
+            <img src={heartIcon} alt="heart" className="w-5 h-5" />
+            <img src={congratulateIcon} alt="congratulate" className="w-5 h-5" />
           </div>
           <span className="text-[#646464] text-sm">{liked ? 1 : 0}</span>
         </div>

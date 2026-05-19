@@ -20,6 +20,9 @@ export function useProfile(userId: string) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const [fetchKey, setFetchKey] = useState(0);
+  const reload = useCallback(() => setFetchKey((k) => k + 1), []);
+
   useEffect(() => {
     setLoading(true);
     fetchProfile(userId)
@@ -34,7 +37,7 @@ export function useProfile(userId: string) {
         }
       })
       .finally(() => setLoading(false));
-  }, [userId, addToast]);
+  }, [userId, addToast, fetchKey]);
 
   const saveProfile = useCallback(async (data: Partial<EditProfileForm>) => {
     setSaving(true);
@@ -70,5 +73,5 @@ export function useProfile(userId: string) {
     }
   }, [profile, addToast]);
 
-  return { profile, loading, saving, toasts, removeToast, saveProfile, follow };
+  return { profile, loading, saving, toasts, removeToast, saveProfile, follow, reload };
 }
