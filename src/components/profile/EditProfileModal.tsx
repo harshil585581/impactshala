@@ -90,11 +90,13 @@ export default function EditProfileModal({
   onSave,
   onClose,
 }: Props) {
+  const isOrg = profile.userType === 'organization';
   const current = experiences.find(e => e.is_current) || experiences[0];
-  
+
   const [form, setForm] = useState<EditProfileForm>({
     firstName: profile.firstName,
     lastName: profile.lastName,
+    orgName: profile.orgName ?? "",
     title: profile.title || current?.role || "",
     company: profile.company || current?.company || "",
     location: profile.location,
@@ -103,6 +105,7 @@ export default function EditProfileModal({
     languages: profile.languages,
     website: profile.website ?? "",
     skills: [...profile.skills],
+    services: [...(profile.services ?? [])],
     socialLinks: [...profile.socialLinks],
     reachFor: [...profile.reachFor],
   });
@@ -128,8 +131,10 @@ export default function EditProfileModal({
 
   function validate(): boolean {
     const errs: typeof errors = {};
-    if (!form.firstName.trim()) errs.firstName = "First name is required";
-    if (!form.lastName.trim()) errs.lastName = "Last name is required";
+    if (!isOrg) {
+      if (!form.firstName.trim()) errs.firstName = "First name is required";
+      if (!form.lastName.trim()) errs.lastName = "Last name is required";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -227,120 +232,192 @@ export default function EditProfileModal({
           {/* Basic Info */}
           {activeSection === "basic" && (
             <div className="flex flex-col gap-4">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className={labelCls}>First Name *</label>
-                  <input
-                    type="text"
-                    placeholder="First name"
-                    value={form.firstName}
-                    onChange={(e) => set("firstName", e.target.value)}
-                    className={`${inputCls} ${errors.firstName ? "border-red-400" : ""}`}
-                    aria-invalid={!!errors.firstName}
-                  />
-                  {errors.firstName && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.firstName}
-                    </p>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <label className={labelCls}>Last Name *</label>
-                  <input
-                    type="text"
-                    placeholder="Last name"
-                    value={form.lastName}
-                    onChange={(e) => set("lastName", e.target.value)}
-                    className={`${inputCls} ${errors.lastName ? "border-red-400" : ""}`}
-                    aria-invalid={!!errors.lastName}
-                  />
-                  {errors.lastName && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.lastName}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Job Title / Role</label>
-                <input
-                  type="text"
-                  placeholder="e.g. UI/UX Designer"
-                  value={form.title}
-                  onChange={(e) => set("title", e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Company / Organisation</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Accenture"
-                  value={form.company}
-                  onChange={(e) => set("company", e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Location</label>
-                <input
-                  type="text"
-                  placeholder="City, Country"
-                  value={form.location}
-                  onChange={(e) => set("location", e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Bio</label>
-                <textarea
-                  placeholder="Write a short bio about yourself..."
-                  value={form.bio}
-                  onChange={(e) => set("bio", e.target.value)}
-                  rows={4}
-                  className="w-full border border-[#e4e5e8] rounded-[14px] px-4 py-3 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors resize-none"
-                />
-              </div>
+              {isOrg ? (
+                <>
+                  <div>
+                    <label className={labelCls}>Organization Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Corp"
+                      value={form.orgName ?? ""}
+                      onChange={(e) => set("orgName", e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Location</label>
+                    <input
+                      type="text"
+                      placeholder="City, Country"
+                      value={form.location}
+                      onChange={(e) => set("location", e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Bio</label>
+                    <textarea
+                      placeholder="Write a short bio about your organization..."
+                      value={form.bio}
+                      onChange={(e) => set("bio", e.target.value)}
+                      rows={4}
+                      className="w-full border border-[#e4e5e8] rounded-[14px] px-4 py-3 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors resize-none"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className={labelCls}>First Name *</label>
+                      <input
+                        type="text"
+                        placeholder="First name"
+                        value={form.firstName}
+                        onChange={(e) => set("firstName", e.target.value)}
+                        className={`${inputCls} ${errors.firstName ? "border-red-400" : ""}`}
+                        aria-invalid={!!errors.firstName}
+                      />
+                      {errors.firstName && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.firstName}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <label className={labelCls}>Last Name *</label>
+                      <input
+                        type="text"
+                        placeholder="Last name"
+                        value={form.lastName}
+                        onChange={(e) => set("lastName", e.target.value)}
+                        className={`${inputCls} ${errors.lastName ? "border-red-400" : ""}`}
+                        aria-invalid={!!errors.lastName}
+                      />
+                      {errors.lastName && (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.lastName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Job Title / Role</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. UI/UX Designer"
+                      value={form.title}
+                      onChange={(e) => set("title", e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Company / Organisation</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Accenture"
+                      value={form.company}
+                      onChange={(e) => set("company", e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Location</label>
+                    <input
+                      type="text"
+                      placeholder="City, Country"
+                      value={form.location}
+                      onChange={(e) => set("location", e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Bio</label>
+                    <textarea
+                      placeholder="Write a short bio about yourself..."
+                      value={form.bio}
+                      onChange={(e) => set("bio", e.target.value)}
+                      rows={4}
+                      className="w-full border border-[#e4e5e8] rounded-[14px] px-4 py-3 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors resize-none"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {/* Skills & Reach */}
           {activeSection === "skills" && (
             <div className="flex flex-col gap-5">
-              <div>
-                <label className={labelCls}>Skills & Expertise</label>
-                <p className="text-[#9199a3] text-xs mb-2">
-                  Type and press comma or Enter to add
-                </p>
-                <TagInput
-                  tags={form.skills}
-                  onAdd={(t) => set("skills", [...form.skills, t])}
-                  onRemove={(t) =>
-                    set(
-                      "skills",
-                      form.skills.filter((s) => s !== t),
-                    )
-                  }
-                  placeholder="Add a skill..."
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Reach Out to Me For</label>
-                <p className="text-[#9199a3] text-xs mb-2">
-                  Topics or areas people can reach out to you for
-                </p>
-                <TagInput
-                  tags={form.reachFor}
-                  onAdd={(t) => set("reachFor", [...form.reachFor, t])}
-                  onRemove={(t) =>
-                    set(
-                      "reachFor",
-                      form.reachFor.filter((s) => s !== t),
-                    )
-                  }
-                  placeholder="e.g. Mentorship, Collaboration..."
-                />
-              </div>
+              {isOrg ? (
+                <>
+                  <div>
+                    <label className={labelCls}>Service Offerings</label>
+                    <p className="text-[#9199a3] text-xs mb-2">
+                      Type and press comma or Enter to add
+                    </p>
+                    <TagInput
+                      tags={form.services ?? []}
+                      onAdd={(t) => set("services", [...(form.services ?? []), t])}
+                      onRemove={(t) =>
+                        set("services", (form.services ?? []).filter((s) => s !== t))
+                      }
+                      placeholder="Add a service..."
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Reach Out to Us For</label>
+                    <p className="text-[#9199a3] text-xs mb-2">
+                      Topics or areas people can reach out to your organization for
+                    </p>
+                    <TagInput
+                      tags={form.reachFor}
+                      onAdd={(t) => set("reachFor", [...form.reachFor, t])}
+                      onRemove={(t) =>
+                        set("reachFor", form.reachFor.filter((s) => s !== t))
+                      }
+                      placeholder="e.g. Partnerships, Volunteering..."
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className={labelCls}>Skills & Expertise</label>
+                    <p className="text-[#9199a3] text-xs mb-2">
+                      Type and press comma or Enter to add
+                    </p>
+                    <TagInput
+                      tags={form.skills}
+                      onAdd={(t) => set("skills", [...form.skills, t])}
+                      onRemove={(t) =>
+                        set(
+                          "skills",
+                          form.skills.filter((s) => s !== t),
+                        )
+                      }
+                      placeholder="Add a skill..."
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Reach Out to Me For</label>
+                    <p className="text-[#9199a3] text-xs mb-2">
+                      Topics or areas people can reach out to you for
+                    </p>
+                    <TagInput
+                      tags={form.reachFor}
+                      onAdd={(t) => set("reachFor", [...form.reachFor, t])}
+                      onRemove={(t) =>
+                        set(
+                          "reachFor",
+                          form.reachFor.filter((s) => s !== t),
+                        )
+                      }
+                      placeholder="e.g. Mentorship, Collaboration..."
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -357,16 +434,18 @@ export default function EditProfileModal({
                   className={inputCls}
                 />
               </div>
-              <div>
-                <label className={labelCls}>Languages</label>
-                <input
-                  type="text"
-                  placeholder="e.g. English, Hindi"
-                  value={form.languages}
-                  onChange={(e) => set("languages", e.target.value)}
-                  className={inputCls}
-                />
-              </div>
+              {!isOrg && (
+                <div>
+                  <label className={labelCls}>Languages</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. English, Hindi"
+                    value={form.languages}
+                    onChange={(e) => set("languages", e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Website</label>
                 <input

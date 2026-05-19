@@ -53,6 +53,7 @@ export interface UserProfile {
   // Organization-specific
   sector?: string;
   eduLevelsOffered?: string[];
+  applicableIndustries?: string[];
   services?: string[];
   industries?: IndustryEntry[];
 }
@@ -60,6 +61,7 @@ export interface UserProfile {
 export interface EditProfileForm {
   firstName: string;
   lastName: string;
+  orgName?: string;
   title: string;
   company: string;
   location: string;
@@ -68,6 +70,7 @@ export interface EditProfileForm {
   languages: string;
   website: string;
   skills: string[];
+  services?: string[];
   socialLinks: SocialLink[];
   reachFor: string[];
 }

@@ -12,17 +12,59 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 type Tab = 'org' | 'more' | 'contact' | 'complete';
 
-// Ordered to fill a 3-column grid row-by-row matching the design
-const EDU_LEVELS = [
-  "Pre-Primary (Nursery, LKG, UKG)",
-  "Secondary School (Class 9–10)",
-  "Undergraduate (UG)",
-  "Primary School (Class 1–5)",
-  "Vocational / Diploma / ITI",
-  "Postgraduate (PG)",
-  "Middle School (Class 6–8)",
-  "Higher Secondary (Class 11–12)",
-  "PhD / Research",
+const INDUSTRIES = [
+  'Agriculture & Agribusiness',
+  'Aerospace & Defense',
+  'Architecture & Design',
+  'Arts & Culture (Museums, Galleries)',
+  'Automotive',
+  'Aviation',
+  'Banking & Finance',
+  'Biotechnology',
+  'Chemicals',
+  'Consumer Electronics',
+  'Construction',
+  'Consulting Services',
+  'Cyber Security',
+  'Defense Manufacturing',
+  'Digital Marketing & Advertising',
+  'Education & EdTech',
+  'Energy & Utilities',
+  'Environmental Services & Sustainability',
+  'Fashion & Apparel',
+  'Fintech & Financial Services',
+  'Food & Beverage',
+  'Healthcare Services',
+  'Hospitality & Tourism',
+  'Human Resources & Staffing',
+  'Information Technology (IT)',
+  'Insurance',
+  'Legal Services',
+  'Logistics & Supply Chain',
+  'Manufacturing',
+  'Marine & Shipping',
+  'Marketing & Advertising',
+  'Medical Devices',
+  'Metals & Mining',
+  'Packaging',
+  'Pharmaceuticals',
+  'Printing & Publishing',
+  'Public Relations',
+  'Real Estate',
+  'Retail & E-Commerce',
+  'Security & Investigations',
+  'Software Development',
+  'Sports Management & Recreational Services',
+  'Social Work',
+  'Technology Services',
+  'Textiles & Apparel',
+  'Transportation & Logistics',
+  'Venture Capital & Private Equity',
+  'Warehousing',
+  'Wholesale Trade',
+  'Entertainment & Media',
+  'Oil & Gas',
+  'Others',
 ];
 
 const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram', 'Twitter / X', 'Facebook', 'Medium / Substack'];
@@ -40,7 +82,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Show preview immediately
     setPreview(URL.createObjectURL(file));
     setUploadError('');
     setUploading(true);
@@ -60,7 +101,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
         throw new Error(err.detail ?? 'Upload failed');
       }
       const data = await res.json();
-      // Replace blob URL with the permanent public URL
       setPreview(data.url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -155,7 +195,7 @@ function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   );
 }
 
-export default function UpdateOrgAccountPage() {
+export default function ForProfitOrgAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('org');
@@ -164,7 +204,7 @@ export default function UpdateOrgAccountPage() {
 
   // Org Info
   const [sector, setSector] = useState<'government' | 'private'>('government');
-  const [eduLevels, setEduLevels] = useState<string[]>([]);
+  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   const [bio, setBio] = useState('');
 
   // More Info
@@ -179,7 +219,6 @@ export default function UpdateOrgAccountPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Load existing profile on mount; redirect forprofit orgs to their own page
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
@@ -189,12 +228,8 @@ export default function UpdateOrgAccountPage() {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.org_type === 'forprofit') {
-          navigate('/account/update/org/forprofit', { replace: true });
-          return;
-        }
         if (d.sector) setSector(d.sector);
-        if (d.edu_levels_offered?.length) setEduLevels(d.edu_levels_offered);
+        if (d.applicable_industries?.length) setSelectedIndustries(d.applicable_industries);
         if (d.bio) setBio(d.bio);
         if (d.services?.length) setServices(d.services);
         if (d.industries?.length) setIndustries(d.industries);
@@ -218,9 +253,9 @@ export default function UpdateOrgAccountPage() {
     { id: 'contact', label: 'Contact',            icon: atIcon },
   ];
 
-  function toggleEduLevel(level: string) {
-    setEduLevels((prev) =>
-      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+  function toggleIndustry(industry: string) {
+    setSelectedIndustries((prev) =>
+      prev.includes(industry) ? prev.filter((i) => i !== industry) : [...prev, industry]
     );
   }
 
@@ -230,7 +265,7 @@ export default function UpdateOrgAccountPage() {
     if (!token) { navigate('/'); return; }
 
     const payloadByTab: Record<string, object> = {
-      org:     { sector, edu_levels_offered: eduLevels, bio },
+      org:     { sector, applicable_industries: selectedIndustries, bio },
       more:    { services, industries, website, social_links: socialLinks },
       contact: { reach_for: reachFor, location, phone, setup_complete: true },
     };
@@ -276,18 +311,17 @@ export default function UpdateOrgAccountPage() {
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
 
-        {/* ── Completion screen ── */}
+        {/* Completion screen */}
         {tab === 'complete' && (
           <div className="flex items-center justify-center min-h-[calc(100vh-78px)] px-4">
             <div className="flex flex-col items-center gap-8 text-center max-w-md w-full">
               <div className="bg-[#ffeacc] p-10 rounded-full">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-[#ff9400]">
                   <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="20 12 9 23 4 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
-                🎉 Congratulations, You profile is 100% complete!
+                🎉 Congratulations, Your profile is 100% complete!
               </h2>
               <button
                 onClick={() => navigate('/home')}
@@ -302,11 +336,11 @@ export default function UpdateOrgAccountPage() {
           </div>
         )}
 
-        {/* ── Form ── */}
+        {/* Form */}
         {tab !== 'complete' && (
           <div className="max-w-[960px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-            {/* Progress */}
+            {/* Progress bar */}
             <div className="mb-6 sm:mb-8">
               <div className="flex items-center justify-between text-sm sm:text-base mb-3">
                 <span className="text-[#767f8c]">Setup Progress</span>
@@ -340,7 +374,7 @@ export default function UpdateOrgAccountPage() {
               </div>
             </div>
 
-            {/* ── Tab: Organization Info ── */}
+            {/* Tab: Organization Info */}
             {tab === 'org' && (
               <div className="flex flex-col gap-6">
 
@@ -365,9 +399,9 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Organization Sector */}
+                {/* Company Sector */}
                 <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-semibold">Select Your Organization Sector</p>
+                  <p className="text-[#18191c] text-sm font-semibold">Select your Company Sector</p>
                   <div className="flex gap-3 flex-wrap">
                     <button
                       type="button"
@@ -394,31 +428,31 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Educational levels */}
+                {/* Applicable Industries */}
                 <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-medium">Select the educational levels offered by your institution</p>
+                  <p className="text-[#18191c] text-sm font-medium">Select Your Applicable Industries</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                    {EDU_LEVELS.map((level) => (
-                      <label key={level} className="flex items-center gap-2.5 cursor-pointer group">
+                    {INDUSTRIES.map((industry) => (
+                      <label key={industry} className="flex items-center gap-2.5 cursor-pointer group">
                         <div
-                          onClick={() => toggleEduLevel(level)}
+                          onClick={() => toggleIndustry(industry)}
                           className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                            eduLevels.includes(level)
+                            selectedIndustries.includes(industry)
                               ? 'bg-[#ff9400] border-[#ff9400]'
                               : 'border-[#d1d5db] bg-white group-hover:border-[#ff9400]'
                           }`}
                         >
-                          {eduLevels.includes(level) && (
+                          {selectedIndustries.includes(industry) && (
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                               <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
                         </div>
                         <span
-                          onClick={() => toggleEduLevel(level)}
+                          onClick={() => toggleIndustry(industry)}
                           className="text-sm text-[#4b5563] group-hover:text-[#18191c] transition-colors cursor-pointer leading-snug"
                         >
-                          {level}
+                          {industry}
                         </span>
                       </label>
                     ))}
@@ -439,7 +473,7 @@ export default function UpdateOrgAccountPage() {
               </div>
             )}
 
-            {/* ── Tab: More Info ── */}
+            {/* Tab: More Info */}
             {tab === 'more' && (
               <div className="flex flex-col gap-5 sm:gap-6">
 
@@ -452,7 +486,6 @@ export default function UpdateOrgAccountPage() {
                   onRemove={(t) => setServices((prev) => prev.filter((x) => x !== t))}
                 />
 
-                {/* Industry expertise */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Mention your organization's industry expertise and years of experience in each</label>
                   <div className="flex flex-col gap-3">
@@ -488,7 +521,6 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Website */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Website (Optional)</label>
                   <div className="relative">
@@ -503,7 +535,6 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Social links */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Social Link</label>
                   <div className="flex flex-col gap-3">
@@ -539,7 +570,6 @@ export default function UpdateOrgAccountPage() {
                         </button>
                       </div>
                     ))}
-
                     <button
                       type="button"
                       onClick={() => setSocialLinks((prev) => [...prev, { platform: 'LinkedIn', url: '' }])}
@@ -556,7 +586,7 @@ export default function UpdateOrgAccountPage() {
               </div>
             )}
 
-            {/* ── Tab: Contact ── */}
+            {/* Tab: Contact */}
             {tab === 'contact' && (
               <div className="flex flex-col gap-5 sm:gap-6">
 

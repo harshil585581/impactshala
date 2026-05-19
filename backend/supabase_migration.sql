@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS users (
   -- Organization profile fields
   sector        TEXT        CHECK (sector IN ('government', 'private')),
   edu_levels_offered TEXT[] NOT NULL DEFAULT '{}',
+  applicable_industries TEXT[] NOT NULL DEFAULT '{}',
   services      TEXT[]      NOT NULL DEFAULT '{}',
   industries    JSONB       NOT NULL DEFAULT '[]',
 
@@ -86,6 +87,7 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS languages        TEXT,
   ADD COLUMN IF NOT EXISTS sector           TEXT        CHECK (sector IN ('government', 'private')),
   ADD COLUMN IF NOT EXISTS edu_levels_offered TEXT[]    DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS applicable_industries TEXT[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS services         TEXT[]      DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS industries       JSONB       DEFAULT '[]';
 
