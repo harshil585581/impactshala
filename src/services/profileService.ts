@@ -23,6 +23,8 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
     lastName: data.last_name ?? '',
     email: data.email ?? '',
     role: data.role ?? 'student',
+    userType: data.user_type ?? 'individual',
+    orgType: data.org_type ?? '',
     title: data.title ?? '',
     company: data.company ?? '',
     location: data.location ?? '',
@@ -48,6 +50,11 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
     educationLevel: data.education_level,
     instituteName: data.institute_name,
     orgName: data.org_name,
+    // Organization-specific
+    sector: data.sector,
+    eduLevelsOffered: data.edu_levels_offered ?? [],
+    services: data.services ?? [],
+    industries: data.industries ?? [],
   };
 }
 

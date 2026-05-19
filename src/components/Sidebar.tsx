@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import employmentHubIcon from "../assets/images/Side Bar/ep_suitcase.svg";
+import communityIcon from "../assets/images/Side Bar/community.svg";
+import learningIcon from "../assets/images/Side Bar/learning.svg";
 
 // Icons replaced with inline SVGs — no external dependencies
 
@@ -128,32 +131,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             }}
           />
           <NavItem
-            icon={
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
-                <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            }
+            icon={<img src={learningIcon} alt="" className="w-5 h-5 shrink-0" />}
             label="Learning Directory"
           />
           <NavItem
-            icon={
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
-                <rect x="2" y="7" width="20" height="14" rx="2" stroke="#7c8493" strokeWidth="1.5"/>
-                <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <line x1="12" y1="12" x2="12" y2="16" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
-                <line x1="10" y1="14" x2="14" y2="14" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            }
+            icon={<img src={employmentHubIcon} alt="" className="w-5 h-5 shrink-0" />}
             label="Employment Hub"
           />
           <NavItem
-            icon={
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="9" cy="7" r="4" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            }
+            icon={<img src={communityIcon} alt="" className="w-5 h-5 shrink-0" />}
             label="My Community"
           />
 

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-const logo = null; // replaced inline with SVG text
+import logoImg from "../assets/images/logo/logo.png";
 const defaultAvatar = null;
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -105,13 +104,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       </button>
 
       {/* Logo */}
-      <a href="/home" className="shrink-0 flex items-center gap-1.5">
-        <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
-          </svg>
-        </div>
-        <span className="text-[#18191c] font-bold text-base hidden sm:block">Impactshaala</span>
+      <a href="/home" className="shrink-0">
+        <img src={logoImg} alt="Impactshaala" className="h-9 object-contain" />
       </a>
 
       {/* Search bar */}

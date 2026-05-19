@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 export type Collaborator = {
   id: string;
   name: string;
+  avatar_url?: string | null;
 };
 
 export type CollaborativeAccomplishment = {
@@ -98,13 +99,25 @@ export async function deleteCollaborativeAccomplishment(id: string): Promise<voi
   if (error) throw new Error(error.message);
 }
 
+export async function fetchCollaboratorAvatars(ids: string[]): Promise<Record<string, string>> {
+  if (!ids.length) return {};
+  const client = getAuthClient();
+  const { data, error } = await client
+    .from('users')
+    .select('id, avatar_url')
+    .in('id', ids);
+  if (error || !data) return {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return Object.fromEntries((data as any[]).filter(u => u.avatar_url).map(u => [u.id, u.avatar_url]));
+}
+
 export async function searchUsers(query: string): Promise<Collaborator[]> {
   if (!query.trim() || query.length < 2) return [];
   const client = getAuthClient();
   const q = query.trim();
   const { data, error } = await client
     .from('users')
-    .select('id, first_name, last_name, org_name, email')
+    .select('id, first_name, last_name, org_name, email, avatar_url')
     .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,org_name.ilike.%${q}%`)
     .limit(8);
   if (error) return [];
@@ -114,5 +127,6 @@ export async function searchUsers(query: string): Promise<Collaborator[]> {
     name: u.org_name
       ? u.org_name
       : `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email || u.id,
+    avatar_url: u.avatar_url ?? null,
   }));
 }
