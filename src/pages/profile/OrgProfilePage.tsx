@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
@@ -208,6 +208,37 @@ export default function OrgProfilePage() {
 
   const reachForTags = profile?.reachFor ?? [];
 
+  const [eduLimit, setEduLimit] = useState((profile?.eduLevelsOffered ?? []).length || 10);
+  const eduMeasureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!eduMeasureRef.current) return;
+    const observer = new ResizeObserver(() => {
+      const container = eduMeasureRef.current;
+      if (!container) return;
+      const children = Array.from(container.children) as HTMLElement[];
+      if (children.length === 0) return;
+
+      const firstTop = children[0].offsetTop;
+      let wrapIndex = -1;
+      for (let i = 0; i < children.length; i++) {
+        if (children[i].offsetTop > firstTop + 5) {
+          wrapIndex = i;
+          break;
+        }
+      }
+
+      if (wrapIndex !== -1) {
+        setEduLimit(Math.max(1, wrapIndex - 1));
+      } else {
+        setEduLimit((profile?.eduLevelsOffered ?? []).length);
+      }
+    });
+
+    observer.observe(eduMeasureRef.current);
+    return () => observer.disconnect();
+  }, [(profile?.eduLevelsOffered ?? []).join(',')]);
+
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
@@ -363,7 +394,7 @@ export default function OrgProfilePage() {
                   {reachForTags.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {reachForTags.map((tag) => (
-                        <span key={tag} className="bg-[#fff6ed] text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffeacc]">
+                        <span key={tag} className="bg-[#fff6ed] text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0]">
                           {tag}
                         </span>
                       ))}
@@ -457,14 +488,14 @@ export default function OrgProfilePage() {
                 {/* Educational Levels Offered */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[#18191c] text-base font-semibold">Educational Levels Offered</h3>
+                    <h3 className="text-[#18191c] text-lg font-bold">Educational Levels Offered</h3>
                   </div>
                   {(profile?.eduLevelsOffered ?? []).length > 0 ? (
                     showAllEduLevels ? (
                       <>
                         <div className="flex flex-wrap gap-2">
                           {(profile?.eduLevelsOffered ?? []).map((level) => (
-                            <span key={level} className="bg-[#fff6ed] text-[#ff9400] text-xs font-medium px-3.5 py-1.5 rounded-full border border-[#ffeacc] whitespace-nowrap">
+                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
                               {level}
                             </span>
                           ))}
@@ -474,21 +505,33 @@ export default function OrgProfilePage() {
                         </button>
                       </>
                     ) : (
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        {(profile?.eduLevelsOffered ?? []).slice(0, 4).map((level) => (
-                          <span key={level} className="bg-[#fff6ed] text-[#ff9400] text-xs font-medium px-3.5 py-1.5 rounded-full border border-[#ffeacc] whitespace-nowrap shrink-0">
-                            {level}
-                          </span>
-                        ))}
-                        {(profile?.eduLevelsOffered ?? []).length > 4 && (
-                          <button
-                            onClick={() => setShowAllEduLevels(true)}
-                            className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                            Show more
-                          </button>
-                        )}
+                      <div className="relative">
+                        {/* Hidden measuring container */}
+                        <div ref={eduMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
+                          {(profile?.eduLevelsOffered ?? []).map((level) => (
+                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                              {level}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Visible container */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(profile?.eduLevelsOffered ?? []).slice(0, eduLimit).map((level) => (
+                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
+                              {level}
+                            </span>
+                          ))}
+                          {eduLimit < (profile?.eduLevelsOffered ?? []).length && (
+                            <button
+                              onClick={() => setShowAllEduLevels(true)}
+                              className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                              Show more
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )
                   ) : (
