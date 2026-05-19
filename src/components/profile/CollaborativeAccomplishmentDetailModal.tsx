@@ -103,14 +103,24 @@ export default function CollaborativeAccomplishmentDetailModal({ accomplishment,
           {collabs.length > 0 && (
             <div className="mt-5">
               <p className="text-[#18191c] text-lg font-bold leading-snug">
-                {collabs.map((c, i) => (
-                  <span key={c.id}>
-                    {i > 0 && <span className="font-normal text-[#18191c]"> and </span>}
-                    <span className={i === collabs.length - 1 && collabs.length > 1 ? 'text-[#ff9400]' : 'text-[#18191c]'}>
-                      {c.name}
+                {collabs.length <= 2 ? (
+                  collabs.map((c, i) => (
+                    <span key={c.id}>
+                      {i > 0 && <span className="font-normal text-[#18191c]"> and </span>}
+                      <span className={i === collabs.length - 1 && collabs.length > 1 ? 'text-[#ff9400]' : 'text-[#18191c]'}>
+                        {c.name}
+                      </span>
                     </span>
-                  </span>
-                ))}
+                  ))
+                ) : (
+                  <>
+                    <span className="text-[#18191c]">{collabs[0].name}</span>
+                    <span className="font-normal text-[#18191c]"> and </span>
+                    <span className="text-[#ff9400]">
+                      {collabs.length - 1} others
+                    </span>
+                  </>
+                )}
               </p>
             </div>
           )}

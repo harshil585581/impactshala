@@ -104,7 +104,7 @@ function AchievementItem({
                   key={i}
                   src={url}
                   alt=""
-                  className="w-24 h-24 object-cover rounded-xl border border-[#f2f2f3] shrink-0"
+                  className="w-36 h-36 object-cover rounded-[16px] border border-[#f2f2f3] shrink-0"
                 />
               ))}
             </div>
@@ -131,7 +131,7 @@ export default function AllAchievementsModal({ achievements, onClose, onDeleted,
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-white rounded-[28px] w-full max-w-lg shadow-2xl border border-[#f2f2f3] flex flex-col max-h-[85vh]"
+        className="bg-white rounded-[28px] w-full max-w-2xl shadow-2xl border border-[#f2f2f3] flex flex-col max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
