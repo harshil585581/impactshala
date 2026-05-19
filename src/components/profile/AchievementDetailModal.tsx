@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import type { PersonalAchievement } from '../../services/achievementService';
 import { deletePersonalAchievement } from '../../services/achievementService';
 import AddPersonalAchievementModal from './AddPersonalAchievementModal';
+import cup1Svg from '../../assets/images/svg/cup1.svg';
 
 type Props = {
   achievement: PersonalAchievement;
@@ -62,12 +63,7 @@ export default function AchievementDetailModal({ achievement, onClose, onDeleted
       >
         {/* Header */}
         <div className="flex items-start gap-5 px-8 pt-8 pb-6">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#ff9400] to-[#ff7b00] flex items-center justify-center shrink-0 shadow-lg shadow-orange-200">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-              <path d="M8 21h8M12 17v4M7 4H4a2 2 0 00-2 2v2a4 4 0 004 4h.5M17 4h3a2 2 0 012 2v2a4 4 0 01-4 4h-.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M7 4h10v7a5 5 0 01-10 0V4z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+          <img src={cup1Svg} alt="achievement" className="w-16 h-16 shrink-0 object-contain" />
 
           <div className="flex-1 min-w-0">
             <h2 className="text-[#18191c] text-2xl font-bold leading-tight">{achievement.title}</h2>
