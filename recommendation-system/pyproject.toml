@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "recommendation-system"
+version = "1.0.0"
+description = "Production-grade LinkedIn-inspired content recommendation system"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps*", "packages*"]
