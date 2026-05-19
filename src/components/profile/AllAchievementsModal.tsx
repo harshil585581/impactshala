@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { PersonalAchievement } from '../../services/achievementService';
 import { deletePersonalAchievement } from '../../services/achievementService';
 import AddPersonalAchievementModal from './AddPersonalAchievementModal';
-import cupSvg from '../../assets/images/svg/cup.svg';
+import cup1Svg from '../../assets/images/svg/cup1.svg';
 
 type Props = {
   achievements: PersonalAchievement[];
@@ -46,9 +46,7 @@ function AchievementItem({
   return (
     <div className="py-5 px-6">
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#ff9400] to-[#ff7b00] flex items-center justify-center shrink-0 shadow-md shadow-orange-100">
-          <img src={cupSvg} alt="achievement" className="w-6 h-6 object-contain brightness-0 invert" />
-        </div>
+        <img src={cup1Svg} alt="achievement" className="w-12 h-12 shrink-0 object-contain" />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
