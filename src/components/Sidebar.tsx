@@ -162,9 +162,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             {/* Parent row */}
             <div
               onClick={handleAppClick}
-              className="flex items-center justify-between pl-7 pr-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
+              className="relative flex items-center w-full cursor-pointer group"
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 w-full pl-11 pr-4 py-2.5 hover:bg-gray-50 rounded-xl transition-all duration-200">
                 <svg
                   width="22"
                   height="22"
@@ -215,22 +215,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   My Applications
                 </span>
               </div>
-              {/* Chevron */}
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                className={`shrink-0 transition-transform duration-200 ${appExpanded ? "rotate-180" : ""}`}
-              >
-                <path
-                  d="M6 9l6 6 6-6"
-                  stroke="#7c8493"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
             </div>
 
             {/* Sub-items */}
