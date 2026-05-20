@@ -22,6 +22,7 @@ import HealthServicesOrgAccountUpdatePage from './pages/account/HealthServicesOr
 import PublicSafetyLawOrgAccountUpdatePage from './pages/account/PublicSafetyLawOrgAccountUpdatePage';
 import TalentShowcaseOrgAccountUpdatePage from './pages/account/TalentShowcaseOrgAccountUpdatePage';
 import StartupSupportOrgAccountUpdatePage from './pages/account/StartupSupportOrgAccountUpdatePage';
+import FieldTripVenueOrgAccountUpdatePage from './pages/account/FieldTripVenueOrgAccountUpdatePage';
 
 import PublicUtilitiesOrgAccountUpdatePage from './pages/account/PublicUtilitiesOrgAccountUpdatePage';
 
@@ -81,6 +82,7 @@ export default function App() {
         <Route path="/account/update/org/safety" element={<PublicSafetyLawOrgAccountUpdatePage />} />
         <Route path="/account/update/org/talent" element={<TalentShowcaseOrgAccountUpdatePage />} />
         <Route path="/account/update/org/startup" element={<StartupSupportOrgAccountUpdatePage />} />
+        <Route path="/account/update/org/fieldtrip" element={<FieldTripVenueOrgAccountUpdatePage />} />
 
         <Route path="/account/update/org/utilities" element={<PublicUtilitiesOrgAccountUpdatePage />} />
 
