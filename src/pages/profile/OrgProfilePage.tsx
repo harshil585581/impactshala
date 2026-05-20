@@ -168,6 +168,8 @@ export default function OrgProfilePage() {
   const [showAllEduLevels, setShowAllEduLevels] = useState(false);
   const [showAllInd, setShowAllInd] = useState(false);
   const [addIndExpOpen, setAddIndExpOpen] = useState(false);
+  const [brochureUploading, setBrochureUploading] = useState(false);
+  const brochureInputRef = useRef<HTMLInputElement>(null);
 
   const { profile, loading, saving, toasts, removeToast, saveProfile, follow, reload } = useProfile(userId);
 
@@ -205,6 +207,31 @@ export default function OrgProfilePage() {
   useEffect(() => { loadAchievements(); }, [resolvedUserId]);
   useEffect(() => { loadPosts(); }, [resolvedUserId]);
   useEffect(() => { loadCollabAccomplishments(); }, [resolvedUserId]);
+
+  async function handleBrochureUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBrochureUploading(true);
+    try {
+      const user = JSON.parse(localStorage.getItem('user') ?? '{}');
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${API_URL}/api/upload/document`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${user.access_token ?? ''}` },
+        body: form,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      await fetch(`${API_URL}/api/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.access_token ?? ''}` },
+        body: JSON.stringify({ resume_url: data.url }),
+      });
+      reload();
+    } catch { /* ignore */ }
+    finally { setBrochureUploading(false); }
+  }
 
   const reachForTags = profile?.reachFor ?? [];
 
@@ -446,39 +473,41 @@ export default function OrgProfilePage() {
 
                   <div>
                     <p className="text-[#18191c] text-sm font-semibold mb-3">Brochure / Logo</p>
-                    <div
-                      onClick={async () => {
-                        if (!profile?.resumeUrl) return;
-                        try {
-                          const user = JSON.parse(localStorage.getItem('user') ?? '{}');
-                          const res = await fetch(`${API_URL}/api/profile/resume`, { headers: { Authorization: `Bearer ${user.access_token ?? ''}` } });
-                          const data = await res.json();
-                          if (data.url) window.open(data.url, '_blank');
-                        } catch { /* ignore */ }
-                      }}
-                      className={`relative w-[150px] h-[190px] group cursor-pointer overflow-hidden rounded-xl border border-[#e4e5e8] bg-white shadow-sm hover:shadow-md transition-all ${!profile?.resumeUrl ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    >
-                      <div className="absolute inset-0 bg-[#f8fafc]">
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="opacity-20">
-                            <rect x="3" y="3" width="18" height="18" rx="2" stroke="#9199a3" strokeWidth="1.5"/>
-                            <path d="M7 8h10M7 12h10M7 16h6" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
+                    <div className="flex flex-col gap-2 w-[150px]">
+                      <div
+                        onClick={async () => {
+                          if (!profile?.resumeUrl) return;
+                          try {
+                            const user = JSON.parse(localStorage.getItem('user') ?? '{}');
+                            const res = await fetch(`${API_URL}/api/profile/resume`, { headers: { Authorization: `Bearer ${user.access_token ?? ''}` } });
+                            const data = await res.json();
+                            if (data.url) window.open(data.url, '_blank');
+                          } catch { /* ignore */ }
+                        }}
+                        className={`relative w-[150px] h-[190px] group overflow-hidden rounded-xl border border-[#e4e5e8] bg-white shadow-sm hover:shadow-md transition-all ${profile?.resumeUrl ? 'cursor-pointer' : 'cursor-default opacity-60'}`}
+                      >
+                        <div className="absolute inset-0 bg-[#f8fafc]">
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="opacity-20">
+                              <rect x="3" y="3" width="18" height="18" rx="2" stroke="#9199a3" strokeWidth="1.5"/>
+                              <path d="M7 8h10M7 12h10M7 16h6" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/>
+                            </svg>
+                          </div>
                         </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-[#ff9400] transform group-hover:scale-110 transition-transform duration-300">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          </div>
+                        </div>
+                        {!profile?.resumeUrl && (
+                          <div className="absolute inset-0 flex items-end justify-center pb-4">
+                            <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">Not Uploaded</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-[#ff9400] transform group-hover:scale-110 transition-transform duration-300">
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        </div>
-                      </div>
-                      {!profile?.resumeUrl && (
-                        <div className="absolute inset-0 flex items-end justify-center pb-4">
-                          <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">Not Uploaded</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -776,6 +805,7 @@ export default function OrgProfilePage() {
               { label: 'Industry Experience', onClick: () => { setAddSectionOpen(false); setAddIndExpOpen(true); } },
               { label: 'Personal Achievement', onClick: () => { setAddSectionOpen(false); setAddAchievementOpen(true); } },
               { label: 'Collaborative Accomplishment', onClick: () => { setAddSectionOpen(false); setAddCollabOpen(true); } },
+              { label: 'Brochure', onClick: () => { setAddSectionOpen(false); brochureInputRef.current?.click(); } },
             ].map(({ label, onClick }) => (
               <button key={label} onClick={onClick}
                 className="w-full flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3] last:border-0 text-[#18191c] text-sm hover:bg-[#f8f8f8] text-left">
@@ -786,6 +816,7 @@ export default function OrgProfilePage() {
           </div>
         </div>
       )}
+      <input ref={brochureInputRef} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" className="sr-only" onChange={handleBrochureUpload} disabled={brochureUploading} />
 
       {addAchievementOpen && (
         <AddPersonalAchievementModal
