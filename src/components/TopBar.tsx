@@ -56,7 +56,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       navigate("/account/update/org/nonprofit");
     } else if (userType === "organization" && storedUser.org_type === "health") {
       navigate("/account/update/org/health");
-
+    } else if (userType === "organization" && storedUser.org_type === "utilities") {
+      navigate("/account/update/org/utilities");
     } else if (userType === "organization") {
       navigate("/account/update/org");
     } else {

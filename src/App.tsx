@@ -18,6 +18,7 @@ import InternationalOrgAccountUpdatePage from './pages/account/InternationalOrgA
 
 import NonProfitOrgAccountUpdatePage from './pages/account/NonProfitOrgAccountUpdatePage';
 import HealthServicesOrgAccountUpdatePage from './pages/account/HealthServicesOrgAccountUpdatePage';
+import PublicUtilitiesOrgAccountUpdatePage from './pages/account/PublicUtilitiesOrgAccountUpdatePage';
 
 import StudentAccountUpdatePage from './pages/account/StudentAccountUpdatePage';
 import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUpdatePage';
@@ -70,6 +71,7 @@ export default function App() {
 
         <Route path="/account/update/org/nonprofit" element={<NonProfitOrgAccountUpdatePage />} />
         <Route path="/account/update/org/health" element={<HealthServicesOrgAccountUpdatePage />} />
+        <Route path="/account/update/org/utilities" element={<PublicUtilitiesOrgAccountUpdatePage />} />
 
         <Route path="/account/update/student" element={<StudentAccountUpdatePage />} />
         <Route path="/account/update/entrepreneur" element={<EntrepreneurAccountUpdatePage />} />
