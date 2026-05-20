@@ -6,6 +6,7 @@ import ForProfitOrgProfilePage from './ForProfitOrgProfilePage';
 import NonProfitOrgProfilePage from './NonProfitOrgProfilePage';
 import HealthServicesOrgProfilePage from './HealthServicesOrgProfilePage';
 import PublicUtilitiesOrgProfilePage from './PublicUtilitiesOrgProfilePage';
+import PublicWelfareServicesOrgProfilePage from './PublicWelfareServicesOrgProfilePage';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
@@ -14,6 +15,7 @@ function resolveOrgPage(orgType?: string) {
   if (orgType === 'nonprofit') return <NonProfitOrgProfilePage />;
   if (orgType === 'health') return <HealthServicesOrgProfilePage />;
   if (orgType === 'utilities') return <PublicUtilitiesOrgProfilePage />;
+  if (orgType === 'welfare') return <PublicWelfareServicesOrgProfilePage />;
   return <OrgProfilePage />;
 }
 

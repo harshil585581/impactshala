@@ -136,6 +136,8 @@ export default function ProfileHeader({
                       navigate('/account/update/org/health');
                     } else if (storedUser.user_type === 'organization' && storedUser.org_type === 'utilities') {
                       navigate('/account/update/org/utilities');
+                    } else if (storedUser.user_type === 'organization' && storedUser.org_type === 'welfare') {
+                      navigate('/account/update/org/welfare');
                     } else if (storedUser.user_type === 'organization') {
                       navigate('/account/update/org');
                     } else {
