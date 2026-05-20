@@ -48,6 +48,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       navigate("/account/update/student");
     } else if (userType === "organization" && storedUser.org_type === "forprofit") {
       navigate("/account/update/org/forprofit");
+    } else if (userType === "organization" && storedUser.org_type === "international") {
+      navigate("/account/update/org/international");
     } else if (userType === "organization") {
       navigate("/account/update/org");
     } else {
