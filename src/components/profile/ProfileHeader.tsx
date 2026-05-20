@@ -128,6 +128,10 @@ export default function ProfileHeader({
                     const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
                     if (storedUser.user_type === 'organization' && storedUser.org_type === 'forprofit') {
                       navigate('/account/update/org/forprofit');
+                    } else if (storedUser.user_type === 'organization' && storedUser.org_type === 'nonprofit') {
+                      navigate('/account/update/org/nonprofit');
+                    } else if (storedUser.user_type === 'organization' && storedUser.org_type === 'health') {
+                      navigate('/account/update/org/health');
                     } else if (storedUser.user_type === 'organization') {
                       navigate('/account/update/org');
                     } else {

@@ -366,7 +366,7 @@ export default function ProfilePage() {
                   {profile?.socialLinks && profile.socialLinks.length > 0 && (
                     <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end -mt-2 relative z-10">
                       {profile.socialLinks.map((link) => (
-                        <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer"
+                        <a key={link.platform} href={link.url && !/^https?:\/\//i.test(link.url) ? `https://${link.url}` : link.url} target="_blank" rel="noopener noreferrer"
                           className="text-[#9199a3] hover:text-[#18191c] transition-colors" title={link.platform}>
                           <SocialIcon platform={link.platform} />
                         </a>

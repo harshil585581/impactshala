@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
@@ -12,17 +12,31 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 type Tab = 'org' | 'more' | 'contact' | 'complete';
 
-// Ordered to fill a 3-column grid row-by-row matching the design
-const EDU_LEVELS = [
-  "Pre-Primary (Nursery, LKG, UKG)",
-  "Secondary School (Class 9–10)",
-  "Undergraduate (UG)",
-  "Primary School (Class 1–5)",
-  "Vocational / Diploma / ITI",
-  "Postgraduate (PG)",
-  "Middle School (Class 6–8)",
-  "Higher Secondary (Class 11–12)",
-  "PhD / Research",
+const NPO_TYPES = [
+  'Charitable Organization',
+  'Foundation',
+  'Non-Governmental Organization',
+  'Others',
+];
+
+const SDG_FOCUS_AREAS = [
+  'SDG 1 - No Poverty',
+  'SDG 2 - Zero Hunger',
+  'SDG 3 - Good Health & Well-being',
+  'SDG 4 - Quality Education',
+  'SDG 5 - Gender Equality',
+  'SDG 6 - Clean Water & Sanitation',
+  'SDG 7 - Affordable & Clean Energy',
+  'SDG 8 - Decent Work & Economic Growth',
+  'SDG 9 - Industry, Innovation & Infrastructure',
+  'SDG 10 - Reduced Inequalities',
+  'SDG 11 - Sustainable Cities & Communities',
+  'SDG 12 - Responsible Consumption & Production',
+  'SDG 13 - Climate Action',
+  'SDG 14 - Life Below Water',
+  'SDG 15 - Life On Land',
+  'SDG 16 - Peace, Justice & Strong Institutions',
+  'SDG 17 - Partnerships for the Goals',
 ];
 
 const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram', 'Twitter / X', 'Facebook', 'Medium / Substack'];
@@ -40,7 +54,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Show preview immediately
     setPreview(URL.createObjectURL(file));
     setUploadError('');
     setUploading(true);
@@ -60,7 +73,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
         throw new Error(err.detail ?? 'Upload failed');
       }
       const data = await res.json();
-      // Replace blob URL with the permanent public URL
       setPreview(data.url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -155,7 +167,61 @@ function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   );
 }
 
-export default function UpdateOrgAccountPage() {
+function NPOTypeDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full h-[48px] border rounded-full px-4 flex items-center justify-between text-sm transition-colors bg-white ${
+          open ? 'border-[#ff9400] ring-1 ring-[#ff9400]' : 'border-[#e4e5e8]'
+        }`}
+      >
+        <span className={value ? 'text-[#18191c]' : 'text-[#9199a3]'}>
+          {value || 'Select NPO type'}
+        </span>
+        <svg
+          className={`text-[#9199a3] transition-transform ${open ? 'rotate-180' : ''}`}
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+        >
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-[calc(100%+6px)] left-0 right-0 bg-white rounded-2xl shadow-[0px_8px_32px_rgba(0,0,0,0.12)] border border-[#f2f2f3] overflow-hidden">
+          {NPO_TYPES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => { onChange(t); setOpen(false); }}
+              className={`w-full text-left px-5 py-3.5 text-sm transition-colors ${
+                value === t
+                  ? 'text-[#ff9400] font-semibold bg-[#fff8f0]'
+                  : 'text-[#18191c] hover:bg-[#f9fafb]'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function NonProfitOrgAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('org');
@@ -164,7 +230,10 @@ export default function UpdateOrgAccountPage() {
 
   // Org Info
   const [sector, setSector] = useState<'government' | 'private'>('government');
-  const [eduLevels, setEduLevels] = useState<string[]>([]);
+  const [npoType, setNpoType] = useState('');
+  const [causeKeywords, setCauseKeywords] = useState<string[]>([]);
+  const [operateLocations, setOperateLocations] = useState<string[]>([]);
+  const [sdgFocusAreas, setSdgFocusAreas] = useState<string[]>([]);
   const [bio, setBio] = useState('');
 
   // More Info
@@ -179,7 +248,6 @@ export default function UpdateOrgAccountPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Load existing profile on mount; redirect forprofit orgs to their own page
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
@@ -189,20 +257,11 @@ export default function UpdateOrgAccountPage() {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.org_type === 'forprofit') {
-          navigate('/account/update/org/forprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'nonprofit') {
-          navigate('/account/update/org/nonprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'health') {
-          navigate('/account/update/org/health', { replace: true });
-          return;
-        }
         if (d.sector) setSector(d.sector);
-        if (d.edu_levels_offered?.length) setEduLevels(d.edu_levels_offered);
+        if (d.describe_as) setNpoType(d.describe_as);
+        if (d.skills?.length) setCauseKeywords(d.skills);
+        if (d.edu_levels_offered?.length) setOperateLocations(d.edu_levels_offered);
+        if (d.applicable_industries?.length) setSdgFocusAreas(d.applicable_industries);
         if (d.bio) setBio(d.bio);
         if (d.services?.length) setServices(d.services);
         if (d.industries?.length) setIndustries(d.industries);
@@ -226,9 +285,9 @@ export default function UpdateOrgAccountPage() {
     { id: 'contact', label: 'Contact',            icon: atIcon },
   ];
 
-  function toggleEduLevel(level: string) {
-    setEduLevels((prev) =>
-      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+  function toggleSdg(sdg: string) {
+    setSdgFocusAreas((prev) =>
+      prev.includes(sdg) ? prev.filter((s) => s !== sdg) : [...prev, sdg]
     );
   }
 
@@ -238,7 +297,7 @@ export default function UpdateOrgAccountPage() {
     if (!token) { navigate('/'); return; }
 
     const payloadByTab: Record<string, object> = {
-      org:     { sector, edu_levels_offered: eduLevels, bio },
+      org:     { sector, describe_as: npoType, skills: causeKeywords, edu_levels_offered: operateLocations, applicable_industries: sdgFocusAreas, bio },
       more:    { services, industries, website, social_links: socialLinks },
       contact: { reach_for: reachFor, location, phone, setup_complete: true },
     };
@@ -284,18 +343,17 @@ export default function UpdateOrgAccountPage() {
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
 
-        {/* ── Completion screen ── */}
+        {/* Completion screen */}
         {tab === 'complete' && (
           <div className="flex items-center justify-center min-h-[calc(100vh-78px)] px-4">
             <div className="flex flex-col items-center gap-8 text-center max-w-md w-full">
               <div className="bg-[#ffeacc] p-10 rounded-full">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-[#ff9400]">
                   <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="20 12 9 23 4 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
-                🎉 Congratulations, You profile is 100% complete!
+                🎉 Congratulations, Your profile is 100% complete!
               </h2>
               <button
                 onClick={() => navigate('/home')}
@@ -310,11 +368,11 @@ export default function UpdateOrgAccountPage() {
           </div>
         )}
 
-        {/* ── Form ── */}
+        {/* Form */}
         {tab !== 'complete' && (
           <div className="max-w-[960px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-            {/* Progress */}
+            {/* Progress bar */}
             <div className="mb-6 sm:mb-8">
               <div className="flex items-center justify-between text-sm sm:text-base mb-3">
                 <span className="text-[#767f8c]">Setup Progress</span>
@@ -348,7 +406,7 @@ export default function UpdateOrgAccountPage() {
               </div>
             </div>
 
-            {/* ── Tab: Organization Info ── */}
+            {/* Tab: Organization Info */}
             {tab === 'org' && (
               <div className="flex flex-col gap-6">
 
@@ -373,9 +431,9 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Organization Sector */}
+                {/* NPO Sector */}
                 <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-semibold">Select Your Organization Sector</p>
+                  <p className="text-[#18191c] text-sm font-semibold">Select your NPO sector</p>
                   <div className="flex gap-3 flex-wrap">
                     <button
                       type="button"
@@ -402,31 +460,57 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Educational levels */}
+                {/* NPO Type dropdown */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[#18191c] text-sm font-semibold">Which Type of NPO are you?</label>
+                  <NPOTypeDropdown value={npoType} onChange={setNpoType} />
+                </div>
+
+                {/* Cause keywords */}
+                <TagInput
+                  label="Mention your Organization's main cause in keywords"
+                  placeholder="Type a keyword and press comma or Enter"
+                  hint="Enter a comma after each tag"
+                  tags={causeKeywords}
+                  onAdd={(t) => setCauseKeywords((prev) => [...prev, t])}
+                  onRemove={(t) => setCauseKeywords((prev) => prev.filter((x) => x !== t))}
+                />
+
+                {/* Operate locations */}
+                <TagInput
+                  label="Mention the locations where you operate from"
+                  placeholder="Type a location and press comma or Enter"
+                  hint="Enter a comma after each tag"
+                  tags={operateLocations}
+                  onAdd={(t) => setOperateLocations((prev) => [...prev, t])}
+                  onRemove={(t) => setOperateLocations((prev) => prev.filter((x) => x !== t))}
+                />
+
+                {/* SDG Focus Areas */}
                 <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-medium">Select the educational levels offered by your institution</p>
+                  <p className="text-[#18191c] text-sm font-semibold">Select Your Applicable SDG Focus Areas</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                    {EDU_LEVELS.map((level) => (
-                      <label key={level} className="flex items-center gap-2.5 cursor-pointer group">
+                    {SDG_FOCUS_AREAS.map((sdg) => (
+                      <label key={sdg} className="flex items-center gap-2.5 cursor-pointer group">
                         <div
-                          onClick={() => toggleEduLevel(level)}
+                          onClick={() => toggleSdg(sdg)}
                           className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                            eduLevels.includes(level)
+                            sdgFocusAreas.includes(sdg)
                               ? 'bg-[#ff9400] border-[#ff9400]'
                               : 'border-[#d1d5db] bg-white group-hover:border-[#ff9400]'
                           }`}
                         >
-                          {eduLevels.includes(level) && (
+                          {sdgFocusAreas.includes(sdg) && (
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                               <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
                         </div>
                         <span
-                          onClick={() => toggleEduLevel(level)}
+                          onClick={() => toggleSdg(sdg)}
                           className="text-sm text-[#4b5563] group-hover:text-[#18191c] transition-colors cursor-pointer leading-snug"
                         >
-                          {level}
+                          {sdg}
                         </span>
                       </label>
                     ))}
@@ -447,7 +531,7 @@ export default function UpdateOrgAccountPage() {
               </div>
             )}
 
-            {/* ── Tab: More Info ── */}
+            {/* Tab: More Info */}
             {tab === 'more' && (
               <div className="flex flex-col gap-5 sm:gap-6">
 
@@ -460,7 +544,6 @@ export default function UpdateOrgAccountPage() {
                   onRemove={(t) => setServices((prev) => prev.filter((x) => x !== t))}
                 />
 
-                {/* Industry expertise */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Mention your organization's industry expertise and years of experience in each</label>
                   <div className="flex flex-col gap-3">
@@ -496,7 +579,6 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Website */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Website (Optional)</label>
                   <div className="relative">
@@ -511,7 +593,6 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Social links */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Social Link</label>
                   <div className="flex flex-col gap-3">
@@ -547,7 +628,6 @@ export default function UpdateOrgAccountPage() {
                         </button>
                       </div>
                     ))}
-
                     <button
                       type="button"
                       onClick={() => setSocialLinks((prev) => [...prev, { platform: 'LinkedIn', url: '' }])}
@@ -564,7 +644,7 @@ export default function UpdateOrgAccountPage() {
               </div>
             )}
 
-            {/* ── Tab: Contact ── */}
+            {/* Tab: Contact */}
             {tab === 'contact' && (
               <div className="flex flex-col gap-5 sm:gap-6">
 

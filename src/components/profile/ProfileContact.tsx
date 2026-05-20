@@ -221,7 +221,7 @@ export default function ProfileContact({ profile }: { profile: UserProfile }) {
             {profile.socialLinks.map((link) => (
               <a
                 key={link.platform}
-                href={link.url}
+                href={link.url && !/^https?:\/\//i.test(link.url) ? `https://${link.url}` : link.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-[#18191c] text-sm font-medium hover:text-[#f77f00] transition-colors group"
