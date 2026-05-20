@@ -195,6 +195,8 @@ export default function UpdateOrgAccountPage() {
         }
         if (d.org_type === 'international') {
           navigate('/account/update/org/international', { replace: true });
+          return;
+        }
         if (d.org_type === 'nonprofit') {
           navigate('/account/update/org/nonprofit', { replace: true });
           return;
