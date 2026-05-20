@@ -22,9 +22,8 @@ import cupSvg from '../../assets/images/svg/cup.svg';
 const postImg1 = 'https://placehold.co/400x300/f5f5f5/cccccc';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const MOCK_REVIEWS: any[] = [];
+const MOCK_REVIEWS: { id: string; name: string; rating: number; text: string }[] = [];
 
-// ── Add Industry Experience Modal ──────────────────────────────────────────────
 function AddIndustryExperienceModal({
   currentIndustries,
   onClose,
@@ -66,7 +65,7 @@ function AddIndustryExperienceModal({
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-[20px] w-full max-w-md shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-8 pt-7 pb-4 shrink-0">
+        <div className="flex items-center justify-between px-8 pt-7 pb-4">
           <h2 className="text-[#18191c] text-xl font-bold">Industry Experience</h2>
           <button onClick={onClose} className="text-[#18191c] hover:opacity-70 transition-opacity">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -75,10 +74,9 @@ function AddIndustryExperienceModal({
           </button>
         </div>
         <div className="h-px bg-[#e4e5e8] mx-8" />
-        <p className="text-[#9199a3] text-xs px-8 pt-3">* Indicates required</p>
         <div className="px-8 py-5 flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <label className="text-[#18191c] text-sm font-semibold">Industry / Domain Name <span className="text-red-500">*</span></label>
+            <label className="text-[#18191c] text-sm font-semibold">Industry / Domain Name *</label>
             <input className={inp} placeholder="Ex: Product Design" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="flex flex-col gap-2">
@@ -101,7 +99,6 @@ function AddIndustryExperienceModal({
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function SocialIcon({ platform }: { platform: string }) {
   const p = platform.toLowerCase();
   if (p.includes('linkedin')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14zm-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79zM6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68zm1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>;
@@ -136,36 +133,22 @@ function AddButton({ onClick }: { onClick?: () => void }) {
   );
 }
 
-function BadgeIcon() {
+function OutlinedTag({ label }: { label: string }) {
   return (
-    <div className="w-6 h-6 rounded-full bg-[#ff9400] flex items-center justify-center shadow-md">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-        <path d="M8 21h8M12 17v4M7 4H4a2 2 0 00-2 2v2a4 4 0 004 4h.5M17 4h3a2 2 0 012 2v2a4 4 0 01-4 4h-.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M7 4h10v7a5 5 0 01-10 0V4z" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </div>
-  );
-}
-
-function OrgSectorLabel({ sector }: { sector?: string }) {
-  if (!sector) return null;
-  const label = sector.charAt(0).toUpperCase() + sector.slice(1);
-  return (
-    <span className="inline-block text-xs font-semibold text-[#5e6670] rounded-full">
+    <span className="text-sm font-medium px-4 py-2 rounded-full border border-[#f77f00] text-[#f77f00] bg-white whitespace-nowrap">
       {label}
     </span>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-export default function OrgProfilePage() {
+export default function NonProfitOrgProfilePage() {
   const { userId = 'me' } = useParams<{ userId?: string }>();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [showAllEduLevels, setShowAllEduLevels] = useState(false);
+  const [showAllSdg, setShowAllSdg] = useState(false);
   const [showAllInd, setShowAllInd] = useState(false);
   const [addIndExpOpen, setAddIndExpOpen] = useState(false);
 
@@ -187,12 +170,10 @@ export default function OrgProfilePage() {
     if (!resolvedUserId) return;
     fetchPersonalAchievements(resolvedUserId).then(setAchievements).catch(() => {});
   };
-
   const loadPosts = () => {
     if (!resolvedUserId) return;
     fetchUserPosts(resolvedUserId).then(setPosts).catch(() => {});
   };
-
   const loadCollabAccomplishments = () => {
     if (!resolvedUserId) return;
     fetchCollaborativeAccomplishments(resolvedUserId).then(data => {
@@ -207,37 +188,38 @@ export default function OrgProfilePage() {
   useEffect(() => { loadCollabAccomplishments(); }, [resolvedUserId]);
 
   const reachForTags = profile?.reachFor ?? [];
+  const sdgAreas = profile?.applicableIndustries ?? [];
+  const causeKeywords = profile?.skills ?? [];
+  const operateLocations = profile?.eduLevelsOffered ?? [];
 
-  const [eduLimit, setEduLimit] = useState((profile?.eduLevelsOffered ?? []).length || 10);
-  const eduMeasureRef = useRef<HTMLDivElement>(null);
+  // SDG "show more" – display only first row until expanded
+  const sdgMeasureRef = useRef<HTMLDivElement>(null);
+  const [sdgLimit, setSdgLimit] = useState(sdgAreas.length || 20);
 
   useEffect(() => {
-    if (!eduMeasureRef.current) return;
+    if (!sdgMeasureRef.current) return;
     const observer = new ResizeObserver(() => {
-      const container = eduMeasureRef.current;
+      const container = sdgMeasureRef.current;
       if (!container) return;
       const children = Array.from(container.children) as HTMLElement[];
       if (children.length === 0) return;
-
       const firstTop = children[0].offsetTop;
       let wrapIndex = -1;
       for (let i = 0; i < children.length; i++) {
-        if (children[i].offsetTop > firstTop + 5) {
-          wrapIndex = i;
-          break;
-        }
+        if (children[i].offsetTop > firstTop + 5) { wrapIndex = i; break; }
       }
-
-      if (wrapIndex !== -1) {
-        setEduLimit(Math.max(1, wrapIndex - 1));
-      } else {
-        setEduLimit((profile?.eduLevelsOffered ?? []).length);
-      }
+      setSdgLimit(wrapIndex !== -1 ? Math.max(1, wrapIndex - 1) : sdgAreas.length);
     });
-
-    observer.observe(eduMeasureRef.current);
+    observer.observe(sdgMeasureRef.current);
     return () => observer.disconnect();
-  }, [(profile?.eduLevelsOffered ?? []).join(',')]);
+  }, [sdgAreas.join(',')]);
+
+  // Sector label
+  const sectorLabel = profile?.sector === 'government' ? 'Government Sector'
+    : profile?.sector === 'private' ? 'Private Sector'
+    : profile?.sector ?? '';
+  const npoTypeLabel = (profile as any)?.describeAs ?? '';
+  const subtitleParts = [sectorLabel, npoTypeLabel].filter(Boolean);
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -286,17 +268,17 @@ export default function OrgProfilePage() {
                       <span className="absolute bottom-3 right-3 w-4 h-4 bg-[#22c55e] rounded-full border-2 border-white" />
                     </div>
 
-                    {/* Name / Info */}
+                    {/* Name / subtitle */}
                     <div className="flex flex-col gap-0.5 min-w-0 -mt-3 relative z-10">
                       <h1 className="text-[#18191c] text-xl font-bold leading-tight">
                         {profile
                           ? (profile.orgName || profile.firstName)
                           : storedUser.org_name || 'Your Organization'}
                       </h1>
-                      {profile?.sector && (
-                        <div className="mt-0.5">
-                          <OrgSectorLabel sector={profile.sector} />
-                        </div>
+                      {subtitleParts.length > 0 && (
+                        <p className="text-[#5e6670] text-xs font-medium mt-0.5">
+                          {subtitleParts.join(' · ')}
+                        </p>
                       )}
                       {profile?.location && (
                         <p className="text-[#9199a3] text-xs">{profile.location}</p>
@@ -343,9 +325,7 @@ export default function OrgProfilePage() {
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
                             <div className="absolute left-0 top-[calc(100%+6px)] w-44 bg-white rounded-xl shadow-lg border border-[#f2f2f3] z-50 overflow-hidden py-1">
-                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">
-                                Share Profile
-                              </button>
+                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">Share Profile</button>
                             </div>
                           </>
                         )}
@@ -353,14 +333,9 @@ export default function OrgProfilePage() {
                     </>
                   ) : (
                     <>
-                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        Add to Community
-                      </button>
-                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        Message
-                      </button>
-                      <button onClick={follow}
-                        className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
+                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">Add to Community</button>
+                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">Message</button>
+                      <button onClick={follow} className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
                         {profile?.isFollowing ? 'Following' : '+ Follow'}
                       </button>
                     </>
@@ -371,10 +346,10 @@ export default function OrgProfilePage() {
                 <div className="mt-5 mb-1">
                   <div className="flex items-stretch border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
                     {[
-                      { label: 'Media Posts', value: String(posts.length) },
-                      { label: 'Reviews', value: '0' },
-                      { label: 'Achievements', value: String(achievements.length) },
-                      { label: 'Community Members', value: '0' },
+                      { label: 'Media Posts',       value: String(posts.length) },
+                      { label: 'Reviews',            value: '0' },
+                      { label: 'Achievements',       value: String(achievements.length) },
+                      { label: 'Community Members',  value: '0' },
                     ].map((s) => (
                       <button key={s.label} className="flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors">
                         <span className="text-[#ff9400] text-xl font-bold leading-tight">{s.value}</span>
@@ -388,7 +363,7 @@ export default function OrgProfilePage() {
               {/* Body */}
               <div className="px-6 sm:px-16 py-6 flex flex-col">
 
-                {/* Reach out */}
+                {/* Reach out to us for */}
                 <div>
                   <p className="text-[#18191c] text-base font-bold mb-3">Reach out to us for:</p>
                   {reachForTags.length > 0 ? (
@@ -406,19 +381,22 @@ export default function OrgProfilePage() {
 
                 <Divider />
 
-                {/* 3-column section */}
+                {/* 3-column: Service Offerings | Additional Details | Brochure */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {/* Service Offerings */}
                   <div>
                     <p className="text-[#18191c] text-base font-bold mb-3">Service Offerings</p>
                     <div className="flex flex-col gap-1.5">
-                      {(profile?.services ?? []).length > 0 ? (profile?.services ?? []).map((item) => (
-                        <span key={item} className="text-[#5e6670] text-sm">{item}</span>
-                      )) : (
-                        <p className="text-[#9199a3] text-sm">Not specified yet.</p>
-                      )}
+                      {(profile?.services ?? []).length > 0
+                        ? (profile?.services ?? []).map((item) => (
+                          <span key={item} className="text-[#5e6670] text-sm">{item}</span>
+                        ))
+                        : <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                      }
                     </div>
                   </div>
 
+                  {/* Additional Details */}
                   <div>
                     <p className="text-[#18191c] text-base font-bold mb-3">Additional Details</p>
                     <div className="flex flex-col gap-2.5">
@@ -431,7 +409,8 @@ export default function OrgProfilePage() {
                       {profile?.website && (
                         <div className="flex items-start gap-2 text-[#5e6670] text-sm">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                          <span><span className="text-[#18191c] font-medium">Profile URL</span><br />
+                          <span>
+                            <span className="text-[#18191c] font-medium">My Profile URL</span><br />
                             <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-[#5e6670] hover:text-[#ff9400] hover:underline">
                               {profile.website.replace(/^https?:\/\//, '')}
                             </a>
@@ -439,13 +418,14 @@ export default function OrgProfilePage() {
                         </div>
                       )}
                       {!profile?.languages && !profile?.website && (
-                        <p className="text-[#9199a3] text-sm">No additional details added yet.</p>
+                        <p className="text-[#9199a3] text-sm">No additional details yet.</p>
                       )}
                     </div>
                   </div>
 
+                  {/* Brochure */}
                   <div>
-                    <p className="text-[#18191c] text-sm font-semibold mb-3">Brochure / Logo</p>
+                    <p className="text-[#18191c] text-base font-bold mb-3">Brochure</p>
                     <div
                       onClick={async () => {
                         if (!profile?.resumeUrl) return;
@@ -485,55 +465,71 @@ export default function OrgProfilePage() {
 
                 <Divider />
 
-                {/* Educational Levels Offered */}
+                {/* Our Cause */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[#18191c] text-lg font-bold">Educational Levels Offered</h3>
-                  </div>
-                  {(profile?.eduLevelsOffered ?? []).length > 0 ? (
-                    showAllEduLevels ? (
+                  <p className="text-[#18191c] text-base font-bold mb-3">Our Cause</p>
+                  {causeKeywords.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {causeKeywords.map((tag) => (
+                        <OutlinedTag key={tag} label={tag} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                  )}
+                </div>
+
+                <Divider />
+
+                {/* SDG's Focus */}
+                <div>
+                  <p className="text-[#18191c] text-base font-bold mb-3">SDG's Focus</p>
+                  {sdgAreas.length > 0 ? (
+                    showAllSdg ? (
                       <>
                         <div className="flex flex-wrap gap-2">
-                          {(profile?.eduLevelsOffered ?? []).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
-                              {level}
-                            </span>
-                          ))}
+                          {sdgAreas.map((tag) => <OutlinedTag key={tag} label={tag} />)}
                         </div>
-                        <button onClick={() => setShowAllEduLevels(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
+                        <button onClick={() => setShowAllSdg(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
                           Show less
                         </button>
                       </>
                     ) : (
                       <div className="relative">
-                        {/* Hidden measuring container */}
-                        <div ref={eduMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
-                          {(profile?.eduLevelsOffered ?? []).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
-                              {level}
-                            </span>
-                          ))}
+                        {/* Hidden measuring row */}
+                        <div ref={sdgMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
+                          {sdgAreas.map((tag) => <OutlinedTag key={tag} label={tag} />)}
                         </div>
-
-                        {/* Visible container */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          {(profile?.eduLevelsOffered ?? []).slice(0, eduLimit).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
-                              {level}
-                            </span>
+                          {sdgAreas.slice(0, sdgLimit).map((tag) => (
+                            <OutlinedTag key={tag} label={tag} />
                           ))}
-                          {eduLimit < (profile?.eduLevelsOffered ?? []).length && (
+                          {sdgLimit < sdgAreas.length && (
                             <button
-                              onClick={() => setShowAllEduLevels(true)}
-                              className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+                              onClick={() => setShowAllSdg(true)}
+                              className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
                             >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="1.5"/><path d="M12 8v8M8 12h8" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
                               Show more
                             </button>
                           )}
                         </div>
                       </div>
                     )
+                  ) : (
+                    <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                  )}
+                </div>
+
+                <Divider />
+
+                {/* Operational Location */}
+                <div>
+                  <p className="text-[#18191c] text-base font-bold mb-3">Operational Location</p>
+                  {operateLocations.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {operateLocations.map((tag) => <OutlinedTag key={tag} label={tag} />)}
+                    </div>
                   ) : (
                     <p className="text-[#9199a3] text-sm">Not specified yet.</p>
                   )}
@@ -571,7 +567,7 @@ export default function OrgProfilePage() {
                               <button className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                               </button>
-                              <button className="text-[#ff9400] hover:text-red-500 transition-colors p-1">
+                              <button className="text-[#9199a3] hover:text-red-500 transition-colors p-1">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                               </button>
                             </div>
@@ -603,17 +599,23 @@ export default function OrgProfilePage() {
                     <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {MOCK_REVIEWS.length > 0 ? MOCK_REVIEWS.map((review) => (
-                      <div key={review.id} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[#18191c] text-sm font-semibold">{review.name}</p>
-                          <StarRating rating={review.rating} />
+                    {MOCK_REVIEWS.length > 0
+                      ? MOCK_REVIEWS.map((review) => (
+                        <div key={review.id} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[#18191c] text-sm font-semibold">{review.name}</p>
+                            <StarRating rating={review.rating} />
+                          </div>
+                          <p className="text-[#5e6670] text-xs leading-relaxed">{review.text}</p>
                         </div>
-                        <p className="text-[#5e6670] text-xs leading-relaxed">{review.text}</p>
-                      </div>
-                    )) : (
-                      <p className="text-[#9199a3] text-sm col-span-3">No reviews yet.</p>
-                    )}
+                      ))
+                      : <p className="text-[#9199a3] text-sm col-span-3">No reviews yet.</p>
+                    }
+                  </div>
+                  <div className="mt-4 flex justify-center">
+                    <button className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">
+                      Write A Review
+                    </button>
                   </div>
                 </div>
 
@@ -624,9 +626,7 @@ export default function OrgProfilePage() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#18191c] text-base font-semibold">My Achievements</h3>
                     {achievements.length > 0 && (
-                      <button onClick={() => setShowAllAchievements(true)} className="text-[#ff9400] text-sm font-medium hover:underline">
-                        View All
-                      </button>
+                      <button onClick={() => setShowAllAchievements(true)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                     )}
                   </div>
                   {achievements.length === 0 ? (
@@ -656,11 +656,9 @@ export default function OrgProfilePage() {
                       Collaborative Accomplishment{' '}
                       <span className="text-[#9199a3] font-normal text-sm">({collabAccomplishments.length})</span>
                     </h3>
-                    <div className="flex items-center gap-3">
-                      {collabAccomplishments.length > 0 && (
-                        <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
-                      )}
-                    </div>
+                    {collabAccomplishments.length > 0 && (
+                      <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
+                    )}
                   </div>
                   {collabAccomplishments.length === 0 ? (
                     <p className="text-[#9199a3] text-sm">No collaborative achievements yet.</p>
@@ -700,9 +698,7 @@ export default function OrgProfilePage() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-[#18191c] text-sm font-bold leading-snug truncate">
                                   {firstCollab?.name ?? 'Collaborator'}
-                                  {othersCount > 0 && (
-                                    <span className="text-[#ff9400] font-semibold"> +{othersCount}</span>
-                                  )}
+                                  {othersCount > 0 && <span className="text-[#ff9400] font-semibold"> +{othersCount}</span>}
                                 </p>
                                 <p className="text-[#18191c] text-sm font-semibold mt-0.5 leading-snug line-clamp-1">{a.title}</p>
                                 {a.description && (
@@ -713,13 +709,9 @@ export default function OrgProfilePage() {
                           );
                         })}
                       </div>
-                      {/* Scroll indicator */}
                       <div className="flex gap-1.5 mt-1">
                         {collabAccomplishments.slice(0, 5).map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-1 rounded-full transition-all ${i === 0 ? 'w-6 bg-[#ff9400]' : 'w-2 bg-[#ffd9a0]'}`}
-                          />
+                          <div key={i} className={`h-1 rounded-full transition-all ${i === 0 ? 'w-6 bg-[#ff9400]' : 'w-2 bg-[#ffd9a0]'}`} />
                         ))}
                       </div>
                     </div>
@@ -773,8 +765,8 @@ export default function OrgProfilePage() {
               </button>
             </div>
             {[
-              { label: 'Industry Experience', onClick: () => { setAddSectionOpen(false); setAddIndExpOpen(true); } },
-              { label: 'Personal Achievement', onClick: () => { setAddSectionOpen(false); setAddAchievementOpen(true); } },
+              { label: 'Industry Experience',         onClick: () => { setAddSectionOpen(false); setAddIndExpOpen(true); } },
+              { label: 'Personal Achievement',        onClick: () => { setAddSectionOpen(false); setAddAchievementOpen(true); } },
               { label: 'Collaborative Accomplishment', onClick: () => { setAddSectionOpen(false); setAddCollabOpen(true); } },
             ].map(({ label, onClick }) => (
               <button key={label} onClick={onClick}
@@ -788,37 +780,17 @@ export default function OrgProfilePage() {
       )}
 
       {addAchievementOpen && (
-        <AddPersonalAchievementModal
-          onClose={() => setAddAchievementOpen(false)}
-          onSaved={loadAchievements}
-        />
+        <AddPersonalAchievementModal onClose={() => setAddAchievementOpen(false)} onSaved={loadAchievements} />
       )}
-
       {showAllAchievements && (
-        <AllAchievementsModal
-          achievements={achievements}
-          onClose={() => setShowAllAchievements(false)}
-          onDeleted={loadAchievements}
-          isOwn={isOwn}
-        />
+        <AllAchievementsModal achievements={achievements} onClose={() => setShowAllAchievements(false)} onDeleted={loadAchievements} isOwn={isOwn} />
       )}
-
       {addCollabOpen && (
-        <AddCollaborativeAccomplishmentModal
-          onClose={() => setAddCollabOpen(false)}
-          onSaved={loadCollabAccomplishments}
-        />
+        <AddCollaborativeAccomplishmentModal onClose={() => setAddCollabOpen(false)} onSaved={loadCollabAccomplishments} />
       )}
-
       {selectedCollab && (
-        <CollaborativeAccomplishmentDetailModal
-          accomplishment={selectedCollab}
-          onClose={() => setSelectedCollab(null)}
-          onDeleted={loadCollabAccomplishments}
-          isOwn={isOwn}
-        />
+        <CollaborativeAccomplishmentDetailModal accomplishment={selectedCollab} onClose={() => setSelectedCollab(null)} onDeleted={loadCollabAccomplishments} isOwn={isOwn} />
       )}
-
       {addIndExpOpen && (
         <AddIndustryExperienceModal
           currentIndustries={profile?.industries ?? []}
@@ -826,7 +798,6 @@ export default function OrgProfilePage() {
           onSaved={() => { setAddIndExpOpen(false); reload(); }}
         />
       )}
-
       {editOpen && profile && (
         <EditProfileModal
           profile={profile}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
@@ -12,24 +12,53 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 type Tab = 'org' | 'more' | 'contact' | 'complete';
 
-// Ordered to fill a 3-column grid row-by-row matching the design
-const EDU_LEVELS = [
-  "Pre-Primary (Nursery, LKG, UKG)",
-  "Secondary School (Class 9–10)",
-  "Undergraduate (UG)",
-  "Primary School (Class 1–5)",
-  "Vocational / Diploma / ITI",
-  "Postgraduate (PG)",
-  "Middle School (Class 6–8)",
-  "Higher Secondary (Class 11–12)",
-  "PhD / Research",
+const HOSPITAL_FACILITY_TYPES = [
+  'General Hospitals',
+  'Maternity Homes',
+  'Wellness & Naturopathy Centers',
+  'Multi-Specialty Hospitals',
+  'Child & Women Wellness Centers',
+  'Blood Banks',
+  'Primary Health Centers (PHC)',
+  'Trauma Centers',
+  'Mobile Health Units',
+  'Community Health Centers (CHC)',
+  'Ambulance & Emergency Services',
+  'Vaccination/Immunization Centers',
+  'Polyclinics / Specialty Clinics',
+  'Rehabilitation Centers',
+  'Nursing Homes',
+  'Diagnostic Centers',
+  'Palliative Care Centers',
+  'AYUSH Clinics (Ayurveda, Yoga, Unani, Siddha, Homeopathy)',
+  'Pathology Labs',
+  'Radiology/Imaging Centers',
 ];
 
-const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram', 'Twitter / X', 'Facebook', 'Medium / Substack'];
+const SOCIAL_PLATFORMS = [
+  'LinkedIn',
+  'GitHub',
+  'Behance / Dribbble',
+  'Instagram',
+  'Twitter / X',
+  'Facebook',
+  'Medium / Substack',
+];
+
+const PLATFORM_ICONS: Record<string, string> = {
+  LinkedIn: '💼',
+  GitHub: '🐙',
+  'Behance / Dribbble': '🎨',
+  Instagram: '📸',
+  'Twitter / X': '🐦',
+  Facebook: '📘',
+  'Medium / Substack': '📝',
+};
 
 const inputCls =
   'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
 
+// ── Upload area ──────────────────────────────────────────────────────────────
 function UploadArea({ hint, accept, cover, imageType }: {
   hint: string; accept?: string; cover?: boolean; imageType: 'avatar' | 'cover';
 }) {
@@ -40,19 +69,17 @@ function UploadArea({ hint, accept, cover, imageType }: {
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Show preview immediately
     setPreview(URL.createObjectURL(file));
     setUploadError('');
     setUploading(true);
     try {
       const user = JSON.parse(localStorage.getItem('user') ?? '{}');
-      const token = user.access_token ?? '';
       const form = new FormData();
       form.append('file', file);
       form.append('image_type', imageType);
       const res = await fetch(`${API_URL}/api/upload/profile-image`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${user.access_token ?? ''}` },
         body: form,
       });
       if (!res.ok) {
@@ -60,7 +87,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
         throw new Error(err.detail ?? 'Upload failed');
       }
       const data = await res.json();
-      // Replace blob URL with the permanent public URL
       setPreview(data.url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -72,12 +98,7 @@ function UploadArea({ hint, accept, cover, imageType }: {
   if (preview) {
     return (
       <label className="relative w-full h-full min-h-[140px] rounded-lg overflow-hidden cursor-pointer block">
-        <img
-          src={preview}
-          alt="preview"
-          className={`w-full h-full object-cover ${cover ? 'object-center' : 'object-top'}`}
-          style={{ minHeight: 140 }}
-        />
+        <img src={preview} alt="preview" className={`w-full h-full object-cover ${cover ? 'object-center' : 'object-top'}`} style={{ minHeight: 140 }} />
         {uploading && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="text-white text-sm font-medium">Uploading…</span>
@@ -89,9 +110,7 @@ function UploadArea({ hint, accept, cover, imageType }: {
           </div>
         )}
         {uploadError && (
-          <div className="absolute bottom-0 left-0 right-0 bg-red-500/90 text-white text-xs text-center py-1">
-            {uploadError}
-          </div>
+          <div className="absolute bottom-0 left-0 right-0 bg-red-500/90 text-white text-xs text-center py-1">{uploadError}</div>
         )}
         <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
       </label>
@@ -107,26 +126,23 @@ function UploadArea({ hint, accept, cover, imageType }: {
         <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
       <div className="text-center">
-        <p className="text-sm text-[#18191c]">
-          <span className="font-medium">Browse photo</span> or drop here
-        </p>
+        <p className="text-sm text-[#18191c]"><span className="font-medium">Browse photo</span> or drop here</p>
         <p className="text-xs text-[#5e6670] mt-1 leading-relaxed">{hint}</p>
       </div>
     </label>
   );
 }
 
+// ── Tag input ─────────────────────────────────────────────────────────────────
 function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   label: string; placeholder: string; hint?: string;
   tags: string[]; onAdd: (t: string) => void; onRemove: (t: string) => void;
 }) {
   const [input, setInput] = useState('');
-
   function commit() {
     const v = input.trim().replace(/,/g, '');
     if (v) { onAdd(v); setInput(''); }
   }
-
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[#18191c] text-sm">{label}</label>
@@ -155,7 +171,56 @@ function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   );
 }
 
-export default function UpdateOrgAccountPage() {
+// ── Social platform custom dropdown ──────────────────────────────────────────
+function SocialPlatformDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-sm font-medium text-[#18191c] bg-transparent focus:outline-none whitespace-nowrap"
+      >
+        <span>{PLATFORM_ICONS[value] ?? '🔗'}</span>
+        <span>{value}</span>
+        <svg className={`text-[#9199a3] transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-[calc(100%+10px)] left-0 bg-white rounded-2xl shadow-[0px_8px_32px_rgba(0,0,0,0.12)] border border-[#f2f2f3] overflow-hidden min-w-[190px]">
+          {SOCIAL_PLATFORMS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => { onChange(p); setOpen(false); }}
+              className={`w-full text-left px-5 py-3 text-sm flex items-center gap-2.5 transition-colors ${
+                value === p ? 'text-[#ff9400] font-semibold bg-[#fff8f0]' : 'text-[#18191c] hover:bg-[#f9fafb]'
+              }`}
+            >
+              <span>{PLATFORM_ICONS[p]}</span>
+              <span>{p}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+export default function HealthServicesOrgAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('org');
@@ -164,7 +229,7 @@ export default function UpdateOrgAccountPage() {
 
   // Org Info
   const [sector, setSector] = useState<'government' | 'private'>('government');
-  const [eduLevels, setEduLevels] = useState<string[]>([]);
+  const [facilityTypes, setFacilityTypes] = useState<string[]>([]);
   const [bio, setBio] = useState('');
 
   // More Info
@@ -179,7 +244,6 @@ export default function UpdateOrgAccountPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Load existing profile on mount; redirect forprofit orgs to their own page
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
@@ -189,22 +253,8 @@ export default function UpdateOrgAccountPage() {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.org_type === 'forprofit') {
-          navigate('/account/update/org/forprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'international') {
-          navigate('/account/update/org/international', { replace: true });
-        if (d.org_type === 'nonprofit') {
-          navigate('/account/update/org/nonprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'health') {
-          navigate('/account/update/org/health', { replace: true });
-          return;
-        }
         if (d.sector) setSector(d.sector);
-        if (d.edu_levels_offered?.length) setEduLevels(d.edu_levels_offered);
+        if (d.applicable_industries?.length) setFacilityTypes(d.applicable_industries);
         if (d.bio) setBio(d.bio);
         if (d.services?.length) setServices(d.services);
         if (d.industries?.length) setIndustries(d.industries);
@@ -228,9 +278,9 @@ export default function UpdateOrgAccountPage() {
     { id: 'contact', label: 'Contact',            icon: atIcon },
   ];
 
-  function toggleEduLevel(level: string) {
-    setEduLevels((prev) =>
-      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+  function toggleFacility(type: string) {
+    setFacilityTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
   }
 
@@ -240,7 +290,7 @@ export default function UpdateOrgAccountPage() {
     if (!token) { navigate('/'); return; }
 
     const payloadByTab: Record<string, object> = {
-      org:     { sector, edu_levels_offered: eduLevels, bio },
+      org:     { sector, applicable_industries: facilityTypes, bio },
       more:    { services, industries, website, social_links: socialLinks },
       contact: { reach_for: reachFor, location, phone, setup_complete: true },
     };
@@ -286,18 +336,17 @@ export default function UpdateOrgAccountPage() {
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
 
-        {/* ── Completion screen ── */}
+        {/* Completion screen */}
         {tab === 'complete' && (
           <div className="flex items-center justify-center min-h-[calc(100vh-78px)] px-4">
             <div className="flex flex-col items-center gap-8 text-center max-w-md w-full">
               <div className="bg-[#ffeacc] p-10 rounded-full">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-[#ff9400]">
                   <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="20 12 9 23 4 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
-                🎉 Congratulations, You profile is 100% complete!
+                🎉 Congratulations, Your profile is 100% complete!
               </h2>
               <button
                 onClick={() => navigate('/home')}
@@ -312,11 +361,11 @@ export default function UpdateOrgAccountPage() {
           </div>
         )}
 
-        {/* ── Form ── */}
+        {/* Form */}
         {tab !== 'complete' && (
           <div className="max-w-[960px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-            {/* Progress */}
+            {/* Progress bar */}
             <div className="mb-6 sm:mb-8">
               <div className="flex items-center justify-between text-sm sm:text-base mb-3">
                 <span className="text-[#767f8c]">Setup Progress</span>
@@ -379,56 +428,48 @@ export default function UpdateOrgAccountPage() {
                 <div className="flex flex-col gap-3">
                   <p className="text-[#18191c] text-sm font-semibold">Select Your Organization Sector</p>
                   <div className="flex gap-3 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setSector('government')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'government'
-                          ? 'border-[#ff9400] text-[#ff9400] bg-white'
-                          : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
-                    >
-                      Government Sector
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSector('private')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'private'
-                          ? 'border-[#ff9400] text-[#ff9400] bg-white'
-                          : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
-                    >
-                      Private Sector
-                    </button>
+                    {(['government', 'private'] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSector(s)}
+                        className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
+                          sector === s
+                            ? 'border-[#ff9400] text-[#ff9400] bg-white'
+                            : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
+                        }`}
+                      >
+                        {s === 'government' ? 'Government Sector' : 'Private Sector'}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Educational levels */}
+                {/* Hospital Facility Types */}
                 <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-medium">Select the educational levels offered by your institution</p>
+                  <p className="text-[#18191c] text-sm font-semibold">Select Your Applicable Hospital Facility Types</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                    {EDU_LEVELS.map((level) => (
-                      <label key={level} className="flex items-center gap-2.5 cursor-pointer group">
+                    {HOSPITAL_FACILITY_TYPES.map((type) => (
+                      <label key={type} className="flex items-start gap-2.5 cursor-pointer group">
                         <div
-                          onClick={() => toggleEduLevel(level)}
-                          className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                            eduLevels.includes(level)
+                          onClick={() => toggleFacility(type)}
+                          className={`w-4 h-4 mt-0.5 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
+                            facilityTypes.includes(type)
                               ? 'bg-[#ff9400] border-[#ff9400]'
                               : 'border-[#d1d5db] bg-white group-hover:border-[#ff9400]'
                           }`}
                         >
-                          {eduLevels.includes(level) && (
+                          {facilityTypes.includes(type) && (
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                               <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
                         </div>
                         <span
-                          onClick={() => toggleEduLevel(level)}
+                          onClick={() => toggleFacility(type)}
                           className="text-sm text-[#4b5563] group-hover:text-[#18191c] transition-colors cursor-pointer leading-snug"
                         >
-                          {level}
+                          {type}
                         </span>
                       </label>
                     ))}
@@ -462,7 +503,6 @@ export default function UpdateOrgAccountPage() {
                   onRemove={(t) => setServices((prev) => prev.filter((x) => x !== t))}
                 />
 
-                {/* Industry expertise */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Mention your organization's industry expertise and years of experience in each</label>
                   <div className="flex flex-col gap-3">
@@ -498,7 +538,6 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Website */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Website (Optional)</label>
                   <div className="relative">
@@ -513,20 +552,16 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Social links */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[#18191c] text-sm">Social Link</label>
                   <div className="flex flex-col gap-3">
                     {socialLinks.map((link, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        <div className="flex-1 h-[50px] border border-[#e4e5e8] bg-white rounded-full flex items-center px-4 gap-2 sm:gap-3 overflow-hidden">
-                          <select
+                        <div className="flex-1 h-[50px] border border-[#e4e5e8] bg-white rounded-full flex items-center px-4 gap-2 sm:gap-3 overflow-visible relative">
+                          <SocialPlatformDropdown
                             value={link.platform}
-                            onChange={(e) => updateSocialLink(idx, 'platform', e.target.value)}
-                            className="text-sm font-medium text-[#18191c] bg-transparent focus:outline-none w-28 sm:w-36 shrink-0"
-                          >
-                            {SOCIAL_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-                          </select>
+                            onChange={(v) => updateSocialLink(idx, 'platform', v)}
+                          />
                           <div className="w-px h-6 bg-[#e4e5e8] shrink-0" />
                           <input
                             type="url"
@@ -549,7 +584,6 @@ export default function UpdateOrgAccountPage() {
                         </button>
                       </div>
                     ))}
-
                     <button
                       type="button"
                       onClick={() => setSocialLinks((prev) => [...prev, { platform: 'LinkedIn', url: '' }])}

@@ -3,11 +3,15 @@ import { useParams } from 'react-router-dom';
 import ProfilePage from './ProfilePage';
 import OrgProfilePage from './OrgProfilePage';
 import ForProfitOrgProfilePage from './ForProfitOrgProfilePage';
+import NonProfitOrgProfilePage from './NonProfitOrgProfilePage';
+import HealthServicesOrgProfilePage from './HealthServicesOrgProfilePage';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 function resolveOrgPage(orgType?: string) {
   if (orgType === 'forprofit') return <ForProfitOrgProfilePage />;
+  if (orgType === 'nonprofit') return <NonProfitOrgProfilePage />;
+  if (orgType === 'health') return <HealthServicesOrgProfilePage />;
   return <OrgProfilePage />;
 }
 
