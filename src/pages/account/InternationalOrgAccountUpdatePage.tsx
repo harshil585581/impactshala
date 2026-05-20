@@ -10,26 +10,30 @@ import envelopeIcon   from '../../assets/images/svg/Envelope.svg';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-type Tab = 'org' | 'more' | 'contact' | 'complete';
+type Tab = 'org' | 'founding' | 'contact' | 'complete';
 
-// Ordered to fill a 3-column grid row-by-row matching the design
-const EDU_LEVELS = [
-  "Pre-Primary (Nursery, LKG, UKG)",
-  "Secondary School (Class 9–10)",
-  "Undergraduate (UG)",
-  "Primary School (Class 1–5)",
-  "Vocational / Diploma / ITI",
-  "Postgraduate (PG)",
-  "Middle School (Class 6–8)",
-  "Higher Secondary (Class 11–12)",
-  "PhD / Research",
+const INTERNATIONAL_ORG_TYPES = [
+  'International Non-Governmental Organizations (INGOs)',
+  'Global Foundations & Philanthropic Organizations',
+  'International Academic & Research Institutions',
+  'International CSR & Impact Units of Corporates',
+  'United Nations Programs and Missions',
 ];
 
-const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram', 'Twitter / X', 'Facebook', 'Medium / Substack'];
+const SOCIAL_PLATFORMS = [
+  'LinkedIn',
+  'GitHub',
+  'Behance / Dribbble',
+  'Instagram',
+  'Twitter / X',
+  'Facebook',
+  'Medium / Substack',
+];
 
 const inputCls =
   'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
 
+/* ─────────────────────────────── Upload Area ─────────────────────────────── */
 function UploadArea({ hint, accept, cover, imageType }: {
   hint: string; accept?: string; cover?: boolean; imageType: 'avatar' | 'cover';
 }) {
@@ -40,7 +44,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Show preview immediately
     setPreview(URL.createObjectURL(file));
     setUploadError('');
     setUploading(true);
@@ -60,7 +63,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
         throw new Error(err.detail ?? 'Upload failed');
       }
       const data = await res.json();
-      // Replace blob URL with the permanent public URL
       setPreview(data.url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -116,6 +118,7 @@ function UploadArea({ hint, accept, cover, imageType }: {
   );
 }
 
+/* ─────────────────────────────── Tag Input ───────────────────────────────── */
 function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   label: string; placeholder: string; hint?: string;
   tags: string[]; onAdd: (t: string) => void; onRemove: (t: string) => void;
@@ -155,31 +158,32 @@ function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   );
 }
 
-export default function UpdateOrgAccountPage() {
+/* ──────────────────────────────── Page ───────────────────────────────────── */
+export default function InternationalOrgAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('org');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // Org Info
-  const [sector, setSector] = useState<'government' | 'private'>('government');
-  const [eduLevels, setEduLevels] = useState<string[]>([]);
+  // Tab 1 — Organization Info
+  const [sector, setSector] = useState<'government' | 'private'>('private');
+  const [orgType, setOrgType] = useState('');
+  const [showOrgTypeDrop, setShowOrgTypeDrop] = useState(false);
   const [bio, setBio] = useState('');
 
-  // More Info
+  // Tab 2 — Founding Info
   const [services, setServices] = useState<string[]>([]);
   const [industries, setIndustries] = useState([{ name: '', years: '' }]);
   const [website, setWebsite] = useState('');
   const [socialLinks, setSocialLinks] = useState([{ platform: 'LinkedIn', url: '' }]);
 
-  // Contact
+  // Tab 3 — Contact
   const [reachFor, setReachFor] = useState<string[]>([]);
   const [location, setLocation] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Load existing profile on mount; redirect forprofit orgs to their own page
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
@@ -189,22 +193,8 @@ export default function UpdateOrgAccountPage() {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.org_type === 'forprofit') {
-          navigate('/account/update/org/forprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'international') {
-          navigate('/account/update/org/international', { replace: true });
-        if (d.org_type === 'nonprofit') {
-          navigate('/account/update/org/nonprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'health') {
-          navigate('/account/update/org/health', { replace: true });
-          return;
-        }
         if (d.sector) setSector(d.sector);
-        if (d.edu_levels_offered?.length) setEduLevels(d.edu_levels_offered);
+        if (d.international_org_type) setOrgType(d.international_org_type);
         if (d.bio) setBio(d.bio);
         if (d.services?.length) setServices(d.services);
         if (d.industries?.length) setIndustries(d.industries);
@@ -219,20 +209,14 @@ export default function UpdateOrgAccountPage() {
   }, []);
 
   const progressMap: Record<Tab, number> = {
-    org: 25, more: 50, contact: 75, complete: 100,
+    org: 25, founding: 50, contact: 75, complete: 100,
   };
 
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'org',     label: 'Organization Info', icon: userIcon },
-    { id: 'more',    label: 'More Info',          icon: userCircleIcon },
-    { id: 'contact', label: 'Contact',            icon: atIcon },
+    { id: 'org',      label: 'Organization Info', icon: userIcon },
+    { id: 'founding', label: 'Founding Info',      icon: userCircleIcon },
+    { id: 'contact',  label: 'Contact',            icon: atIcon },
   ];
-
-  function toggleEduLevel(level: string) {
-    setEduLevels((prev) =>
-      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
-    );
-  }
 
   async function handleSave() {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
@@ -240,9 +224,9 @@ export default function UpdateOrgAccountPage() {
     if (!token) { navigate('/'); return; }
 
     const payloadByTab: Record<string, object> = {
-      org:     { sector, edu_levels_offered: eduLevels, bio },
-      more:    { services, industries, website, social_links: socialLinks },
-      contact: { reach_for: reachFor, location, phone, setup_complete: true },
+      org:      { sector, international_org_type: orgType, bio },
+      founding: { services, industries, website, social_links: socialLinks },
+      contact:  { reach_for: reachFor, location, phone, email, setup_complete: true },
     };
 
     setSaving(true);
@@ -257,8 +241,8 @@ export default function UpdateOrgAccountPage() {
         const err = await res.json();
         throw new Error(err.detail ?? 'Save failed');
       }
-      if (tab === 'org') setTab('more');
-      else if (tab === 'more') setTab('contact');
+      if (tab === 'org') setTab('founding');
+      else if (tab === 'founding') setTab('contact');
       else setTab('complete');
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : 'Something went wrong');
@@ -297,17 +281,25 @@ export default function UpdateOrgAccountPage() {
                 </svg>
               </div>
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
-                🎉 Congratulations, You profile is 100% complete!
+                🎉 Congratulations, Your profile is 100% complete!
               </h2>
-              <button
-                onClick={() => navigate('/home')}
-                className="flex items-center gap-3 bg-[#ff9400] text-white text-base font-semibold rounded-full px-8 py-4 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
-              >
-                Go To Home
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate('/home')}
+                  className="border border-[#ff9400] text-[#ff9400] text-base font-semibold rounded-full px-8 py-3.5 hover:bg-[#fff6ed] transition-colors"
+                >
+                  Home
+                </button>
+                <button
+                  onClick={() => navigate('/home')}
+                  className="flex items-center gap-2 bg-[#ff9400] text-white text-base font-semibold rounded-full px-8 py-3.5 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
+                >
+                  Create Post
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -316,7 +308,7 @@ export default function UpdateOrgAccountPage() {
         {tab !== 'complete' && (
           <div className="max-w-[960px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-            {/* Progress */}
+            {/* Progress bar */}
             <div className="mb-6 sm:mb-8">
               <div className="flex items-center justify-between text-sm sm:text-base mb-3">
                 <span className="text-[#767f8c]">Setup Progress</span>
@@ -377,61 +369,63 @@ export default function UpdateOrgAccountPage() {
 
                 {/* Organization Sector */}
                 <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-semibold">Select Your Organization Sector</p>
+                  <p className="text-[#18191c] text-sm font-semibold">Select your Organization Sector</p>
                   <div className="flex gap-3 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setSector('government')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'government'
-                          ? 'border-[#ff9400] text-[#ff9400] bg-white'
-                          : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
-                    >
-                      Government Sector
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSector('private')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'private'
-                          ? 'border-[#ff9400] text-[#ff9400] bg-white'
-                          : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
-                    >
-                      Private Sector
-                    </button>
+                    {(['government', 'private'] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSector(s)}
+                        className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
+                          sector === s
+                            ? 'border-[#ff9400] text-[#ff9400] bg-white'
+                            : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
+                        }`}
+                      >
+                        {s === 'government' ? 'Government Sector' : 'Private Sector'}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Educational levels */}
-                <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-medium">Select the educational levels offered by your institution</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                    {EDU_LEVELS.map((level) => (
-                      <label key={level} className="flex items-center gap-2.5 cursor-pointer group">
-                        <div
-                          onClick={() => toggleEduLevel(level)}
-                          className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                            eduLevels.includes(level)
-                              ? 'bg-[#ff9400] border-[#ff9400]'
-                              : 'border-[#d1d5db] bg-white group-hover:border-[#ff9400]'
-                          }`}
-                        >
-                          {eduLevels.includes(level) && (
-                            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                              <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                        <span
-                          onClick={() => toggleEduLevel(level)}
-                          className="text-sm text-[#4b5563] group-hover:text-[#18191c] transition-colors cursor-pointer leading-snug"
-                        >
-                          {level}
-                        </span>
-                      </label>
-                    ))}
+                {/* Organization Type — custom dropdown */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[#18191c] text-sm font-medium">Select your Organization Type</label>
+                  <div className="relative">
+                    {/* Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => setShowOrgTypeDrop((v) => !v)}
+                      className={`${inputCls} flex items-center justify-between pr-10 cursor-pointer text-left ${!orgType ? 'text-[#9199a3]' : 'text-[#18191c]'}`}
+                    >
+                      <span className="truncate">{orgType || ''}</span>
+                      <svg
+                        width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        className={`absolute right-4 top-1/2 -translate-y-1/2 text-[#9199a3] transition-transform duration-200 ${showOrgTypeDrop ? 'rotate-180' : ''}`}
+                      >
+                        <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+
+                    {/* Dropdown panel */}
+                    {showOrgTypeDrop && (
+                      <div className="absolute top-[calc(100%+6px)] left-0 right-0 bg-white border border-[#e4e5e8] rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.12)] z-30 overflow-hidden py-1">
+                        {INTERNATIONAL_ORG_TYPES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => { setOrgType(type); setShowOrgTypeDrop(false); }}
+                            className={`w-full text-left px-5 py-3 text-sm transition-colors ${
+                              orgType === type
+                                ? 'text-[#ff9400] font-medium bg-[#fff6ed]'
+                                : 'text-[#18191c] hover:bg-[#f9fafb]'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -449,8 +443,8 @@ export default function UpdateOrgAccountPage() {
               </div>
             )}
 
-            {/* ── Tab: More Info ── */}
-            {tab === 'more' && (
+            {/* ── Tab: Founding Info ── */}
+            {tab === 'founding' && (
               <div className="flex flex-col gap-5 sm:gap-6">
 
                 <TagInput
@@ -464,7 +458,9 @@ export default function UpdateOrgAccountPage() {
 
                 {/* Industry expertise */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[#18191c] text-sm">Mention your organization's industry expertise and years of experience in each</label>
+                  <label className="text-[#18191c] text-sm">
+                    Mention your organization's industry expertise and years of experience in each
+                  </label>
                   <div className="flex flex-col gap-3">
                     {industries.map((item, idx) => (
                       <div key={idx} className="flex gap-3">
@@ -549,7 +545,6 @@ export default function UpdateOrgAccountPage() {
                         </button>
                       </div>
                     ))}
-
                     <button
                       type="button"
                       onClick={() => setSocialLinks((prev) => [...prev, { platform: 'LinkedIn', url: '' }])}
@@ -638,6 +633,7 @@ export default function UpdateOrgAccountPage() {
                 </button>
               </div>
             </div>
+
           </div>
         )}
       </div>
