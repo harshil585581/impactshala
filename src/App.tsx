@@ -24,7 +24,7 @@ import TalentShowcaseOrgAccountUpdatePage from './pages/account/TalentShowcaseOr
 import StartupSupportOrgAccountUpdatePage from './pages/account/StartupSupportOrgAccountUpdatePage';
 
 import PublicUtilitiesOrgAccountUpdatePage from './pages/account/PublicUtilitiesOrgAccountUpdatePage';
-
+import PublicWelfareServicesOrgAccountUpdatePage from './pages/account/PublicWelfareServicesOrgAccountUpdatePage';
 
 import StudentAccountUpdatePage from './pages/account/StudentAccountUpdatePage';
 import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUpdatePage';
@@ -83,6 +83,7 @@ export default function App() {
         <Route path="/account/update/org/startup" element={<StartupSupportOrgAccountUpdatePage />} />
 
         <Route path="/account/update/org/utilities" element={<PublicUtilitiesOrgAccountUpdatePage />} />
+        <Route path="/account/update/org/welfare" element={<PublicWelfareServicesOrgAccountUpdatePage />} />
 
         <Route path="/account/update/student" element={<StudentAccountUpdatePage />} />
         <Route path="/account/update/entrepreneur" element={<EntrepreneurAccountUpdatePage />} />
