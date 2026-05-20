@@ -86,6 +86,7 @@ class ProfileUpdate(BaseModel):
     setup_complete: Optional[bool] = None
 
     # Organization fields
+    org_name: Optional[str] = None
     sector: Optional[str] = None
     edu_levels_offered: Optional[List[str]] = None
     applicable_industries: Optional[List[str]] = None

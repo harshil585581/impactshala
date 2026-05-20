@@ -13,6 +13,8 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import UpdateAccountPage from './pages/account/UpdateAccountPage';
 import UpdateOrgAccountPage from './pages/account/UpdateOrgAccountPage';
 import ForProfitOrgAccountUpdatePage from './pages/account/ForProfitOrgAccountUpdatePage';
+import NonProfitOrgAccountUpdatePage from './pages/account/NonProfitOrgAccountUpdatePage';
+import HealthServicesOrgAccountUpdatePage from './pages/account/HealthServicesOrgAccountUpdatePage';
 import StudentAccountUpdatePage from './pages/account/StudentAccountUpdatePage';
 import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUpdatePage';
 import ProfilePageWrapper from './pages/profile/ProfilePageWrapper';
@@ -59,6 +61,8 @@ export default function App() {
         <Route path="/account/update" element={<UpdateAccountPage />} />
         <Route path="/account/update/org" element={<UpdateOrgAccountPage />} />
         <Route path="/account/update/org/forprofit" element={<ForProfitOrgAccountUpdatePage />} />
+        <Route path="/account/update/org/nonprofit" element={<NonProfitOrgAccountUpdatePage />} />
+        <Route path="/account/update/org/health" element={<HealthServicesOrgAccountUpdatePage />} />
         <Route path="/account/update/student" element={<StudentAccountUpdatePage />} />
         <Route path="/account/update/entrepreneur" element={<EntrepreneurAccountUpdatePage />} />
         <Route path="/account/update/professional" element={<ProfessionalAccountUpdatePage />} />
