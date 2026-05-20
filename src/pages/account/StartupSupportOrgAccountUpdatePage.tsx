@@ -12,17 +12,11 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 type Tab = 'org' | 'more' | 'contact' | 'complete';
 
-// Ordered to fill a 3-column grid row-by-row matching the design
-const EDU_LEVELS = [
-  "Pre-Primary (Nursery, LKG, UKG)",
-  "Secondary School (Class 9–10)",
-  "Undergraduate (UG)",
-  "Primary School (Class 1–5)",
-  "Vocational / Diploma / ITI",
-  "Postgraduate (PG)",
-  "Middle School (Class 6–8)",
-  "Higher Secondary (Class 11–12)",
-  "PhD / Research",
+const SUPPORT_TYPES = [
+  'Startup Incubation',
+  'Startup Accelerator',
+  'Venture Capital',
+  'Others',
 ];
 
 const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram', 'Twitter / X', 'Facebook', 'Medium / Substack'];
@@ -30,17 +24,20 @@ const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram
 const inputCls =
   'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
 
-function UploadArea({ hint, accept, cover, imageType }: {
-  hint: string; accept?: string; cover?: boolean; imageType: 'avatar' | 'cover';
+function UploadArea({ hint, accept, cover, imageType, initialUrl }: {
+  hint: string; accept?: string; cover?: boolean; imageType: 'avatar' | 'cover'; initialUrl?: string;
 }) {
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(initialUrl ?? null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+
+  useEffect(() => {
+    if (initialUrl) setPreview(initialUrl);
+  }, [initialUrl]);
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Show preview immediately
     setPreview(URL.createObjectURL(file));
     setUploadError('');
     setUploading(true);
@@ -60,7 +57,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
         throw new Error(err.detail ?? 'Upload failed');
       }
       const data = await res.json();
-      // Replace blob URL with the permanent public URL
       setPreview(data.url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -155,7 +151,7 @@ function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   );
 }
 
-export default function UpdateOrgAccountPage() {
+export default function StartupSupportOrgAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('org');
@@ -163,9 +159,13 @@ export default function UpdateOrgAccountPage() {
   const [saveError, setSaveError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // ... rest unchanged up to reachFor/location/phone/email
+  // Photos
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+
+  // Org Info
   const [sector, setSector] = useState<'government' | 'private'>('government');
-  const [eduLevels, setEduLevels] = useState<string[]>([]);
+  const [supportTypes, setSupportTypes] = useState<string[]>([]);
   const [bio, setBio] = useState('');
 
   // More Info
@@ -180,49 +180,20 @@ export default function UpdateOrgAccountPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Load existing profile on mount; redirect forprofit orgs to their own page
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
-    if (!token) {
-      navigate('/');
-      return;
-    }
+    if (!token) { navigate('/'); return; }
+
     fetch(`${API_URL}/api/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.org_type === 'forprofit') {
-          navigate('/account/update/org/forprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'international') {
-          navigate('/account/update/org/international', { replace: true });
-          return;
-        }
-        if (d.org_type === 'nonprofit') {
-          navigate('/account/update/org/nonprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'health') {
-          navigate('/account/update/org/health', { replace: true });
-          return;
-        }
-        if (d.org_type === 'safety') {
-          navigate('/account/update/org/safety', { replace: true });
-          return;
-        }
-        if (d.org_type === 'talent') {
-          navigate('/account/update/org/talent', { replace: true });
-          return;
-        }
-        if (d.org_type === 'startup') {
-          navigate('/account/update/org/startup', { replace: true });
-          return;
-        }
+        if (d.avatar_url) setAvatarUrl(d.avatar_url);
+        if (d.cover_url) setCoverUrl(d.cover_url);
         if (d.sector) setSector(d.sector);
-        if (d.edu_levels_offered?.length) setEduLevels(d.edu_levels_offered);
+        if (d.support_types?.length) setSupportTypes(d.support_types);
         if (d.bio) setBio(d.bio);
         if (d.services?.length) setServices(d.services);
         if (d.industries?.length) setIndustries(d.industries);
@@ -234,16 +205,13 @@ export default function UpdateOrgAccountPage() {
         if (d.email) setEmail(d.email);
         setLoading(false);
       })
-      .catch(() => {
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4 max-w-sm text-center">
-          {/* Elegant Circular Progress Loader */}
           <div className="relative w-14 h-14">
             <div className="absolute inset-0 rounded-full border-4 border-[#ffeacc] opacity-40"></div>
             <div className="absolute inset-0 rounded-full border-4 border-[#ff9400] border-t-transparent animate-spin"></div>
@@ -272,9 +240,9 @@ export default function UpdateOrgAccountPage() {
     { id: 'contact', label: 'Contact',            icon: atIcon },
   ];
 
-  function toggleEduLevel(level: string) {
-    setEduLevels((prev) =>
-      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+  function toggleSupportType(type: string) {
+    setSupportTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
   }
 
@@ -284,9 +252,9 @@ export default function UpdateOrgAccountPage() {
     if (!token) { navigate('/'); return; }
 
     const payloadByTab: Record<string, object> = {
-      org:     { sector, edu_levels_offered: eduLevels, bio },
+      org:     { sector, support_types: supportTypes, bio },
       more:    { services, industries, website, social_links: socialLinks },
-      contact: { reach_for: reachFor, location, phone, setup_complete: true },
+      contact: { reach_for: reachFor, location, phone, email, setup_complete: true },
     };
 
     setSaving(true);
@@ -343,15 +311,23 @@ export default function UpdateOrgAccountPage() {
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
                 🎉 Congratulations, You profile is 100% complete!
               </h2>
-              <button
-                onClick={() => navigate('/home')}
-                className="flex items-center gap-3 bg-[#ff9400] text-white text-base font-semibold rounded-full px-8 py-4 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
-              >
-                Go To Home
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate('/home')}
+                  className="border border-[#ff9400] text-[#ff9400] text-sm font-semibold rounded-full px-8 py-3 hover:bg-[#fff6ed] transition-colors"
+                >
+                  Home
+                </button>
+                <button
+                  onClick={() => navigate('/home')}
+                  className="flex items-center gap-2 bg-[#ff9400] text-white text-sm font-semibold rounded-full px-8 py-3 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
+                >
+                  Create Post
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -406,6 +382,7 @@ export default function UpdateOrgAccountPage() {
                       hint="A photo larger than 400 pixels work best. Max photo size 5 MB."
                       accept="image/*"
                       imageType="avatar"
+                      initialUrl={avatarUrl}
                     />
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
@@ -415,6 +392,7 @@ export default function UpdateOrgAccountPage() {
                       accept="image/*"
                       cover
                       imageType="cover"
+                      initialUrl={coverUrl}
                     />
                   </div>
                 </div>
@@ -448,31 +426,31 @@ export default function UpdateOrgAccountPage() {
                   </div>
                 </div>
 
-                {/* Educational levels */}
+                {/* Support types checkboxes */}
                 <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-medium">Select the educational levels offered by your institution</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                    {EDU_LEVELS.map((level) => (
-                      <label key={level} className="flex items-center gap-2.5 cursor-pointer group">
+                  <p className="text-[#18191c] text-sm font-medium">Select Your applicable support types</p>
+                  <div className="flex flex-col gap-3">
+                    {SUPPORT_TYPES.map((type) => (
+                      <label key={type} className="flex items-center gap-3 cursor-pointer group">
                         <div
-                          onClick={() => toggleEduLevel(level)}
+                          onClick={() => toggleSupportType(type)}
                           className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                            eduLevels.includes(level)
+                            supportTypes.includes(type)
                               ? 'bg-[#ff9400] border-[#ff9400]'
                               : 'border-[#d1d5db] bg-white group-hover:border-[#ff9400]'
                           }`}
                         >
-                          {eduLevels.includes(level) && (
+                          {supportTypes.includes(type) && (
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                               <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
                         </div>
                         <span
-                          onClick={() => toggleEduLevel(level)}
-                          className="text-sm text-[#4b5563] group-hover:text-[#18191c] transition-colors cursor-pointer leading-snug"
+                          onClick={() => toggleSupportType(type)}
+                          className="text-sm text-[#4b5563] group-hover:text-[#18191c] transition-colors cursor-pointer"
                         >
-                          {level}
+                          {type}
                         </span>
                       </label>
                     ))}
@@ -593,7 +571,6 @@ export default function UpdateOrgAccountPage() {
                         </button>
                       </div>
                     ))}
-
                     <button
                       type="button"
                       onClick={() => setSocialLinks((prev) => [...prev, { platform: 'LinkedIn', url: '' }])}

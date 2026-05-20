@@ -12,17 +12,28 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 type Tab = 'org' | 'more' | 'contact' | 'complete';
 
-// Ordered to fill a 3-column grid row-by-row matching the design
-const EDU_LEVELS = [
-  "Pre-Primary (Nursery, LKG, UKG)",
-  "Secondary School (Class 9–10)",
-  "Undergraduate (UG)",
-  "Primary School (Class 1–5)",
-  "Vocational / Diploma / ITI",
-  "Postgraduate (PG)",
-  "Middle School (Class 6–8)",
-  "Higher Secondary (Class 11–12)",
-  "PhD / Research",
+const DEPARTMENT_TYPES = [
+  'Law Enforcement / Police',
+  'Fire Department',
+  'Emergency Medical Services (EMS)',
+  'Ambulance Services',
+  'Judiciary / Courts',
+  'Legal Aid & Services',
+  'Prosecution / District Attorney',
+  'Public Defender / Legal Defense',
+  'Correctional / Prison Services',
+  'Probation & Parole Services',
+  'Border Protection & Immigration',
+  'Coast Guard',
+  'National Guard / Civil Defense',
+  'Cybersecurity & Digital Forensics',
+  'Traffic & Road Safety Authority',
+  'Disaster Management & Emergency Response',
+  'Intelligence & Counter-Terrorism',
+  'Customs & Revenue Authority',
+  'Anti-Corruption / Vigilance',
+  'Security & Investigations',
+  'Others',
 ];
 
 const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram', 'Twitter / X', 'Facebook', 'Medium / Substack'];
@@ -30,17 +41,20 @@ const SOCIAL_PLATFORMS = ['LinkedIn', 'GitHub', 'Behance / Dribbble', 'Instagram
 const inputCls =
   'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
 
-function UploadArea({ hint, accept, cover, imageType }: {
-  hint: string; accept?: string; cover?: boolean; imageType: 'avatar' | 'cover';
+function UploadArea({ hint, accept, cover, imageType, initialUrl }: {
+  hint: string; accept?: string; cover?: boolean; imageType: 'avatar' | 'cover'; initialUrl?: string;
 }) {
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(initialUrl ?? null);
+
+  useEffect(() => {
+    if (initialUrl) setPreview(initialUrl);
+  }, [initialUrl]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Show preview immediately
     setPreview(URL.createObjectURL(file));
     setUploadError('');
     setUploading(true);
@@ -60,7 +74,6 @@ function UploadArea({ hint, accept, cover, imageType }: {
         throw new Error(err.detail ?? 'Upload failed');
       }
       const data = await res.json();
-      // Replace blob URL with the permanent public URL
       setPreview(data.url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -155,7 +168,7 @@ function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
   );
 }
 
-export default function UpdateOrgAccountPage() {
+export default function PublicSafetyLawOrgAccountUpdatePage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('org');
@@ -163,9 +176,12 @@ export default function UpdateOrgAccountPage() {
   const [saveError, setSaveError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // ... rest unchanged up to reachFor/location/phone/email
-  const [sector, setSector] = useState<'government' | 'private'>('government');
-  const [eduLevels, setEduLevels] = useState<string[]>([]);
+  // Photos
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+
+  // Org Info
+  const [departmentType, setDepartmentType] = useState('');
   const [bio, setBio] = useState('');
 
   // More Info
@@ -180,49 +196,19 @@ export default function UpdateOrgAccountPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
-  // Load existing profile on mount; redirect forprofit orgs to their own page
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
-    if (!token) {
-      navigate('/');
-      return;
-    }
+    if (!token) { navigate('/'); return; }
+
     fetch(`${API_URL}/api/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((d) => {
-        if (d.org_type === 'forprofit') {
-          navigate('/account/update/org/forprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'international') {
-          navigate('/account/update/org/international', { replace: true });
-          return;
-        }
-        if (d.org_type === 'nonprofit') {
-          navigate('/account/update/org/nonprofit', { replace: true });
-          return;
-        }
-        if (d.org_type === 'health') {
-          navigate('/account/update/org/health', { replace: true });
-          return;
-        }
-        if (d.org_type === 'safety') {
-          navigate('/account/update/org/safety', { replace: true });
-          return;
-        }
-        if (d.org_type === 'talent') {
-          navigate('/account/update/org/talent', { replace: true });
-          return;
-        }
-        if (d.org_type === 'startup') {
-          navigate('/account/update/org/startup', { replace: true });
-          return;
-        }
-        if (d.sector) setSector(d.sector);
-        if (d.edu_levels_offered?.length) setEduLevels(d.edu_levels_offered);
+        if (d.avatar_url) setAvatarUrl(d.avatar_url);
+        if (d.cover_url) setCoverUrl(d.cover_url);
+        if (d.department_type) setDepartmentType(d.department_type);
         if (d.bio) setBio(d.bio);
         if (d.services?.length) setServices(d.services);
         if (d.industries?.length) setIndustries(d.industries);
@@ -234,16 +220,13 @@ export default function UpdateOrgAccountPage() {
         if (d.email) setEmail(d.email);
         setLoading(false);
       })
-      .catch(() => {
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4 max-w-sm text-center">
-          {/* Elegant Circular Progress Loader */}
           <div className="relative w-14 h-14">
             <div className="absolute inset-0 rounded-full border-4 border-[#ffeacc] opacity-40"></div>
             <div className="absolute inset-0 rounded-full border-4 border-[#ff9400] border-t-transparent animate-spin"></div>
@@ -272,21 +255,15 @@ export default function UpdateOrgAccountPage() {
     { id: 'contact', label: 'Contact',            icon: atIcon },
   ];
 
-  function toggleEduLevel(level: string) {
-    setEduLevels((prev) =>
-      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
-    );
-  }
-
   async function handleSave() {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
     if (!token) { navigate('/'); return; }
 
     const payloadByTab: Record<string, object> = {
-      org:     { sector, edu_levels_offered: eduLevels, bio },
+      org:     { department_type: departmentType, bio },
       more:    { services, industries, website, social_links: socialLinks },
-      contact: { reach_for: reachFor, location, phone, setup_complete: true },
+      contact: { reach_for: reachFor, location, phone, email, setup_complete: true },
     };
 
     setSaving(true);
@@ -343,15 +320,23 @@ export default function UpdateOrgAccountPage() {
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
                 🎉 Congratulations, You profile is 100% complete!
               </h2>
-              <button
-                onClick={() => navigate('/home')}
-                className="flex items-center gap-3 bg-[#ff9400] text-white text-base font-semibold rounded-full px-8 py-4 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
-              >
-                Go To Home
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate('/home')}
+                  className="border border-[#ff9400] text-[#ff9400] text-sm font-semibold rounded-full px-8 py-3 hover:bg-[#fff6ed] transition-colors"
+                >
+                  Home
+                </button>
+                <button
+                  onClick={() => navigate('/home')}
+                  className="flex items-center gap-2 bg-[#ff9400] text-white text-sm font-semibold rounded-full px-8 py-3 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.35)]"
+                >
+                  Create Post
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -406,6 +391,7 @@ export default function UpdateOrgAccountPage() {
                       hint="A photo larger than 400 pixels work best. Max photo size 5 MB."
                       accept="image/*"
                       imageType="avatar"
+                      initialUrl={avatarUrl}
                     />
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
@@ -415,67 +401,30 @@ export default function UpdateOrgAccountPage() {
                       accept="image/*"
                       cover
                       imageType="cover"
+                      initialUrl={coverUrl}
                     />
                   </div>
                 </div>
 
-                {/* Organization Sector */}
-                <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-semibold">Select Your Organization Sector</p>
-                  <div className="flex gap-3 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setSector('government')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'government'
-                          ? 'border-[#ff9400] text-[#ff9400] bg-white'
-                          : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
+                {/* Department Type dropdown */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[#18191c] text-sm font-medium">Select your Department Type</label>
+                  <div className="relative">
+                    <select
+                      value={departmentType}
+                      onChange={(e) => setDepartmentType(e.target.value)}
+                      className={`${inputCls} appearance-none pr-10 cursor-pointer`}
                     >
-                      Government Sector
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSector('private')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'private'
-                          ? 'border-[#ff9400] text-[#ff9400] bg-white'
-                          : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
-                    >
-                      Private Sector
-                    </button>
-                  </div>
-                </div>
-
-                {/* Educational levels */}
-                <div className="flex flex-col gap-3">
-                  <p className="text-[#18191c] text-sm font-medium">Select the educational levels offered by your institution</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-                    {EDU_LEVELS.map((level) => (
-                      <label key={level} className="flex items-center gap-2.5 cursor-pointer group">
-                        <div
-                          onClick={() => toggleEduLevel(level)}
-                          className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                            eduLevels.includes(level)
-                              ? 'bg-[#ff9400] border-[#ff9400]'
-                              : 'border-[#d1d5db] bg-white group-hover:border-[#ff9400]'
-                          }`}
-                        >
-                          {eduLevels.includes(level) && (
-                            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                              <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                        </div>
-                        <span
-                          onClick={() => toggleEduLevel(level)}
-                          className="text-sm text-[#4b5563] group-hover:text-[#18191c] transition-colors cursor-pointer leading-snug"
-                        >
-                          {level}
-                        </span>
-                      </label>
-                    ))}
+                      <option value="" disabled>Select department type</option>
+                      {DEPARTMENT_TYPES.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#9199a3]">
+                        <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
                   </div>
                 </div>
 
@@ -593,7 +542,6 @@ export default function UpdateOrgAccountPage() {
                         </button>
                       </div>
                     ))}
-
                     <button
                       type="button"
                       onClick={() => setSocialLinks((prev) => [...prev, { platform: 'LinkedIn', url: '' }])}
