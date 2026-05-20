@@ -161,8 +161,9 @@ export default function UpdateOrgAccountPage() {
   const [tab, setTab] = useState<Tab>('org');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Org Info
+  // ... rest unchanged up to reachFor/location/phone/email
   const [sector, setSector] = useState<'government' | 'private'>('government');
   const [eduLevels, setEduLevels] = useState<string[]>([]);
   const [bio, setBio] = useState('');
@@ -183,7 +184,10 @@ export default function UpdateOrgAccountPage() {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') ?? '{}');
     const token = user.access_token;
-    if (!token) return;
+    if (!token) {
+      navigate('/');
+      return;
+    }
     fetch(`${API_URL}/api/profile`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -216,9 +220,35 @@ export default function UpdateOrgAccountPage() {
         if (d.location) setLocation(d.location);
         if (d.phone) setPhone(d.phone);
         if (d.email) setEmail(d.email);
+        setLoading(false);
       })
-      .catch(() => {});
+      .catch(() => {
+        setLoading(false);
+      });
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+          {/* Elegant Circular Progress Loader */}
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-4 border-[#ffeacc] opacity-40"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-[#ff9400] border-t-transparent animate-spin"></div>
+            <div className="absolute inset-3 rounded-full bg-[#ff9400]/10 animate-pulse"></div>
+          </div>
+          <div className="space-y-1 mt-2">
+            <h3 className="text-base font-semibold text-[#18191c] tracking-tight animate-pulse">
+              Loading workspace…
+            </h3>
+            <p className="text-xs text-[#7c8493]">
+              Setting up your personalized organization dashboard
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const progressMap: Record<Tab, number> = {
     org: 25, more: 50, contact: 75, complete: 100,

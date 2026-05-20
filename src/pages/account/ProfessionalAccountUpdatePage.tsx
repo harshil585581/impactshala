@@ -459,11 +459,22 @@ export default function ProfessionalAccountUpdatePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
-        <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="pt-[78px] lg:pl-[280px] flex items-center justify-center min-h-screen">
-          <div className="w-8 h-8 border-4 border-[#f77f00] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+          {/* Elegant Circular Progress Loader */}
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-4 border-[#ffeacc] opacity-40"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-[#f77f00] border-t-transparent animate-spin"></div>
+            <div className="absolute inset-3 rounded-full bg-[#f77f00]/10 animate-pulse"></div>
+          </div>
+          <div className="space-y-1 mt-2">
+            <h3 className="text-base font-semibold text-[#18191c] tracking-tight animate-pulse">
+              Loading workspace…
+            </h3>
+            <p className="text-xs text-[#7c8493]">
+              Setting up your personalized dashboard
+            </p>
+          </div>
         </div>
       </div>
     );
