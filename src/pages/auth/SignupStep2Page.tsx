@@ -1,5 +1,6 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import logoImg from "../../assets/images/logo/logo.png";
 
 const roles = [
   { id: "student", label: "Student", desc: "School or college learners" },
@@ -30,10 +31,7 @@ export default function SignupStep2Page() {
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#ff9400] to-[#003049]">
       {/* White logo — top left */}
       <div className="absolute top-6 left-8 sm:top-8 sm:left-10 z-10 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
-        </div>
-        <span className="text-white font-bold text-xl">Impactshaala</span>
+        <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
       </div>
 
       {/* Card */}

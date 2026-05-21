@@ -1,5 +1,6 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import logoImg from "../../assets/images/logo/logo.png";
 
 function EyeIcon() {
   return (
@@ -64,10 +65,7 @@ export default function ResetPasswordPage() {
       {/* Header */}
       <div className="flex justify-center px-5 pt-4 pb-2 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
-          </div>
-          <span className="text-[#18191c] font-bold text-lg">Impactshaala</span>
+          <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
         </div>
       </div>
 
