@@ -29,13 +29,16 @@ function AddIndustryExperienceModal({
   currentIndustries,
   onClose,
   onSaved,
+  editIndex,
 }: {
   currentIndustries: { name: string; years?: string | number }[];
   onClose: () => void;
   onSaved: () => void;
+  editIndex?: number;
 }) {
-  const [name, setName] = useState('');
-  const [years, setYears] = useState('');
+  const editing = editIndex !== undefined;
+  const [name, setName] = useState(editing ? String(currentIndustries[editIndex!]?.name ?? '') : '');
+  const [years, setYears] = useState(editing ? String(currentIndustries[editIndex!]?.years ?? '') : '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -48,7 +51,10 @@ function AddIndustryExperienceModal({
     try {
       const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
       const token = storedUser.access_token ?? '';
-      const updated = [...currentIndustries, { name: name.trim(), years: years.trim() || undefined }];
+      const newItem = { name: name.trim(), years: years.trim() || undefined };
+      const updated = editing
+        ? currentIndustries.map((item, idx) => idx === editIndex ? newItem : item)
+        : [...currentIndustries, newItem];
       const res = await fetch(`${API_URL}/api/profile`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -67,7 +73,7 @@ function AddIndustryExperienceModal({
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-[20px] w-full max-w-md shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-8 pt-7 pb-4 shrink-0">
-          <h2 className="text-[#18191c] text-xl font-bold">Industry Experience</h2>
+          <h2 className="text-[#18191c] text-xl font-bold">{editing ? 'Edit' : 'Add'} Industry Experience</h2>
           <button onClick={onClose} className="text-[#18191c] hover:opacity-70 transition-opacity">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
@@ -168,6 +174,7 @@ export default function OrgProfilePage() {
   const [showAllEduLevels, setShowAllEduLevels] = useState(false);
   const [showAllInd, setShowAllInd] = useState(false);
   const [addIndExpOpen, setAddIndExpOpen] = useState(false);
+  const [editIndExpIndex, setEditIndExpIndex] = useState<number | null>(null);
   const [brochureUploading, setBrochureUploading] = useState(false);
   const brochureInputRef = useRef<HTMLInputElement>(null);
 
@@ -610,10 +617,10 @@ export default function OrgProfilePage() {
                           </div>
                           {isOwn && (
                             <div className="flex items-center gap-2 shrink-0">
-                              <button className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1">
+                              <button onClick={() => { setEditIndExpIndex(i); setAddIndExpOpen(true); }} className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                               </button>
-                              <button className="text-[#ff9400] hover:text-red-500 transition-colors p-1">
+                              <button onClick={async () => { const u = JSON.parse(localStorage.getItem('user') ?? '{}'); const list = (profile?.industries ?? []).filter((_, idx) => idx !== i); await fetch(`${API_URL}/api/profile`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${u.access_token ?? ''}` }, body: JSON.stringify({ industries: list }) }); reload(); }} className="text-[#9199a3] hover:text-red-500 transition-colors p-1">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                               </button>
                             </div>
@@ -866,8 +873,9 @@ export default function OrgProfilePage() {
       {addIndExpOpen && (
         <AddIndustryExperienceModal
           currentIndustries={profile?.industries ?? []}
-          onClose={() => setAddIndExpOpen(false)}
-          onSaved={() => { setAddIndExpOpen(false); reload(); }}
+          onClose={() => { setAddIndExpOpen(false); setEditIndExpIndex(null); }}
+          onSaved={() => { setAddIndExpOpen(false); setEditIndExpIndex(null); reload(); }}
+          editIndex={editIndExpIndex ?? undefined}
         />
       )}
 
