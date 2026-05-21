@@ -222,12 +222,6 @@ export default function OrgProfilePage() {
         body: form,
       });
       if (!res.ok) throw new Error('Upload failed');
-      const data = await res.json();
-      await fetch(`${API_URL}/api/profile`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.access_token ?? ''}` },
-        body: JSON.stringify({ resume_url: data.url }),
-      });
       reload();
     } catch { /* ignore */ }
     finally { setBrochureUploading(false); }
@@ -486,27 +480,46 @@ export default function OrgProfilePage() {
                         }}
                         className={`relative w-[150px] h-[190px] group overflow-hidden rounded-xl border border-[#e4e5e8] bg-white shadow-sm hover:shadow-md transition-all ${profile?.resumeUrl ? 'cursor-pointer' : 'cursor-default opacity-60'}`}
                       >
-                        <div className="absolute inset-0 bg-[#f8fafc]">
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="opacity-20">
-                              <rect x="3" y="3" width="18" height="18" rx="2" stroke="#9199a3" strokeWidth="1.5"/>
-                              <path d="M7 8h10M7 12h10M7 16h6" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
-                          </div>
-                        </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-[#ff9400] transform group-hover:scale-110 transition-transform duration-300">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                          </div>
-                        </div>
-                        {!profile?.resumeUrl && (
-                          <div className="absolute inset-0 flex items-end justify-center pb-4">
-                            <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">Not Uploaded</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const url = profile?.resumeUrl;
+                          if (!url) return (
+                            <>
+                              <div className="absolute inset-0 bg-[#f8fafc] flex items-center justify-center">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="opacity-20">
+                                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="#9199a3" strokeWidth="1.5"/>
+                                  <path d="M7 8h10M7 12h10M7 16h6" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/>
+                                </svg>
+                              </div>
+                              <div className="absolute inset-0 flex items-end justify-center pb-4">
+                                <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">Not Uploaded</span>
+                              </div>
+                            </>
+                          );
+                          const ext = (url.split('?')[0].split('.').pop() ?? 'file').toLowerCase();
+                          const colorMap: Record<string, [string, string]> = { pdf: ['#fff1f0', '#e53e3e'], doc: ['#eff6ff', '#2563eb'], docx: ['#eff6ff', '#2563eb'], ppt: ['#fff7ed', '#ea580c'], pptx: ['#fff7ed', '#ea580c'] };
+                          const [bg, accent] = colorMap[ext] ?? ['#f0f4ff', '#6366f1'];
+                          const name = decodeURIComponent((url.split('/').pop() ?? 'Document').split('?')[0]);
+                          return (
+                            <>
+                              <div className="absolute inset-0" style={{ backgroundColor: bg }} />
+                              <div className="absolute top-6 left-1/2 -translate-x-1/2">
+                                <svg width="52" height="64" viewBox="0 0 52 64" fill="none">
+                                  <path d="M2 0h30l18 18v42a2 2 0 01-2 2H2a2 2 0 01-2-2V2a2 2 0 012-2z" fill="white" stroke="#e8e8e8" strokeWidth="1"/>
+                                  <path d="M32 0l18 18H34a2 2 0 01-2-2V0z" fill={accent} fillOpacity="0.3"/>
+                                  <text x="26" y="45" textAnchor="middle" fill={accent} fontSize="11" fontWeight="800" fontFamily="system-ui,sans-serif">{ext.toUpperCase()}</text>
+                                </svg>
+                              </div>
+
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity w-9 h-9 rounded-full bg-white/90 shadow-lg flex items-center justify-center" style={{ color: accent }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                  </svg>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
