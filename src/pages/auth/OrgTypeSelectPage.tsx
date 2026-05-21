@@ -1,5 +1,6 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import logoImg from "../../assets/images/logo/logo.png";
 
 const ORG_TYPES = [
   { id: "educational", label: "Educational Institutions", desc: "Schools, colleges, and universities", emoji: "🎓" },
@@ -27,10 +28,7 @@ export default function OrgTypeSelectPage() {
         {/* Left: gradient with logo */}
         <div className="relative w-1/2 h-full overflow-hidden bg-gradient-to-br from-[#ff9400] to-[#003049]">
           <div className="relative z-10 px-10 py-8 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
-            </div>
-            <span className="text-white font-bold text-xl">Impactshaala</span>
+            <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
           </div>
         </div>
         {/* Right: Solid light orange */}
@@ -41,10 +39,7 @@ export default function OrgTypeSelectPage() {
       <div className="lg:hidden relative overflow-hidden shrink-0 bg-gradient-to-br from-[#ff9400] to-[#003049]">
         <div className="relative z-10 flex items-center justify-between px-5 sm:px-8 py-5">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
-            </div>
-            <span className="text-white font-bold text-xl">Impactshaala</span>
+            <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
           </div>
           <button
             onClick={() => navigate("/signup")}

@@ -1,5 +1,6 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import logoImg from "../../assets/images/logo/logo.png";
 
 export default function SignupTypePage() {
   const navigate = useNavigate();
@@ -22,10 +23,7 @@ export default function SignupTypePage() {
       <div className="lg:hidden relative overflow-hidden bg-gradient-to-br from-[#ff9400] to-[#003049]">
         <div className="relative z-10 flex items-center justify-between px-5 sm:px-8 py-5">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
-            </div>
-            <span className="text-white font-bold text-xl">Impactshaala</span>
+            <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
           </div>
           <span className="text-white/80 text-xs sm:text-sm font-medium tracking-widest">
             STEP 01/03
@@ -42,10 +40,7 @@ export default function SignupTypePage() {
       <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-gradient-to-br from-[#ff9400] to-[#003049]">
         <div className="relative z-10 flex flex-col h-full px-10 py-8">
           <div className="flex items-center gap-2 self-start">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ff9400"/></svg>
-            </div>
-            <span className="text-white font-bold text-xl">Impactshaala</span>
+            <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
           </div>
           <div className="flex-1 flex items-center">
             <div>
@@ -107,10 +102,7 @@ export default function SignupTypePage() {
 
           {/* Mobile logo (inside content for tablets without a banner tall enough) */}
           <div className="lg:hidden flex items-center gap-2 self-start mb-6">
-            <div className="w-7 h-7 rounded-full bg-[#ff9400] flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/></svg>
-            </div>
-            <span className="text-[#18191c] font-bold text-lg">Impactshaala</span>
+            <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
           </div>
 
           <h1 className="text-[#18191c] text-2xl sm:text-3xl font-semibold mb-2">
