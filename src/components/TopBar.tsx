@@ -8,6 +8,46 @@ type TopBarProps = {
   onMenuToggle: () => void;
 };
 
+type Notification = {
+  id: string;
+  text: string;
+  boldWord?: string;
+  afterBold?: string;
+  time: string;
+  isUnread: boolean;
+  avatarBg: string;
+  avatarIcon: "bulb" | "books";
+};
+
+const INITIAL_NOTIFICATIONS: Notification[] = [
+  { id: "1", text: "You have access to a new message for ", boldWord: "simpel.ai", afterBold: " which is ....", time: "16h", isUnread: true, avatarBg: "#c9a882", avatarIcon: "bulb" },
+  { id: "2", text: "You can help grow ", boldWord: "Amba LG", afterBold: " by inviting your friends to follow ....", time: "16h", isUnread: false, avatarBg: "#d9aba8", avatarIcon: "bulb" },
+  { id: "3", text: "You have reached your Rs.500.00 payment threshold and were....", time: "16h", isUnread: false, avatarBg: "#a8b8d9", avatarIcon: "books" },
+  { id: "4", text: "You can help grow ", boldWord: "Amba LG", afterBold: " by inviting your friends to follow ....", time: "16h", isUnread: true, avatarBg: "#d9aba8", avatarIcon: "bulb" },
+  { id: "5", text: "You have reached your Rs.500.00 payment threshold and were....", time: "1d", isUnread: true, avatarBg: "#a8b8d9", avatarIcon: "books" },
+  { id: "6", text: "You can help grow ", boldWord: "Amba LG", afterBold: " by inviting your friends to follow ....", time: "2d", isUnread: true, avatarBg: "#d9aba8", avatarIcon: "bulb" },
+  { id: "7", text: "You can help grow ", boldWord: "Amba LG", afterBold: " by inviting your friends to follow ....", time: "2d", isUnread: true, avatarBg: "#d9aba8", avatarIcon: "bulb" },
+];
+
+function NotifAvatar({ bg, icon }: { bg: string; icon: "bulb" | "books" }) {
+  return (
+    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
+      {icon === "bulb" ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2a7 7 0 00-4 12.8V17a1 1 0 001 1h6a1 1 0 001-1v-2.2A7 7 0 0012 2z" fill="white" />
+          <path d="M9 21h6" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="4" width="6" height="14" rx="1" fill="white" />
+          <rect x="10" y="6" width="6" height="12" rx="1" fill="white" opacity="0.8" />
+          <path d="M17 8l3 10" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
 const roleLabels: Record<string, string> = {
   student: "Student",
   professional: "Working Professional",
@@ -18,8 +58,21 @@ const roleLabels: Record<string, string> = {
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const navigate = useNavigate();
   const [meOpen, setMeOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const meRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter((n) => n.isUnread).length;
+
+  function handleDismiss(id: string) {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  function handleClearAll() {
+    setNotifications([]);
+  }
 
   const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
   const userRole: string = storedUser.role ?? "";
@@ -87,11 +140,14 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       .catch(() => {});
   }, []);
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (meRef.current && !meRef.current.contains(e.target as Node)) {
         setMeOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -170,30 +226,99 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         </button>
 
         {/* Notifications */}
-        <button className="flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#f77f00] transition-colors relative">
-          <div className="relative">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M13.73 21a2 2 0 01-3.46 0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] rounded-full w-[14px] h-[14px] flex items-center justify-center font-bold">
-              3
-            </span>
-          </div>
-          <span className="text-[11px] leading-none">Notifications</span>
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => { setNotifOpen((v) => !v); setMeOpen(false); }}
+            className={`flex flex-col items-center gap-0.5 transition-colors relative ${notifOpen ? "text-[#f77f00]" : "text-[#6c6c6c] hover:text-[#f77f00]"}`}
+          >
+            <div className="relative">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#ff9400] text-white text-[9px] rounded-full w-[14px] h-[14px] flex items-center justify-center font-bold">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] leading-none">Notifications</span>
+          </button>
+
+          {/* Notifications dropdown */}
+          {notifOpen && (
+            <div className="absolute right-0 top-[calc(100%+12px)] w-[340px] sm:w-[380px] bg-white rounded-2xl shadow-[0px_8px_32px_rgba(0,0,0,0.14)] border border-[#f2f2f3] z-50 overflow-hidden
+              max-sm:fixed max-sm:left-2 max-sm:right-2 max-sm:w-auto">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <h2 className="text-[#18191c] text-base font-bold">Notifications</h2>
+                <button className="text-[#9199a3] hover:text-[#18191c] transition-colors p-1">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Sub-header */}
+              <div className="flex items-center justify-between px-4 pb-2">
+                <span className="text-[#18191c] text-xs font-semibold">New</span>
+                {notifications.length > 0 && (
+                  <button onClick={handleClearAll} className="text-[#ff9400] text-xs font-semibold hover:text-[#e68500] transition-colors">
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              {/* List */}
+              <div className="max-h-[360px] overflow-y-auto divide-y divide-[#f2f2f3]">
+                {notifications.length === 0 ? (
+                  <div className="py-10 flex flex-col items-center gap-2 text-[#9199a3]">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <p className="text-sm">You're all caught up!</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-[#fafafa] group transition-colors">
+                      <NotifAvatar bg={n.avatarBg} icon={n.avatarIcon} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[#18191c] text-xs leading-snug">
+                          {n.text}
+                          {n.boldWord && <strong>{n.boldWord}</strong>}
+                          {n.afterBold}
+                        </p>
+                        <p className="text-[#ff9400] text-[11px] font-medium mt-1">{n.time}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 pt-1">
+                        {n.isUnread && <span className="w-2 h-2 rounded-full bg-[#ff9400]" />}
+                        <button
+                          onClick={() => handleDismiss(n.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-[#9199a3] hover:text-[#ff9400] p-0.5"
+                          aria-label="Dismiss"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M18 6L6 18M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Footer */}
+              {notifications.length > 0 && (
+                <div className="border-t border-[#f2f2f3] px-4 py-2.5">
+                  <button className="w-full text-center text-xs text-[#ff9400] font-semibold hover:text-[#e68500] transition-colors">
+                    See all notifications
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Me — with dropdown */}
         <div className="relative" ref={meRef}>
