@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import logoImg from "../assets/images/logo/logo.png";
-const defaultAvatar = null;
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 

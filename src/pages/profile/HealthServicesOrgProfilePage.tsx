@@ -499,7 +499,6 @@ export default function HealthServicesOrgProfilePage() {
                           const ext = (url.split('?')[0].split('.').pop() ?? 'file').toLowerCase();
                           const colorMap: Record<string, [string, string]> = { pdf: ['#fff1f0', '#e53e3e'], doc: ['#eff6ff', '#2563eb'], docx: ['#eff6ff', '#2563eb'], ppt: ['#fff7ed', '#ea580c'], pptx: ['#fff7ed', '#ea580c'] };
                           const [bg, accent] = colorMap[ext] ?? ['#f0f4ff', '#6366f1'];
-                          const name = decodeURIComponent((url.split('/').pop() ?? 'Document').split('?')[0]);
                           return (
                             <>
                               <div className="absolute inset-0" style={{ backgroundColor: bg }} />
@@ -815,6 +814,7 @@ export default function HealthServicesOrgProfilePage() {
       {editOpen && (
         <EditProfileModal
           profile={profile!}
+          experiences={[]}
           onClose={() => setEditOpen(false)}
           onSave={async (updates) => { await saveProfile(updates); setEditOpen(false); }}
           saving={false}
@@ -841,7 +841,7 @@ export default function HealthServicesOrgProfilePage() {
         />
       )}
 
-      <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
