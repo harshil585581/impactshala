@@ -33,7 +33,7 @@ export default function AddCollaborativeAccomplishmentModal({ accomplishment, on
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const inp = 'w-full border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] h-[48px]';
   const sel = 'w-full border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] focus:outline-none focus:border-[#ff9400] h-[48px] appearance-none';

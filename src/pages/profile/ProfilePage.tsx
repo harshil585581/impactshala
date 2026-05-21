@@ -35,13 +35,13 @@ const MOCK_REVIEWS: any[] = [];
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function SocialIcon({ platform }: { platform: string }) {
   const p = platform.toLowerCase();
-  if (p.includes('linkedin')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14zm-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79zM6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68zm1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>;
-  if (p.includes('github')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>;
-  if (p.includes('behance')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 7h-7V5h7v2zm1.726 10c-.442 1.297-2.029 3-5.101 3-3.074 0-5.564-1.729-5.564-5.675 0-3.91 2.325-5.92 5.466-5.92 3.082 0 4.964 1.782 5.375 4.426.078.506.109 1.188.095 2.14H15.97c.13 3.211 3.483 3.312 4.588 2.029H23.7zM19.34 13c-.104-1.336-1.02-1.893-1.97-1.893-1.04 0-1.856.63-2.01 1.893h3.98zM0 5h6.599c3.098 0 4.199 1.787 4.199 3.541 0 1.657-.895 2.652-2.099 3.151 1.441.35 2.739 1.426 2.739 3.338 0 2.531-1.978 3.97-5.098 3.97H0V5zm4.339 5.816c1.12 0 1.661-.465 1.661-1.278 0-.791-.51-1.197-1.575-1.197H3.35v2.475h.989zm.242 5.107c1.185 0 1.838-.526 1.838-1.489 0-.883-.577-1.408-1.855-1.408H3.35v2.897h1.231z"/></svg>;
-  if (p.includes('twitter') || p.includes('x')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>;
-  if (p.includes('facebook')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>;
-  if (p.includes('instagram')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>;
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
+  if (p.includes('linkedin')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14zm-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79zM6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68zm1.39 9.94v-8.37H5.5v8.37h2.77z" /></svg>;
+  if (p.includes('github')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" /></svg>;
+  if (p.includes('behance')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 7h-7V5h7v2zm1.726 10c-.442 1.297-2.029 3-5.101 3-3.074 0-5.564-1.729-5.564-5.675 0-3.91 2.325-5.92 5.466-5.92 3.082 0 4.964 1.782 5.375 4.426.078.506.109 1.188.095 2.14H15.97c.13 3.211 3.483 3.312 4.588 2.029H23.7zM19.34 13c-.104-1.336-1.02-1.893-1.97-1.893-1.04 0-1.856.63-2.01 1.893h3.98zM0 5h6.599c3.098 0 4.199 1.787 4.199 3.541 0 1.657-.895 2.652-2.099 3.151 1.441.35 2.739 1.426 2.739 3.338 0 2.531-1.978 3.97-5.098 3.97H0V5zm4.339 5.816c1.12 0 1.661-.465 1.661-1.278 0-.791-.51-1.197-1.575-1.197H3.35v2.475h.989zm.242 5.107c1.185 0 1.838-.526 1.838-1.489 0-.883-.577-1.408-1.855-1.408H3.35v2.897h1.231z" /></svg>;
+  if (p.includes('twitter') || p.includes('x')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>;
+  if (p.includes('facebook')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" /></svg>;
+  if (p.includes('instagram')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" /><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></svg>;
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" /></svg>;
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -49,7 +49,7 @@ function StarRating({ rating }: { rating: number }) {
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
         <svg key={s} width="13" height="13" viewBox="0 0 24 24" fill={s <= rating ? '#ff9400' : '#e4e5e8'}>
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
       ))}
     </div>
@@ -63,14 +63,14 @@ function Divider() {
 function AddButton({ onClick }: { onClick?: () => void }) {
   return (
     <button onClick={onClick} className="w-[34px] h-[34px] rounded-full border border-[#e4e5e8] flex items-center justify-center text-[#9199a3] hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>
     </button>
   );
 }
 
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const YEARS = Array.from({ length: 30 }, (_, i) => String(new Date().getFullYear() - i));
-const EMP_TYPES = ['Full Time','Part Time','Self-employed','Freelance','Contract','Internship','Apprenticeship'];
+const EMP_TYPES = ['Full Time', 'Part Time', 'Self-employed', 'Freelance', 'Contract', 'Internship', 'Apprenticeship'];
 
 function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => void; onSaved: () => void; experience?: Experience }) {
   const [title, setTitle] = useState(experience?.role ?? '');
@@ -103,7 +103,7 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3] shrink-0">
           <h2 className="text-[#18191c] text-base font-semibold">{experience ? 'Edit Experience' : 'Add Experience'}</h2>
           <button onClick={onClose} className="text-[#9199a3] hover:text-[#18191c]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           </button>
         </div>
         <div className="overflow-y-auto px-6 py-5 flex flex-col gap-4">
@@ -172,7 +172,7 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
                 <span key={s} className="flex items-center gap-1.5 bg-[#fff8ee] border border-[#ffd9a0] text-[#ff9400] text-xs px-3 py-1.5 rounded-full">
                   {s}
                   <button onClick={() => setSkills((p) => p.filter((x) => x !== s))} className="hover:text-red-500">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                   </button>
                 </span>
               ))}
@@ -221,8 +221,8 @@ function BadgeIcon() {
   return (
     <div className="w-6 h-6 rounded-full bg-[#ff9400] flex items-center justify-center shadow-md">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-        <path d="M8 21h8M12 17v4M7 4H4a2 2 0 00-2 2v2a4 4 0 004 4h.5M17 4h3a2 2 0 012 2v2a4 4 0 01-4 4h-.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M7 4h10v7a5 5 0 01-10 0V4z" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M8 21h8M12 17v4M7 4H4a2 2 0 00-2 2v2a4 4 0 004 4h.5M17 4h3a2 2 0 012 2v2a4 4 0 01-4 4h-.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 4h10v7a5 5 0 01-10 0V4z" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   );
@@ -260,27 +260,27 @@ export default function ProfilePage() {
 
   const loadExperiences = () => {
     if (!resolvedUserId) return;
-    fetchExperiences(resolvedUserId).then(setExperiences).catch(() => {});
+    fetchExperiences(resolvedUserId).then(setExperiences).catch(() => { });
   };
 
   const loadAchievements = () => {
     if (!resolvedUserId) return;
-    fetchPersonalAchievements(resolvedUserId).then(setAchievements).catch(() => {});
+    fetchPersonalAchievements(resolvedUserId).then(setAchievements).catch(() => { });
   };
 
   const loadEducations = () => {
     if (!resolvedUserId) return;
-    fetchEducations(resolvedUserId).then(setEducations).catch(() => {});
+    fetchEducations(resolvedUserId).then(setEducations).catch(() => { });
   };
 
   const loadPosts = () => {
     if (!resolvedUserId) return;
-    fetchUserPosts(resolvedUserId).then(setPosts).catch(() => {});
+    fetchUserPosts(resolvedUserId).then(setPosts).catch(() => { });
   };
 
   const loadCollabAccomplishments = () => {
     if (!resolvedUserId) return;
-    fetchCollaborativeAccomplishments(resolvedUserId).then(setCollabAccomplishments).catch(() => {});
+    fetchCollaborativeAccomplishments(resolvedUserId).then(setCollabAccomplishments).catch(() => { });
   };
 
   useEffect(() => { loadExperiences(); }, [resolvedUserId]);
@@ -376,34 +376,34 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2 mt-3 mb-1 flex-wrap" style={{ paddingLeft: '10%' }}>
+                <div className="flex items-center gap-2 mt-3 mb-1 flex-wrap" style={{ paddingLeft: '13%' }}>
                   {isOwn ? (
                     <>
                       <button onClick={() => setEditOpen(true)}
                         className="flex items-center gap-1.5 h-[34px] px-4 bg-[#f0eeff] text-[#6b50ff] text-xs font-semibold rounded-full hover:bg-[#e4dcff] transition-colors">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>
                         Edit Profile
                       </button>
                       <button onClick={() => setAddSectionOpen(true)}
                         className="flex items-center gap-1.5 h-[34px] px-4 bg-[#f0eeff] text-[#6b50ff] text-xs font-semibold rounded-full hover:bg-[#e4dcff] transition-colors">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" /><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                         Add Profile Section
                       </button>
                       <div className="relative">
                         <button onClick={() => setMoreMenuOpen((v) => !v)}
                           className="w-[34px] h-[34px] border border-[#e4e5e8] rounded-full flex items-center justify-center text-[#9199a3] hover:border-[#6b50ff] hover:text-[#6b50ff] transition-colors">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /><circle cx="5" cy="12" r="1.5" /></svg>
                         </button>
                         {moreMenuOpen && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
                             <div className="absolute left-0 top-[calc(100%+6px)] w-44 bg-white rounded-xl shadow-lg border border-[#f2f2f3] z-50 overflow-hidden py-1">
                               <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" /></svg>
                                 Share Profile
                               </button>
                               <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>
                                 About My Profile
                               </button>
                             </div>
@@ -424,7 +424,7 @@ export default function ProfilePage() {
                         {profile?.isFollowing ? 'Following' : '+ Follow'}
                       </button>
                       <button className="w-[34px] h-[34px] border border-[#e4e5e8] rounded-full flex items-center justify-center text-[#9199a3] hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /><circle cx="5" cy="12" r="1.5" /></svg>
                       </button>
                     </>
                   )}
@@ -487,13 +487,13 @@ export default function ProfilePage() {
                     <div className="flex flex-col gap-2.5">
                       {profile?.languages && (
                         <div className="flex items-start gap-2 text-[#5e6670] text-sm">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" strokeWidth="1.8"/></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" /><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="currentColor" strokeWidth="1.8" /></svg>
                           <span><span className="text-[#18191c] font-medium">Languages</span><br />{profile.languages}</span>
                         </div>
                       )}
                       {profile?.website && (
                         <div className="flex items-start gap-2 text-[#5e6670] text-sm">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                           <span><span className="text-[#18191c] font-medium">Profile URL</span><br />
                             <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-[#5e6670] hover:text-[#ff9400] hover:underline">
                               {profile.website.replace(/^https?:\/\//, '')}
@@ -561,7 +561,7 @@ export default function ProfilePage() {
                     {displayedExp.map((exp) => (
                       <div key={exp.id} className="flex gap-3">
                         <div className="w-10 h-10 rounded-lg bg-[#f3f5f7] border border-[#e4e5e8] shrink-0 flex items-center justify-center">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="#9199a3" strokeWidth="1.5"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="#9199a3" strokeWidth="1.5" /><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round" /></svg>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
@@ -578,10 +578,10 @@ export default function ProfilePage() {
                             {isOwn && (
                               <div className="flex items-center gap-2 shrink-0">
                                 <button onClick={() => setEditExp(exp)} className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1">
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                 </button>
                                 <button onClick={async () => { if (window.confirm('Delete this experience?')) { await deleteExperience(exp.id); loadExperiences(); } }} className="text-[#ff9400] hover:text-red-500 transition-colors p-1">
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" /></svg>
                                 </button>
                               </div>
                             )}
@@ -640,7 +640,7 @@ export default function ProfilePage() {
                     <h3 className="text-[#18191c] text-base font-semibold">Personal Achievements</h3>
                     {isOwn && (
                       <button onClick={() => setAddAchievementOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round" /></svg>
                         Add
                       </button>
                     )}
@@ -681,7 +681,7 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-3">
                       {isOwn && (
                         <button onClick={() => setAddCollabOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round" /></svg>
                           Add
                         </button>
                       )}
@@ -739,7 +739,7 @@ export default function ProfilePage() {
                     {displayedEdu.map((edu) => (
                       <div key={edu.id} className="flex gap-3">
                         <div className="w-10 h-10 rounded-lg bg-[#f3f5f7] border border-[#e4e5e8] shrink-0 flex items-center justify-center">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
@@ -758,10 +758,10 @@ export default function ProfilePage() {
                             {isOwn && (
                               <div className="flex items-center gap-2 shrink-0">
                                 <button onClick={() => setEditEdu(edu)} className="text-[#ff9400] hover:text-[#e68500] transition-colors p-1">
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                 </button>
                                 <button onClick={async () => { await deleteEducation(edu.id); loadEducations(); }} className="text-[#ff9400] hover:text-red-500 transition-colors p-1">
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" /></svg>
                                 </button>
                               </div>
                             )}
@@ -820,7 +820,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3]">
               <h2 className="text-[#18191c] text-base font-semibold">Add To Profile</h2>
               <button onClick={() => setAddSectionOpen(false)} className="text-[#9199a3] hover:text-[#18191c]">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
               </button>
             </div>
             {[
@@ -832,7 +832,7 @@ export default function ProfilePage() {
               <button key={label} onClick={onClick}
                 className="w-full flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3] last:border-0 text-[#18191c] text-sm hover:bg-[#f8f8f8] text-left">
                 {label}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
               </button>
             ))}
           </div>

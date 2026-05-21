@@ -336,6 +336,7 @@ export default function StudentAccountUpdatePage() {
         skills: interests,
         website,
         social_links: socialLinks,
+        resume_url: resumeUrl || undefined,
       });
       if (ok) setTab("contact");
     } else {
