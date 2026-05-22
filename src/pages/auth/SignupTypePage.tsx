@@ -25,9 +25,6 @@ export default function SignupTypePage() {
           <div className="flex items-center gap-2">
             <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
           </div>
-          <span className="text-white/80 text-xs sm:text-sm font-medium tracking-widest">
-            STEP 01/03
-          </span>
         </div>
         <div className="relative z-10 px-5 sm:px-8 pb-6 sm:pb-8">
           <p className="text-white text-lg sm:text-xl font-semibold leading-snug max-w-xs">
@@ -76,9 +73,6 @@ export default function SignupTypePage() {
             </svg>
             Back
           </Link>
-          <span className="text-[#bdbdbd] text-sm font-medium tracking-widest">
-            STEP 01/03
-          </span>
         </div>
 
         {/* Content */}
