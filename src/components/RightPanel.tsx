@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { useProfile } from "../hooks/useProfile";
 import { fetchExperiences } from "../services/experienceService";
 import type { Experience } from "../services/experienceService";
+import GetInTouchModal from "./GetInTouchModal";
 
 const courseImg = "https://placehold.co/354x120/003049/ffffff?text=UI/UX+Course";
 
 export default function RightPanel() {
   const [helpDismissed, setHelpDismissed] = useState(false);
+  const [getInTouchOpen, setGetInTouchOpen] = useState(false);
   const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
   const { profile } = useProfile("me");
   const [currentExp, setCurrentExp] = useState<Experience | null>(null);
@@ -159,11 +161,16 @@ export default function RightPanel() {
               Not able to find what you're looking for? Let us help you.
             </p>
           </div>
-          <button className="bg-[#FF9400] text-white text-sm font-semibold px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-all shadow-md active:scale-95">
+          <button
+            onClick={() => setGetInTouchOpen(true)}
+            className="bg-[#FF9400] text-white text-sm font-semibold px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-all shadow-md active:scale-95"
+          >
             Click Here
           </button>
         </div>
       )}
+
+      <GetInTouchModal isOpen={getInTouchOpen} onClose={() => setGetInTouchOpen(false)} />
     </aside>
   );
 }

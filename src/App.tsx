@@ -38,6 +38,9 @@ import ApplicantsDetailPage from './pages/applications/ApplicantsDetailPage';
 import DiscoverPage from './pages/DiscoverPage';
 import SavedPostsPage from './pages/SavedPostsPage';
 import SavedCategoryPage from './pages/SavedCategoryPage';
+import MyCommunityPage from './pages/MyCommunityPage';
+import ManageCommunityPage from './pages/ManageCommunityPage';
+import ManageRequestPage from './pages/ManageRequestPage';
 
 export default function App() {
   return (
@@ -95,6 +98,11 @@ export default function App() {
         {/* Saved Posts */}
         <Route path="/saved" element={<SavedPostsPage />} />
         <Route path="/saved/:category" element={<SavedCategoryPage />} />
+
+        {/* Community */}
+        <Route path="/community" element={<MyCommunityPage />} />
+        <Route path="/community/manage" element={<ManageCommunityPage />} />
+        <Route path="/community/requests" element={<ManageRequestPage />} />
       </Routes>
     </BrowserRouter>
   );
