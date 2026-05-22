@@ -18,13 +18,25 @@ supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 app = FastAPI(title="Impactshaala API")
 
+# Parse allowed origins
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5174",
+    "https://aliceblue-caribou-807028.hostingersite.com",
+]
+env_origins = os.getenv("ALLOWED_ORIGINS")
+if env_origins:
+    origins.extend([o.strip() for o in env_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 class IndividualSignup(BaseModel):

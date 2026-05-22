@@ -102,8 +102,8 @@ function PersonCard({ person, onToggle }: { person: Person; onToggle: (id: numbe
         <button
           onClick={() => onToggle(person.id)}
           className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-semibold border transition-colors ${person.requested
-              ? "border-[#d1d5db] text-[#9199a3] hover:border-[#f77f00] hover:text-[#f77f00]"
-              : "border-[#f77f00] text-[#f77f00] hover:bg-[#fff6ed]"
+            ? "border-[#d1d5db] text-[#9199a3] hover:border-[#f77f00] hover:text-[#f77f00]"
+            : "border-[#f77f00] text-[#f77f00] hover:bg-[#fff6ed]"
             }`}
         >
           {!person.requested && (
@@ -183,7 +183,7 @@ export default function MyCommunityPage() {
 
           {/* Pending requests */}
           {pending.length > 0 && (
-            <Section title={`${pending.length} pending request`} onAction={() => navigate("/community/requests")}>
+            <Section title={`${pending.length} Pending Request`} onAction={() => navigate("/community/requests")}>
               <div className="divide-y divide-[#f2f2f3]">
                 {pending.map((p, i) => (
                   <div key={p.id} className="flex items-center gap-4 px-5 py-5">
