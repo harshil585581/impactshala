@@ -36,7 +36,16 @@ import AuthCallbackPage from './pages/auth/AuthCallbackPage';
 import MyApplicationsPage from './pages/applications/MyApplicationsPage';
 import ApplicantsDetailPage from './pages/applications/ApplicantsDetailPage';
 import DiscoverPage from './pages/DiscoverPage';
+
+import CreateProviderPage from './pages/discover/CreateProviderPage';
+import CreateProviderDetailsPage from './pages/discover/CreateProviderDetailsPage';
+import CreateProviderPreviewPage from './pages/discover/CreateProviderPreviewPage';
+import CreateSeekerPage from './pages/discover/CreateSeekerPage';
+import CreateSeekerDetailsPage from './pages/discover/CreateSeekerDetailsPage';
+import CreateSeekerPreviewPage from './pages/discover/CreateSeekerPreviewPage';
+
 import LearningDirectoryPage from './pages/learning/LearningDirectoryPage';
+
 import SavedPostsPage from './pages/SavedPostsPage';
 import SavedCategoryPage from './pages/SavedCategoryPage';
 import MyCommunityPage from './pages/MyCommunityPage';
@@ -72,6 +81,12 @@ export default function App() {
         {/* App */}
         <Route path="/home" element={<HomePage />} />
         <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/discover/create/provider" element={<CreateProviderPage />} />
+        <Route path="/discover/create/provider/details" element={<CreateProviderDetailsPage />} />
+        <Route path="/discover/create/provider/preview" element={<CreateProviderPreviewPage />} />
+        <Route path="/discover/create/seeker" element={<CreateSeekerPage />} />
+        <Route path="/discover/create/seeker/details" element={<CreateSeekerDetailsPage />} />
+        <Route path="/discover/create/seeker/preview" element={<CreateSeekerPreviewPage />} />
         <Route path="/applications" element={<MyApplicationsPage />} />
         <Route path="/applications/detail/:postingId" element={<ApplicantsDetailPage />} />
         <Route path="/learning-directory" element={<LearningDirectoryPage />} />

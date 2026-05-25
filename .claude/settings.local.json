@@ -5,7 +5,14 @@
       "Bash(claude plugin *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\HARSHIL\\\\Documents\\\\Mavixy code\\\\impact\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
-      "mcp__claude_ai_Figma__get_metadata"
+      "mcp__claude_ai_Figma__get_metadata",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\HARSHIL\\\\Documents\\\\Mavixy code\\\\impact\\\\src\\\\components\\\\discover\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "mcp__claude_ai_Figma__whoami",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|css\\)$\")",
+      "mcp__claude_ai_Figma__get_variable_defs",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\HARSHIL\\\\Documents\\\\Mavixy code\\\\impact\" -Recurse -Depth 2)",
+      "Bash(Select-Object -First 50)"
     ]
   }
 }
