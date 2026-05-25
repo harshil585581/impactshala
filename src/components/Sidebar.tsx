@@ -13,13 +13,11 @@ type SidebarProps = {
 
 const APP_SUB_ITEMS = [
   { label: "Discover", route: "/applications" },
-  { label: "Learning Directory", route: "/applications/detail/2" },
   { label: "Employment Hub", route: "/applications/detail/1" },
 ];
 
 const ROUTE_TO_SUB_ITEM: Record<string, string> = {
   "/applications": "Discover",
-  "/applications/detail/2": "Learning Directory",
   "/applications/detail/1": "Employment Hub",
 };
 
@@ -28,6 +26,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
 
   const isOnAppsRoute = location.pathname.startsWith("/applications");
+  const isOnLearningRoute = location.pathname === "/learning-directory";
   const isOnDiscoverRoute = location.pathname === "/discover";
   const isOnHomeRoute = location.pathname === "/home";
   const isOnCommunityRoute = location.pathname === "/community";
@@ -134,6 +133,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <NavItem
             icon={<img src={learningIcon} alt="" className="w-5 h-5 shrink-0" />}
             label="Learning Directory"
+            active={isOnLearningRoute}
+            onClick={() => { navigate("/learning-directory"); onClose(); }}
           />
           <NavItem
             icon={<img src={employmentHubIcon} alt="" className="w-5 h-5 shrink-0" />}
