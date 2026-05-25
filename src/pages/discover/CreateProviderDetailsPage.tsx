@@ -2,7 +2,8 @@ import { useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopBar from "../../components/TopBar";
 import Sidebar from "../../components/Sidebar";
-import PromoCard from "../../components/discover/PromoCard";
+import DiscoverSidePanel from "../../components/discover/DiscoverSidePanel";
+import CustomSelect from "../../components/ui/CustomSelect";
 import type { ProviderFormStep1 } from "./CreateProviderPage";
 
 type WeeklySlot = { day: string; startTime: string; startPeriod: "AM" | "PM"; endTime: string; endPeriod: "AM" | "PM" };
@@ -12,12 +13,6 @@ const LANGUAGES = ["English", "Kannada", "Hindi", "Tamil", "Telugu", "Other"];
 const LEVELS = ["Individual", "Group", "Open to both"];
 const DELIVERY_MODES = ["Onsite", "Online", "Hybrid"];
 
-const RECOMMENDATION_STORIES = [
-  { title: "Tcs to let go of 12,000 people", time: "2h ago", readers: "10,470 readers" },
-  { title: "Surat welcomes first vinfast", time: "2h ago", readers: "1,475 readers" },
-  { title: "USLEU finalize trade pact", time: "10m ago", readers: "786 readers" },
-  { title: "AI talent gap widens", time: "53m ago", readers: "756 readers" },
-];
 
 export default function CreateProviderDetailsPage() {
   const navigate = useNavigate();
@@ -188,15 +183,12 @@ export default function CreateProviderDetailsPage() {
                       <label className="block text-sm font-semibold text-text-medium mb-1">
                         Select Day
                       </label>
-                      <select
+                      <CustomSelect
                         value={slot.day}
-                        onChange={(e) => updateSlot(i, "day", e.target.value)}
-                        className="w-full border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-                      >
-                        {DAYS.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => updateSlot(i, "day", v)}
+                        options={DAYS.map((d) => ({ label: d, value: d }))}
+                        placeholder="Select day"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-text-medium mb-1">
@@ -244,14 +236,12 @@ export default function CreateProviderDetailsPage() {
                   <label className="block text-sm font-semibold text-text-medium mb-1">
                     Delivery Mode
                   </label>
-                  <select
+                  <CustomSelect
                     value={deliveryMode}
-                    onChange={(e) => setDeliveryMode(e.target.value)}
-                    className="w-full border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Select</option>
-                    {DELIVERY_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                    onChange={setDeliveryMode}
+                    options={DELIVERY_MODES.map((m) => ({ label: m, value: m }))}
+                    placeholder="Select"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-text-medium mb-1">
@@ -275,27 +265,23 @@ export default function CreateProviderDetailsPage() {
                   <label className="block text-sm font-semibold text-text-medium mb-1">
                     Mention the Communication language
                   </label>
-                  <select
+                  <CustomSelect
                     value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="w-full border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Select</option>
-                    {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
+                    onChange={setLanguage}
+                    options={LANGUAGES.map((l) => ({ label: l, value: l }))}
+                    placeholder="Select"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-text-medium mb-1">
                     Level of participant
                   </label>
-                  <select
+                  <CustomSelect
                     value={level}
-                    onChange={(e) => setLevel(e.target.value)}
-                    className="w-full border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Select</option>
-                    {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
+                    onChange={setLevel}
+                    options={LEVELS.map((l) => ({ label: l, value: l }))}
+                    placeholder="Select"
+                  />
                 </div>
               </div>
             )}
@@ -472,14 +458,12 @@ export default function CreateProviderDetailsPage() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-sm text-text-medium">
                   <span>Visible to:</span>
-                  <select
+                  <CustomSelect
+                    compact
                     value={visibleTo}
-                    onChange={(e) => setVisibleTo(e.target.value)}
-                    className="border border-border-default rounded-lg px-2 py-1 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-                  >
-                    <option>Public</option>
-                    <option>Community</option>
-                  </select>
+                    onChange={setVisibleTo}
+                    options={[{ label: "Public", value: "Public" }, { label: "Community", value: "Community" }]}
+                  />
                 </div>
                 <button
                   onClick={handleNext}
@@ -491,36 +475,9 @@ export default function CreateProviderDetailsPage() {
             </div>
           </div>
 
-          {/* ── Right panel (weekly shows news feed) ── */}
-          <div className="hidden lg:block w-[287px] shrink-0">
-            <div className="sticky top-[90px]">
-              {isWeekly ? (
-                <div className="bg-white rounded-2xl border border-border-default p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="font-semibold text-text-dark text-sm">Recommendation Posts</p>
-                    <span className="text-primary text-xs cursor-pointer">›</span>
-                  </div>
-                  <p className="text-xs text-text-muted font-semibold mb-3">Top Stories</p>
-                  <div className="flex flex-col gap-3">
-                    {RECOMMENDATION_STORIES.map((s, i) => (
-                      <div key={i} className="border-b border-border-light pb-3 last:border-0 last:pb-0">
-                        <p className="text-sm font-medium text-text-dark leading-snug mb-0.5">
-                          {s.title}
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          {s.time} • {s.readers}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  <button className="mt-3 text-xs text-primary font-medium hover:underline">
-                    Show more
-                  </button>
-                </div>
-              ) : (
-                <PromoCard />
-              )}
-            </div>
+          {/* ── Right panel ── */}
+          <div className="hidden lg:block shrink-0 sticky top-[84px] self-start">
+            <DiscoverSidePanel />
           </div>
         </div>
       </div>

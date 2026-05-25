@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "../../components/TopBar";
 import Sidebar from "../../components/Sidebar";
-import HelpBox from "../../components/discover/HelpBox";
-import PromoCard from "../../components/discover/PromoCard";
+import DiscoverSidePanel from "../../components/discover/DiscoverSidePanel";
+import CustomSelect from "../../components/ui/CustomSelect";
 import {
   DOMAINS,
   DOMAIN_SUBGROUPS,
@@ -25,7 +25,7 @@ export type ProviderFormStep1 = {
 export default function CreateProviderPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [helpVisible, setHelpVisible] = useState(true);
+  const [visibleTo, setVisibleTo] = useState("Public");
 
   const [form, setForm] = useState<ProviderFormStep1>({
     postingType: "opportunity",
@@ -87,20 +87,11 @@ export default function CreateProviderPage() {
               <p className="text-sm font-semibold text-text-medium mb-2">
                 Choose the Opportunity or Service Domain
               </p>
-              <select
+              <CustomSelect
                 value={form.domain}
-                onChange={(e) => {
-                  set("domain", e.target.value);
-                  set("nature", "");
-                }}
-                className="w-full border border-border-default rounded-xl px-4 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-              >
-                {DOMAINS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => { set("domain", v); set("nature", ""); }}
+                options={DOMAINS.map((d) => ({ label: d, value: d }))}
+              />
             </div>
 
             {/* Sub-category radio grid */}
@@ -112,11 +103,13 @@ export default function CreateProviderPage() {
                 (Choose a subcategory first then select keyword)
               </p>
 
-              {subGroups.map((group) => (
+              {subGroups.map((group) => {
+                const groupChecked = form.nature.startsWith(group.group);
+                return (
                 <div key={group.group} className="mb-5">
                   <label
                     className={`flex items-center gap-2 cursor-pointer mb-3 ${
-                      group.highlighted && form.nature.startsWith(group.group)
+                      group.highlighted && groupChecked
                         ? "text-primary font-semibold"
                         : "text-text-dark font-medium"
                     }`}
@@ -125,12 +118,15 @@ export default function CreateProviderPage() {
                       type="radio"
                       name="group"
                       value={group.group}
-                      checked={form.nature.startsWith(group.group)}
+                      checked={groupChecked}
                       onChange={() =>
                         set("nature", group.options[0] ? `${group.group}:${group.options[0]}` : group.group)
                       }
-                      className="accent-primary"
+                      className="sr-only"
                     />
+                    <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${groupChecked ? "border-primary" : "border-border-default"}`}>
+                      <span className={`w-[8px] h-[8px] rounded-full transition-colors ${groupChecked ? "bg-primary" : ""}`} />
+                    </span>
                     {group.group}
                   </label>
 
@@ -138,6 +134,7 @@ export default function CreateProviderPage() {
                     <div className="grid grid-cols-3 gap-x-4 gap-y-2 pl-6">
                       {group.options.map((opt) => {
                         const val = `${group.group}:${opt}`;
+                        const optChecked = form.nature === val;
                         return (
                           <label
                             key={opt}
@@ -147,10 +144,13 @@ export default function CreateProviderPage() {
                               type="radio"
                               name="nature"
                               value={val}
-                              checked={form.nature === val}
+                              checked={optChecked}
                               onChange={() => set("nature", val)}
-                              className="accent-primary"
+                              className="sr-only"
                             />
+                            <span className={`w-[16px] h-[16px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${optChecked ? "border-primary" : "border-border-default"}`}>
+                              <span className={`w-[7px] h-[7px] rounded-full transition-colors ${optChecked ? "bg-primary" : ""}`} />
+                            </span>
                             {opt}
                           </label>
                         );
@@ -170,7 +170,7 @@ export default function CreateProviderPage() {
                     </div>
                   )}
                 </div>
-              ))}
+              );})}
             </div>
 
             {/* Target audience */}
@@ -178,18 +178,11 @@ export default function CreateProviderPage() {
               <p className="text-sm font-semibold text-text-medium mb-2">
                 Select your target audience
               </p>
-              <select
+              <CustomSelect
                 value={form.targetAudience}
-                onChange={(e) => set("targetAudience", e.target.value)}
-                className="w-full border border-border-default rounded-xl px-4 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-              >
-                <option value="">Select type</option>
-                {TARGET_AUDIENCE_OPTIONS.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set("targetAudience", v)}
+                options={TARGET_AUDIENCE_OPTIONS.map((o) => ({ label: o, value: o }))}
+              />
             </div>
 
             {/* Educational level */}
@@ -197,18 +190,11 @@ export default function CreateProviderPage() {
               <p className="text-sm font-semibold text-text-medium mb-2">
                 Educational Level Targeted
               </p>
-              <select
+              <CustomSelect
                 value={form.educationalLevel}
-                onChange={(e) => set("educationalLevel", e.target.value)}
-                className="w-full border border-border-default rounded-xl px-4 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-              >
-                <option value="">Select type</option>
-                {EDUCATIONAL_LEVELS.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set("educationalLevel", v)}
+                options={EDUCATIONAL_LEVELS.map((o) => ({ label: o, value: o }))}
+              />
             </div>
 
             {/* Event occurrence */}
@@ -244,10 +230,12 @@ export default function CreateProviderPage() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-sm text-text-medium">
                   <span>Visible to:</span>
-                  <select className="border border-border-default rounded-lg px-2 py-1 text-sm text-text-dark bg-white focus:outline-none focus:border-primary">
-                    <option>Public</option>
-                    <option>Community</option>
-                  </select>
+                  <CustomSelect
+                    compact
+                    value={visibleTo}
+                    onChange={setVisibleTo}
+                    options={[{ label: "Public", value: "Public" }, { label: "Community", value: "Community" }]}
+                  />
                 </div>
                 <button
                   onClick={handleNext}
@@ -261,27 +249,8 @@ export default function CreateProviderPage() {
           </div>
 
           {/* ── Right panel ── */}
-          <div className="hidden lg:block w-[287px] shrink-0">
-            <div className="flex flex-col gap-4 sticky top-[90px]">
-              {/* User profile card placeholder */}
-              <div className="bg-white rounded-2xl border border-border-default overflow-hidden">
-                <div className="h-16 bg-navy" />
-                <div className="px-4 pb-4 -mt-8 text-center">
-                  <div className="w-16 h-16 rounded-full bg-border-default border-4 border-white mx-auto mb-2" />
-                  <p className="font-semibold text-text-dark text-sm">Michael Anderson</p>
-                  <p className="text-text-muted text-xs">UI/UX Designer • Accenture</p>
-                  <div className="flex justify-around mt-3 text-xs text-text-muted">
-                    <span>Reviews</span>
-                    <span>Achievement</span>
-                    <span>Community Members</span>
-                  </div>
-                </div>
-              </div>
-              <PromoCard />
-              {helpVisible && (
-                <HelpBox onDismiss={() => setHelpVisible(false)} />
-              )}
-            </div>
+          <div className="hidden lg:block shrink-0 sticky top-[84px] self-start">
+            <DiscoverSidePanel />
           </div>
         </div>
       </div>

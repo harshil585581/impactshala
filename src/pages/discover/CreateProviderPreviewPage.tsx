@@ -3,8 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import TopBar from "../../components/TopBar";
 import Sidebar from "../../components/Sidebar";
 import { createProviderPost } from "../../services/discoverService";
-import PromoCard from "../../components/discover/PromoCard";
-import HelpBox from "../../components/discover/HelpBox";
+import DiscoverSidePanel from "../../components/discover/DiscoverSidePanel";
 
 export default function CreateProviderPreviewPage() {
   const navigate = useNavigate();
@@ -14,7 +13,6 @@ export default function CreateProviderPreviewPage() {
   const step2 = (state?.step2 ?? {}) as Record<string, string>;
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [helpVisible, setHelpVisible] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [visiblePopup, setVisiblePopup] = useState(false);
@@ -236,21 +234,8 @@ export default function CreateProviderPreviewPage() {
           </div>
 
           {/* ── Right panel ── */}
-          <div className="hidden lg:block w-[287px] shrink-0">
-            <div className="flex flex-col gap-4 sticky top-[90px]">
-              <div className="bg-white rounded-2xl border border-border-default overflow-hidden">
-                <div className="h-16 bg-navy" />
-                <div className="px-4 pb-4 -mt-8 text-center">
-                  <div className="w-16 h-16 rounded-full bg-border-default border-4 border-white mx-auto mb-2" />
-                  <p className="font-semibold text-text-dark text-sm">Michael Anderson</p>
-                  <p className="text-text-muted text-xs">UI/UX Designer • Accenture</p>
-                </div>
-              </div>
-              <PromoCard />
-              {helpVisible && (
-                <HelpBox onDismiss={() => setHelpVisible(false)} />
-              )}
-            </div>
+          <div className="hidden lg:block shrink-0 sticky top-[84px] self-start">
+            <DiscoverSidePanel />
           </div>
         </div>
       </div>

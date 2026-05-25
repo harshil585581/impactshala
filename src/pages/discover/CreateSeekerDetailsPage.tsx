@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import CustomSelect from "../../components/ui/CustomSelect";
 import TopBar from "../../components/TopBar";
 import Sidebar from "../../components/Sidebar";
-import PromoCard from "../../components/discover/PromoCard";
+import DiscoverSidePanel from "../../components/discover/DiscoverSidePanel";
 import type { SeekerFormStep1 } from "./CreateSeekerPage";
 
 const PROFESSIONAL_LEVELS = [
@@ -92,16 +93,11 @@ export default function CreateSeekerDetailsPage() {
                 <label className="block text-sm font-semibold text-text-medium mb-1">
                   Choose professional level
                 </label>
-                <select
+                <CustomSelect
                   value={professionalLevel}
-                  onChange={(e) => setProfessionalLevel(e.target.value)}
-                  className="w-full border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-                >
-                  <option value="">Select type</option>
-                  {PROFESSIONAL_LEVELS.map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
+                  onChange={setProfessionalLevel}
+                  options={PROFESSIONAL_LEVELS.map((l) => ({ label: l, value: l }))}
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-text-medium mb-1">
@@ -269,14 +265,12 @@ export default function CreateSeekerDetailsPage() {
                 Save
               </button>
               <div className="flex items-center gap-3">
-                <select
+                <CustomSelect
+                  compact
                   value={visibleTo}
-                  onChange={(e) => setVisibleTo(e.target.value)}
-                  className="border border-border-default rounded-lg px-2 py-1 text-sm text-text-dark bg-white focus:outline-none focus:border-primary"
-                >
-                  <option>Public</option>
-                  <option>Community</option>
-                </select>
+                  onChange={setVisibleTo}
+                  options={[{ label: "Public", value: "Public" }, { label: "Community", value: "Community" }]}
+                />
                 <button
                   onClick={handleNext}
                   className="bg-primary text-white font-semibold px-6 py-2.5 rounded-full hover:bg-orange-600 transition-colors min-h-[44px]"
@@ -288,10 +282,8 @@ export default function CreateSeekerDetailsPage() {
           </div>
 
           {/* ── Right panel ── */}
-          <div className="hidden lg:block w-[287px] shrink-0">
-            <div className="sticky top-[90px]">
-              <PromoCard />
-            </div>
+          <div className="hidden lg:block shrink-0 sticky top-[84px] self-start">
+            <DiscoverSidePanel />
           </div>
         </div>
       </div>

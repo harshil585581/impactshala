@@ -155,8 +155,8 @@ export default function DiscoverPage() {
           </div>
 
           {/* ── Right panel ── */}
-          <div className="hidden lg:block w-[287px] shrink-0">
-            <div className="flex flex-col gap-4 sticky top-[90px]">
+          <div className="hidden lg:block w-[354px] shrink-0">
+            <div className="flex flex-col gap-4 sticky top-[84px]">
               <CreatePostDropdown />
               <FilterPanel
                 filters={pendingFilters}
@@ -164,10 +164,10 @@ export default function DiscoverPage() {
                 onApply={applyFilters}
                 onReset={resetFilters}
               />
+              <PromoCard />
               {helpVisible && (
                 <HelpBox onDismiss={() => setHelpVisible(false)} />
               )}
-              <PromoCard />
             </div>
           </div>
         </div>
