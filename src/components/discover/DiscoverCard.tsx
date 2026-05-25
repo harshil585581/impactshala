@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import type { DiscoverItem } from "../../services/discoverService";
-import saveIcon from "../../assets/images/svg/save.svg";
 
 type Props = {
   item: DiscoverItem;
@@ -69,16 +68,15 @@ export default function DiscoverCard({
               aria-label={isBookmarked ? "Remove bookmark" : "Bookmark"}
               className="p-2 hover:bg-border-light rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
-              {isBookmarked ? (
-                <svg width="20" height="26" viewBox="0 0 24 32" fill="none">
-                  <path
-                    d="M1 4.71872C1 3.21776 2.21776 2 3.71872 2V4.71872V27.0009L11.0876 21.7391C11.5577 21.3992 12.1977 21.3992 12.6679 21.7391L20.0311 27.0009V4.71872H3.71872V2H20.0311C21.532 2 22.7498 3.21776 22.7498 4.71872V29.6403C22.7498 30.1501 22.4666 30.6146 22.0135 30.8468C21.5603 31.079 21.0166 31.0394 20.6031 30.7448L11.8749 24.5144L3.14666 30.7448C2.73319 31.0394 2.18944 31.079 1.73632 30.8468C1.2832 30.6146 1 30.1501 1 29.6403V4.71872Z"
-                    fill="#f77f00"
-                  />
-                </svg>
-              ) : (
-                <img src={saveIcon} alt="" className="w-5 h-6 object-contain" />
-              )}
+              <svg width="35" height="30" viewBox="0 0 24 24" fill={isBookmarked ? "#f77f00" : "none"} className="text-primary">
+                <path
+                  d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"
+                  stroke="#f77f00"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
           </div>
         </div>

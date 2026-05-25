@@ -89,30 +89,24 @@ export default function FilterPanel({ filters, onChange, onApply, onReset }: Pro
           </button>
 
           {expanded === section.key && (
-            <div className="mt-2 flex flex-col gap-1.5 pl-1">
-              {section.options.map((opt) => (
-                <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm text-text-medium">
-                  <input
-                    type="radio"
-                    name={section.key}
-                    value={opt}
-                    checked={filters[section.key] === opt}
-                    onChange={() =>
-                      onChange({ ...filters, [section.key]: opt })
-                    }
-                    className="accent-primary"
-                  />
-                  {opt}
-                </label>
-              ))}
-              {filters[section.key] && (
-                <button
-                  onClick={() => onChange({ ...filters, [section.key]: "" })}
-                  className="text-xs text-text-muted hover:text-primary mt-1 text-left"
-                >
-                  Clear
-                </button>
-              )}
+            <div className="mt-1 border border-border-default rounded-xl overflow-hidden">
+              {section.options.map((opt) => {
+                const active = filters[section.key] === opt;
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => onChange({ ...filters, [section.key]: active ? "" : opt })}
+                    className={`w-full text-left px-5 py-3.5 text-sm relative transition-colors border-b border-border-light last:border-b-0 ${
+                      active ? "text-primary font-medium" : "text-text-muted hover:bg-border-light"
+                    }`}
+                  >
+                    {active && (
+                      <span className="absolute left-0 top-2 bottom-2 w-[3px] bg-primary rounded-r-full" />
+                    )}
+                    {opt}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
