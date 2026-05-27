@@ -46,6 +46,10 @@ import CreateSeekerPreviewPage from './pages/discover/CreateSeekerPreviewPage';
 
 import LearningDirectoryPage from './pages/learning/LearningDirectoryPage';
 
+import ListCoursePage from './pages/learning/ListCoursePage';
+import ListCourseStep2Page from './pages/learning/ListCourseStep2Page';
+import PreviewCoursePage from './pages/learning/PreviewCoursePage';
+
 import SavedPostsPage from './pages/SavedPostsPage';
 import SavedCategoryPage from './pages/SavedCategoryPage';
 import MyCommunityPage from './pages/MyCommunityPage';
@@ -90,6 +94,9 @@ export default function App() {
         <Route path="/applications" element={<MyApplicationsPage />} />
         <Route path="/applications/detail/:postingId" element={<ApplicantsDetailPage />} />
         <Route path="/learning-directory" element={<LearningDirectoryPage />} />
+        <Route path="/learning-directory/list-course" element={<ListCoursePage />} />
+        <Route path="/learning-directory/list-course/step2" element={<ListCourseStep2Page />} />
+        <Route path="/learning-directory/list-course/preview" element={<PreviewCoursePage />} />
         <Route path="/account/update" element={<UpdateAccountPage />} />
         <Route path="/account/update/org" element={<UpdateOrgAccountPage />} />
         <Route path="/account/update/org/forprofit" element={<ForProfitOrgAccountUpdatePage />} />

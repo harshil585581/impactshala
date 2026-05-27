@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import Any, List, Optional
 
@@ -18,6 +19,17 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 app = FastAPI(title="Impactshaala API")
+
+
+_raw_origins = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:3000,http://localhost:5174",
+)
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
 
 # Parse allowed origins
 origins = [
@@ -114,11 +126,11 @@ def get_user_id(authorization: str) -> str:
     token = authorization.split(" ", 1)[1]
     try:
         user_resp = supabase.auth.get_user(token)
-        if not user_resp.user:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return user_resp.user.id
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
+    if not user_resp.user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return user_resp.user.id
 
 
 @app.get("/health")
@@ -159,6 +171,7 @@ async def login(data: LoginRequest):
     return {
         "message": "Login successful",
         "access_token": auth_response.session.access_token,
+        "refresh_token": auth_response.session.refresh_token,
         "user": {
             "id": user_id,
             "email": auth_response.user.email,
@@ -311,6 +324,217 @@ async def upload_document(
     # Return a short-lived signed URL (1 hour) for immediate preview
     signed = supabase_admin.storage.from_(bucket).create_signed_url(path, 3600)
     return {"url": signed.get("signedURL") or signed.get("signed_url") or ""}
+
+
+class CreateCourseRequest(BaseModel):
+    program_level: str
+    title: str
+    course_mode: str
+    venue: Optional[str] = None
+    online_access: Optional[str] = None
+    visibility: str = "public"
+    # School
+    admission_for: Optional[List[str]] = None
+    education_board: Optional[str] = None
+    board_affiliation: Optional[str] = None
+    grades_for: Optional[List[str]] = None
+    # College
+    academic_levels: Optional[List[str]] = None
+    college_stream: Optional[str] = None
+    # Professional
+    course_levels: Optional[List[str]] = None
+    pro_stream: Optional[str] = None
+    # Step-2
+    curriculum_features: Optional[Any] = None
+    languages: Optional[List[str]] = None
+    duration: Optional[str] = None
+    start_date: Optional[str] = None
+    start_time: Optional[str] = None
+    end_date: Optional[str] = None
+    end_time: Optional[str] = None
+    last_date_to_apply: Optional[str] = None
+    certification: Optional[str] = None
+    other_benefits: Optional[str] = None
+    career_outcomes: Optional[str] = None
+    eligibility_criteria: Optional[List[str]] = None
+    required_documents: Optional[List[str]] = None
+    fee_type: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    brochure_url: Optional[str] = None
+
+
+@app.get("/api/learning/courses")
+async def list_courses(
+    program_level: Optional[str] = None,
+    mode: Optional[str] = None,
+):
+    query = supabase_admin.table("learning_courses").select(
+        "*, user:users(first_name, last_name, org_name, avatar_url)"
+    ).eq("status", "published")
+
+    if program_level:
+        query = query.eq("program_level", program_level)
+    if mode:
+        query = query.eq("course_mode", mode)
+
+    result = query.order("created_at", desc=True).execute()
+    return result.data
+
+
+_VALID_PROGRAM_LEVELS = {"school", "college", "professional"}
+_VALID_COURSE_MODES = {"onsite", "remote", "hybrid"}
+
+
+@app.post("/api/learning/courses")
+async def create_course(data: CreateCourseRequest, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+
+    if data.program_level not in _VALID_PROGRAM_LEVELS:
+        raise HTTPException(status_code=422, detail=f"program_level must be one of {sorted(_VALID_PROGRAM_LEVELS)}")
+    if data.course_mode not in _VALID_COURSE_MODES:
+        raise HTTPException(status_code=422, detail=f"course_mode must be one of {sorted(_VALID_COURSE_MODES)}")
+    if not data.title or not data.title.strip():
+        raise HTTPException(status_code=422, detail="title is required")
+
+    payload = {
+        "user_id": user_id,
+        "program_level": data.program_level,
+        "title": data.title,
+        "course_mode": data.course_mode,
+        "venue": data.venue,
+        "online_access": data.online_access,
+        "visibility": data.visibility,
+        "status": "published",
+        "admission_for": data.admission_for or [],
+        "education_board": data.education_board,
+        "board_affiliation": data.board_affiliation,
+        "grades_for": data.grades_for or [],
+        "academic_levels": data.academic_levels or [],
+        "college_stream": data.college_stream,
+        "course_levels": data.course_levels or [],
+        "pro_stream": data.pro_stream,
+        "curriculum_features": data.curriculum_features or {},
+        "languages": data.languages or [],
+        "duration": data.duration,
+        "start_date": data.start_date or None,
+        "start_time": data.start_time,
+        "end_date": data.end_date or None,
+        "end_time": data.end_time,
+        "last_date_to_apply": data.last_date_to_apply or None,
+        "certification": data.certification,
+        "other_benefits": data.other_benefits,
+        "career_outcomes": data.career_outcomes,
+        "eligibility_criteria": data.eligibility_criteria or [],
+        "required_documents": data.required_documents or [],
+        "fee_type": data.fee_type,
+        "description": data.description,
+        "thumbnail_url": data.thumbnail_url,
+        "brochure_url": data.brochure_url,
+    }
+
+    try:
+        result = supabase_admin.table("learning_courses").insert(payload).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create course: {str(e)}")
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create course")
+
+    return result.data[0]
+
+
+@app.get("/api/learning/courses/{course_id}")
+async def get_course(course_id: str):
+    result = supabase_admin.table("learning_courses").select(
+        "*, user:users(first_name, last_name, org_name, avatar_url)"
+    ).eq("id", course_id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return result.data[0]
+
+
+@app.post("/api/learning/courses/{course_id}/apply")
+async def apply_to_course(
+    course_id: str,
+    applicant_name: str = Form(...),
+    applicant_email: str = Form(...),
+    applicant_mobile: Optional[str] = Form(None),
+    message: Optional[str] = Form(None),
+    documents: List[UploadFile] = File(default=[]),
+    authorization: Optional[str] = Header(None),
+):
+    user_id = None
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            user_id = get_user_id(authorization)
+        except Exception:
+            pass
+
+    doc_urls: List[str] = []
+    for doc in documents:
+        if doc and doc.filename:
+            content = await doc.read()
+            ext = (doc.filename).rsplit(".", 1)[-1].lower()
+            path = f"applications/{course_id}/{uuid.uuid4().hex}.{ext}"
+            try:
+                supabase_admin.storage.from_("documents").upload(
+                    path=path,
+                    file=content,
+                    file_options={
+                        "content-type": doc.content_type or "application/octet-stream",
+                        "upsert": "true",
+                    },
+                )
+                doc_urls.append(path)
+            except Exception:
+                pass
+
+    try:
+        result = supabase_admin.table("course_applications").insert({
+            "course_id": course_id,
+            "user_id": user_id,
+            "applicant_name": applicant_name,
+            "applicant_email": applicant_email,
+            "applicant_mobile": applicant_mobile,
+            "message": message,
+            "document_urls": doc_urls,
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to submit application: {str(e)}")
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to submit application")
+
+    return {"message": "Application submitted successfully", "id": result.data[0]["id"]}
+
+
+@app.post("/api/upload/course-image")
+async def upload_course_image(
+    file: UploadFile = File(...),
+    authorization: str = Header(None),
+):
+    user_id = get_user_id(authorization)
+    content = await file.read()
+    ext = (file.filename or "image.jpg").rsplit(".", 1)[-1].lower()
+    if ext not in ("jpg", "jpeg", "png", "gif", "webp", "pdf"):
+        ext = "jpg"
+
+    path = f"courses/{user_id}/{uuid.uuid4().hex}.{ext}"
+    content_type = file.content_type or ("application/pdf" if ext == "pdf" else "image/jpeg")
+
+    try:
+        supabase_admin.storage.from_("post-media").upload(
+            path=path,
+            file=content,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
+
+    public_url = supabase_admin.storage.from_("post-media").get_public_url(path)
+    return {"url": public_url}
 
 
 @app.post("/api/signup/organization")

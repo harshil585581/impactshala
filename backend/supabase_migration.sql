@@ -255,6 +255,108 @@ CREATE POLICY "Users delete own achievements"
   USING (auth.uid() = user_id);
 
 -- ============================================================
+-- Learning Courses table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS learning_courses (
+  id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  program_level         TEXT        NOT NULL CHECK (program_level IN ('school', 'college', 'professional')),
+  title                 TEXT        NOT NULL,
+  course_mode           TEXT        NOT NULL CHECK (course_mode IN ('onsite', 'remote', 'hybrid')),
+  venue                 TEXT,
+  online_access         TEXT,
+  visibility            TEXT        NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'community')),
+  status                TEXT        NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published')),
+
+  -- School-specific
+  admission_for         TEXT[]      NOT NULL DEFAULT '{}',
+  education_board       TEXT,
+  board_affiliation     TEXT,
+  grades_for            TEXT[]      NOT NULL DEFAULT '{}',
+
+  -- College-specific
+  academic_levels       TEXT[]      NOT NULL DEFAULT '{}',
+  college_stream        TEXT,
+
+  -- Professional-specific
+  course_levels         TEXT[]      NOT NULL DEFAULT '{}',
+  pro_stream            TEXT,
+
+  -- Step-2 curriculum & details
+  curriculum_features   JSONB       NOT NULL DEFAULT '{}',
+  languages             TEXT[]      NOT NULL DEFAULT '{}',
+  duration              TEXT,
+  start_date            DATE,
+  start_time            TEXT,
+  end_date              DATE,
+  end_time              TEXT,
+  last_date_to_apply    DATE,
+  certification         TEXT,
+  other_benefits        TEXT,
+  career_outcomes       TEXT,
+  eligibility_criteria  TEXT[]      NOT NULL DEFAULT '{}',
+  required_documents    TEXT[]      NOT NULL DEFAULT '{}',
+  fee_type              TEXT        CHECK (fee_type IN ('range', 'fixed')),
+  description           TEXT,
+  thumbnail_url         TEXT,
+  brochure_url          TEXT,
+
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE learning_courses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Published public courses readable by all"
+  ON learning_courses FOR SELECT
+  USING (
+    (status = 'published' AND visibility = 'public')
+    OR auth.uid() = user_id
+  );
+
+CREATE POLICY "Users insert own courses"
+  ON learning_courses FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users update own courses"
+  ON learning_courses FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users delete own courses"
+  ON learning_courses FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Course Applications table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS course_applications (
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id         UUID        NOT NULL REFERENCES learning_courses(id) ON DELETE CASCADE,
+  user_id           UUID        REFERENCES users(id) ON DELETE SET NULL,
+  applicant_name    TEXT        NOT NULL,
+  applicant_email   TEXT        NOT NULL,
+  applicant_mobile  TEXT,
+  message           TEXT,
+  document_urls     TEXT[]      NOT NULL DEFAULT '{}',
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE course_applications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Course owners can read applications"
+  ON course_applications FOR SELECT
+  USING (
+    auth.uid() = user_id
+    OR auth.uid() IN (SELECT user_id FROM learning_courses WHERE id = course_id)
+  );
+
+CREATE POLICY "Anyone can submit an application"
+  ON course_applications FOR INSERT
+  WITH CHECK (true);
+
+-- ============================================================
 -- Collaborative Accomplishments table
 -- ============================================================
 
