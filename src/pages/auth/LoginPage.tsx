@@ -78,6 +78,7 @@ export default function LoginPage() {
         JSON.stringify({
           ...data.user,
           access_token: data.access_token,
+          refresh_token: data.refresh_token,
         }),
       );
       navigate("/home");

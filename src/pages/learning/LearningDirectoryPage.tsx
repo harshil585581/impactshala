@@ -1,17 +1,19 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import SubCategoryPills, { type GradeLevel } from "../../features/learning-directory/components/SubCategoryPills";
 import CollegeSubCategoryPills, { type AcademicLevel } from "../../features/learning-directory/components/CollegeSubCategoryPills";
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
+import { fetchCourses, applyToCourse, type CourseRecord } from "../../services/learningService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type MainTab = "school" | "college" | "professional";
 type LevelTab = "beginner" | "intermediate" | "advanced";
-type AppStep = "details" | "eligibility" | "documents" | null;
+type AppStep = "details" | "eligibility" | "documents" | "success" | null;
 
 interface Course {
-  id: number;
+  id: string;
   image: string;
   university: string;
   title: string;
@@ -22,15 +24,28 @@ interface Course {
   applicationDeadline: string;
   eligibilityCriteria: string[];
   requiredDocs: string[];
+  // Expanded details
+  certification: string;
+  otherBenefits: string;
+  careerOutcomes: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  onsiteVenue: string;
+  onlineAccess: string;
+  brochureUrl: string;
+  allAdmissionFor: string[];
+  allAcademicLevels: string[];
+  allCourseLevels: string[];
 }
 
 interface FilterState {
-  streams: string[];
   modes: string[];
+  streams: string[];
+  scholarships: string[];
   fees: string[];
-  locations: string[];
-  educationBoards: string[];
-  higherEducationStreams: string[];
+  participantLevels: string[];
 }
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
@@ -63,9 +78,34 @@ const LEARNING_MODES = [
 ];
 
 const FEES_OPTIONS = [
-  { label: "Full Payment", count: 32 },
-  { label: "In Installment", count: 14 },
+  { label: "Individual", count: 32 },
+  { label: "Group", count: 14 },
   { label: "Open to both", count: 14 },
+];
+
+const SCHOLARSHIP_OPTIONS = [
+  { label: "Yes", count: 22 },
+  { label: "No", count: 14 },
+];
+
+const SCHOOL_PARTICIPANT_LEVELS = [
+  { label: "Pre-school (Under Grade 5)", count: 32 },
+  { label: "Middle School (Grade 6 to 8)", count: 14 },
+  { label: "High School (Grade 9 to 10)", count: 14 },
+  { label: "Senior Secondary (Grade 11 to 12)", count: 14 },
+];
+
+const COLLEGE_PARTICIPANT_LEVELS = [
+  { label: "Undergraduate (UG)", count: 32 },
+  { label: "Postgraduate (PG)", count: 14 },
+  { label: "Diploma / Certificate", count: 14 },
+  { label: "Doctoral (PhD)", count: 14 },
+];
+
+const PROFESSIONAL_PARTICIPANT_LEVELS = [
+  { label: "Beginner", count: 32 },
+  { label: "Intermediate", count: 14 },
+  { label: "Advanced", count: 14 },
 ];
 
 const EDUCATION_BOARD_OPTIONS = [
@@ -90,62 +130,23 @@ const HIGHER_EDUCATION_STREAMS = [
   { label: "Others", count: 14 },
 ];
 
+const GRADE_PILL_LABELS: Record<string, string> = {
+  pre_school: "Pre-School (Pre K - UKG)",
+  primary: "Primary School (Grade 1 to 4)",
+  secondary: "Secondary School (Grade 5 to 7)",
+  senior_secondary: "Senior Secondary School (Grade 8 to 10)",
+  high_school: "High School (Grade 11 to 12)",
+};
 
-const ELIGIBILITY_CRITERIA = [
-  "Only for students from Science or Engineering background",
-  'Minimum 60% in last qualifying exam" or "CGPA ≥ 6.5',
-  "Only for students from Science or Engineering background",
-];
+const ACADEMIC_PILL_LABELS: Record<string, string> = {
+  high_school: "High School (Grade 11 to 12)",
+  diploma: "Diploma",
+  under_graduate: "Under Graduate",
+  post_graduate: "Post Graduate",
+  phd: "PhD",
+};
 
-const REQUIRED_DOCS = [
-  "This opportunity is exclusively for individuals with a background in the fields of Science or Engineering.",
-  "Applicants must have achieved at least 60% in their most recent qualifying examination or maintain a CGPA of 6.5 or higher.",
-  "This program is tailored specifically for students who have studied Science or Engineering.",
-  "Eligibility is limited to those with a background in Science or Engineering disciplines.",
-  "This is intended solely for students pursuing degrees in Science or Engineering.",
-];
 
-const COURSES: Course[] = [
-  {
-    id: 1,
-    image: COURSE_IMG,
-    university: "University of Mumbai, Mumbai",
-    title: "Bachelor of Business Administration (BBA) Accountancy",
-    academicLevel: "High School (Grade 11 to 12)",
-    mode: "Onsite (Bangalore)",
-    courseFee: "2 LPA",
-    duration: "3 Months",
-    applicationDeadline: "16/9/2025",
-    eligibilityCriteria: ELIGIBILITY_CRITERIA,
-    requiredDocs: REQUIRED_DOCS,
-  },
-  {
-    id: 2,
-    image: COURSE_IMG,
-    university: "University of Mumbai, Mumbai",
-    title: "Bachelor of Business Administration (BBA) Accountancy",
-    academicLevel: "High School (Grade 11 to 12)",
-    mode: "Onsite (Bangalore)",
-    courseFee: "2 LPA",
-    duration: "3 Months",
-    applicationDeadline: "16/9/2025",
-    eligibilityCriteria: ELIGIBILITY_CRITERIA,
-    requiredDocs: REQUIRED_DOCS,
-  },
-  {
-    id: 3,
-    image: COURSE_IMG,
-    university: "University of Mumbai, Mumbai",
-    title: "Bachelor of Business Administration (BBA) Accountancy",
-    academicLevel: "High School (Grade 11 to 12)",
-    mode: "Remote",
-    courseFee: "3 LPA",
-    duration: "6 Months",
-    applicationDeadline: "30/10/2025",
-    eligibilityCriteria: ELIGIBILITY_CRITERIA,
-    requiredDocs: REQUIRED_DOCS,
-  },
-];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -227,6 +228,15 @@ function FilterCheckbox({
   );
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <p className="text-sm leading-relaxed">
+      <span className="font-semibold text-[#18191c]">{label} : </span>
+      <span className="text-[#6b7280]">{value}</span>
+    </p>
+  );
+}
+
 function CourseCard({
   course,
   saved,
@@ -238,6 +248,8 @@ function CourseCard({
   onToggleSave: () => void;
   onGetStarted: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <div className="bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden shadow-sm">
       <img
@@ -286,7 +298,11 @@ function CourseCard({
           >
             Get Started
           </button>
-          <button className="flex-1 border border-[#e5e7eb] text-[#374151] text-sm font-medium py-2 rounded-full hover:bg-gray-50 transition-colors">
+          <button
+            onClick={() => course.brochureUrl && window.open(course.brochureUrl, "_blank")}
+            disabled={!course.brochureUrl}
+            className={`flex-1 border border-[#e5e7eb] text-[#374151] text-sm font-medium py-2 rounded-full transition-colors ${course.brochureUrl ? "hover:bg-gray-50" : "opacity-40 cursor-not-allowed"}`}
+          >
             Download Brochure
           </button>
         </div>
@@ -314,8 +330,41 @@ function CourseCard({
           </div>
         </div>
 
-        <button className="mt-2 text-[#f77f00] text-sm font-medium hover:underline">
-          Show more
+        {expanded && (
+          <div className="mt-3 pt-3 border-t border-[#f3f4f6] space-y-4">
+            <div className="space-y-2">
+              <p className="text-[#18191c] font-bold text-sm">More Details</p>
+              <DetailRow label="Certification / Accreditation" value={course.certification} />
+              <DetailRow label="Other Benefits / Exposure" value={course.otherBenefits} />
+              <DetailRow label="Career Outcomes / Benefits" value={course.careerOutcomes} />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[#18191c] font-bold text-sm">Engagement Details</p>
+              <DetailRow label="Duration" value={course.duration} />
+              <DetailRow label="Application deadline" value={course.applicationDeadline} />
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <DetailRow label="Start Date" value={course.startDate} />
+                <DetailRow label="Time" value={course.startTime} />
+                <DetailRow label="End Date" value={course.endDate} />
+                <DetailRow label="Time" value={course.endTime} />
+              </div>
+              <DetailRow label="Fee" value={course.courseFee} />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[#18191c] font-bold text-sm">Access Details</p>
+              <DetailRow label="Onsite Venue" value={course.onsiteVenue} />
+              <DetailRow label="Online Access" value={course.onlineAccess} />
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 text-[#f77f00] text-sm font-medium hover:underline"
+        >
+          {expanded ? "Show less" : "Show more"}
         </button>
       </div>
     </div>
@@ -517,6 +566,8 @@ function DocumentsModal({
   onBack,
   onSubmit,
   onClose,
+  submitting,
+  applyError,
 }: {
   docs: string[];
   uploads: (File | null)[];
@@ -526,6 +577,8 @@ function DocumentsModal({
   onBack: () => void;
   onSubmit: () => void;
   onClose: () => void;
+  submitting: boolean;
+  applyError: string | null;
 }) {
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -606,18 +659,23 @@ function DocumentsModal({
           <p className="text-right text-xs text-[#9ca3af] mt-1">{message.length}/500 characters</p>
         </div>
 
+        {applyError && (
+          <p className="text-red-500 text-xs text-center mb-3">{applyError}</p>
+        )}
         <div className="flex gap-4">
           <button
             onClick={onBack}
-            className="flex-1 border border-[#f77f00] text-[#f77f00] py-2.5 rounded-full text-sm font-semibold hover:bg-[#fff8ee] transition-colors"
+            disabled={submitting}
+            className="flex-1 border border-[#f77f00] text-[#f77f00] py-2.5 rounded-full text-sm font-semibold hover:bg-[#fff8ee] transition-colors disabled:opacity-50"
           >
             Back
           </button>
           <button
             onClick={onSubmit}
-            className="flex-1 bg-[#f77f00] text-white py-2.5 rounded-full text-sm font-semibold hover:bg-[#e07000] transition-colors"
+            disabled={submitting}
+            className={`flex-1 text-white py-2.5 rounded-full text-sm font-semibold transition-colors ${submitting ? "bg-[#f7a050] cursor-not-allowed" : "bg-[#f77f00] hover:bg-[#e07000]"}`}
           >
-            Submit
+            {submitting ? "Submitting…" : "Submit"}
           </button>
         </div>
       </div>
@@ -633,8 +691,8 @@ function LearningRightSidebar({
   onToggleStream,
   onToggleMode,
   onToggleFee,
-  onToggleEducationBoard,
-  onToggleHigherEducationStream,
+  onToggleScholarship,
+  onToggleParticipantLevel,
   onApply,
   onReset,
 }: {
@@ -643,17 +701,38 @@ function LearningRightSidebar({
   onToggleStream: (s: string) => void;
   onToggleMode: (m: string) => void;
   onToggleFee: (f: string) => void;
-  onToggleEducationBoard: (b: string) => void;
-  onToggleHigherEducationStream: (s: string) => void;
+  onToggleScholarship: (s: string) => void;
+  onToggleParticipantLevel: (l: string) => void;
   onApply: () => void;
   onReset: () => void;
 }) {
+  const [modeOpen, setModeOpen] = useState(true);
   const [streamOpen, setStreamOpen] = useState(false);
-  const [modeOpen, setModeOpen] = useState(false);
+  const [scholarshipOpen, setScholarshipOpen] = useState(false);
   const [feesOpen, setFeesOpen] = useState(false);
-  const [educationBoardOpen, setEducationBoardOpen] = useState(false);
-  const [higherEdStreamOpen, setHigherEdStreamOpen] = useState(false);
+  const [participantLevelOpen, setParticipantLevelOpen] = useState(false);
   const [helpDismissed, setHelpDismissed] = useState(false);
+
+  const streamOptions =
+    mainTab === "school"
+      ? EDUCATION_BOARD_OPTIONS
+      : mainTab === "college"
+      ? HIGHER_EDUCATION_STREAMS
+      : UPSKILLING_STREAMS;
+
+  const streamTitle =
+    mainTab === "school"
+      ? "Education Board"
+      : mainTab === "college"
+      ? "Higher Education Stream"
+      : "Upskilling Stream";
+
+  const participantLevels =
+    mainTab === "school"
+      ? SCHOOL_PARTICIPANT_LEVELS
+      : mainTab === "college"
+      ? COLLEGE_PARTICIPANT_LEVELS
+      : PROFESSIONAL_PARTICIPANT_LEVELS;
 
   return (
     <aside className="w-[260px] shrink-0 flex flex-col gap-4">
@@ -672,158 +751,85 @@ function LearningRightSidebar({
         </div>
 
         <div className="divide-y divide-[#f3f4f6]">
-          {/* Professional Upskilling filters */}
-          {mainTab === "professional" && (
-            <>
-              <FilterAccordion
-                title="Upskilling Stream"
-                isOpen={streamOpen}
-                onToggle={() => setStreamOpen((v) => !v)}
-              >
-                {UPSKILLING_STREAMS.map((s) => (
-                  <FilterCheckbox
-                    key={s.label}
-                    label={s.label}
-                    count={s.count}
-                    checked={filters.streams.includes(s.label)}
-                    onChange={() => onToggleStream(s.label)}
-                  />
-                ))}
-              </FilterAccordion>
-              <FilterAccordion
-                title="Learning Mode"
-                isOpen={modeOpen}
-                onToggle={() => setModeOpen((v) => !v)}
-              >
-                {LEARNING_MODES.map((m) => (
-                  <FilterCheckbox
-                    key={m.label}
-                    label={m.label}
-                    count={m.count}
-                    checked={filters.modes.includes(m.label)}
-                    onChange={() => onToggleMode(m.label)}
-                  />
-                ))}
-              </FilterAccordion>
-              <FilterAccordion
-                title="Fees"
-                isOpen={feesOpen}
-                onToggle={() => setFeesOpen((v) => !v)}
-              >
-                {FEES_OPTIONS.map((f) => (
-                  <FilterCheckbox
-                    key={f.label}
-                    label={f.label}
-                    count={f.count}
-                    checked={filters.fees.includes(f.label)}
-                    onChange={() => onToggleFee(f.label)}
-                  />
-                ))}
-              </FilterAccordion>
-            </>
-          )}
+          <FilterAccordion
+            title="Learning Mode"
+            isOpen={modeOpen}
+            onToggle={() => setModeOpen((v) => !v)}
+          >
+            {LEARNING_MODES.map((m) => (
+              <FilterCheckbox
+                key={m.label}
+                label={m.label}
+                count={m.count}
+                checked={filters.modes.includes(m.label)}
+                onChange={() => onToggleMode(m.label)}
+              />
+            ))}
+          </FilterAccordion>
 
-          {/* School filters */}
-          {mainTab === "school" && (
-            <>
-              <FilterAccordion
-                title="Education Board"
-                isOpen={educationBoardOpen}
-                onToggle={() => setEducationBoardOpen((v) => !v)}
-              >
-                {EDUCATION_BOARD_OPTIONS.map((b) => (
-                  <FilterCheckbox
-                    key={b.label}
-                    label={b.label}
-                    count={b.count}
-                    checked={filters.educationBoards.includes(b.label)}
-                    onChange={() => onToggleEducationBoard(b.label)}
-                  />
-                ))}
-              </FilterAccordion>
-              <FilterAccordion
-                title="Learning Mode"
-                isOpen={modeOpen}
-                onToggle={() => setModeOpen((v) => !v)}
-              >
-                {LEARNING_MODES.map((m) => (
-                  <FilterCheckbox
-                    key={m.label}
-                    label={m.label}
-                    count={m.count}
-                    checked={filters.modes.includes(m.label)}
-                    onChange={() => onToggleMode(m.label)}
-                  />
-                ))}
-              </FilterAccordion>
-              <FilterAccordion
-                title="Fees"
-                isOpen={feesOpen}
-                onToggle={() => setFeesOpen((v) => !v)}
-              >
-                {FEES_OPTIONS.map((f) => (
-                  <FilterCheckbox
-                    key={f.label}
-                    label={f.label}
-                    count={f.count}
-                    checked={filters.fees.includes(f.label)}
-                    onChange={() => onToggleFee(f.label)}
-                  />
-                ))}
-              </FilterAccordion>
-            </>
-          )}
+          <FilterAccordion
+            title={streamTitle}
+            isOpen={streamOpen}
+            onToggle={() => setStreamOpen((v) => !v)}
+          >
+            {streamOptions.map((s) => (
+              <FilterCheckbox
+                key={s.label}
+                label={s.label}
+                count={s.count}
+                checked={filters.streams.includes(s.label)}
+                onChange={() => onToggleStream(s.label)}
+              />
+            ))}
+          </FilterAccordion>
 
-          {/* College filters */}
-          {mainTab === "college" && (
-            <>
-              <FilterAccordion
-                title="Higher Education Stream"
-                isOpen={higherEdStreamOpen}
-                onToggle={() => setHigherEdStreamOpen((v) => !v)}
-              >
-                {HIGHER_EDUCATION_STREAMS.map((s) => (
-                  <FilterCheckbox
-                    key={s.label}
-                    label={s.label}
-                    count={s.count}
-                    checked={filters.higherEducationStreams.includes(s.label)}
-                    onChange={() => onToggleHigherEducationStream(s.label)}
-                  />
-                ))}
-              </FilterAccordion>
-              <FilterAccordion
-                title="Learning Mode"
-                isOpen={modeOpen}
-                onToggle={() => setModeOpen((v) => !v)}
-              >
-                {LEARNING_MODES.map((m) => (
-                  <FilterCheckbox
-                    key={m.label}
-                    label={m.label}
-                    count={m.count}
-                    checked={filters.modes.includes(m.label)}
-                    onChange={() => onToggleMode(m.label)}
-                  />
-                ))}
-              </FilterAccordion>
-              <FilterAccordion
-                title="Fees"
-                isOpen={feesOpen}
-                onToggle={() => setFeesOpen((v) => !v)}
-              >
-                {FEES_OPTIONS.map((f) => (
-                  <FilterCheckbox
-                    key={f.label}
-                    label={f.label}
-                    count={f.count}
-                    checked={filters.fees.includes(f.label)}
-                    onChange={() => onToggleFee(f.label)}
-                  />
-                ))}
-              </FilterAccordion>
-            </>
-          )}
+          <FilterAccordion
+            title="Online Available"
+            isOpen={scholarshipOpen}
+            onToggle={() => setScholarshipOpen((v) => !v)}
+          >
+            {SCHOLARSHIP_OPTIONS.map((s) => (
+              <FilterCheckbox
+                key={s.label}
+                label={s.label}
+                count={s.count}
+                checked={filters.scholarships.includes(s.label)}
+                onChange={() => onToggleScholarship(s.label)}
+              />
+            ))}
+          </FilterAccordion>
+
+          <FilterAccordion
+            title="Fees"
+            isOpen={feesOpen}
+            onToggle={() => setFeesOpen((v) => !v)}
+          >
+            {FEES_OPTIONS.map((f) => (
+              <FilterCheckbox
+                key={f.label}
+                label={f.label}
+                count={f.count}
+                checked={filters.fees.includes(f.label)}
+                onChange={() => onToggleFee(f.label)}
+              />
+            ))}
+          </FilterAccordion>
+
+          <FilterAccordion
+            title="Participant Level"
+            isOpen={participantLevelOpen}
+            onToggle={() => setParticipantLevelOpen((v) => !v)}
+          >
+            {participantLevels.map((l) => (
+              <FilterCheckbox
+                key={l.label}
+                label={l.label}
+                count={l.count}
+                checked={filters.participantLevels.includes(l.label)}
+                onChange={() => onToggleParticipantLevel(l.label)}
+              />
+            ))}
+          </FilterAccordion>
         </div>
 
         <div className="flex gap-2 mt-4">
@@ -906,19 +912,69 @@ function toggle<T>(arr: T[], item: T): T[] {
   return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item];
 }
 
+function mapApiCourse(record: CourseRecord): Course {
+  const levelLabel =
+    record.academic_levels[0] ||
+    record.course_levels[0] ||
+    record.admission_for[0] ||
+    "";
+  const modeLabel =
+    record.course_mode.charAt(0).toUpperCase() + record.course_mode.slice(1);
+  const displayMode = record.venue ? `${modeLabel} (${record.venue})` : modeLabel;
+  const displayOrg =
+    record.user?.org_name ||
+    [record.user?.first_name, record.user?.last_name].filter(Boolean).join(" ") ||
+    "Unknown";
+
+  return {
+    id: record.id,
+    image: record.thumbnail_url || COURSE_IMG,
+    university: displayOrg,
+    title: record.title,
+    academicLevel: levelLabel,
+    mode: displayMode,
+    courseFee: record.fee_type
+      ? record.fee_type.charAt(0).toUpperCase() + record.fee_type.slice(1)
+      : "Contact for details",
+    duration: record.duration || "",
+    applicationDeadline: record.last_date_to_apply || "",
+    eligibilityCriteria: record.eligibility_criteria,
+    requiredDocs: record.required_documents,
+    certification: record.certification || "",
+    otherBenefits: record.other_benefits || "",
+    careerOutcomes: record.career_outcomes || "",
+    startDate: record.start_date || "",
+    startTime: record.start_time || "",
+    endDate: record.end_date || "",
+    endTime: record.end_time || "",
+    onsiteVenue: record.venue || "",
+    onlineAccess: record.online_access || "",
+    brochureUrl: record.brochure_url || "",
+    allAdmissionFor: record.admission_for,
+    allAcademicLevels: record.academic_levels,
+    allCourseLevels: record.course_levels,
+  };
+}
+
 export default function LearningDirectoryPage() {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>("professional");
   const [levelTab, setLevelTab] = useState<LevelTab>("beginner");
-  const [savedIds, setSavedIds] = useState<number[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterState>({
     streams: [],
     modes: [],
+    scholarships: [],
     fees: [],
-    locations: [],
-    educationBoards: [],
-    higherEducationStreams: [],
+    participantLevels: [],
   });
+
+  // API data state
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Application flow
   const [appStep, setAppStep] = useState<AppStep>(null);
@@ -927,8 +983,50 @@ export default function LearningDirectoryPage() {
   const [eligibilityChecked, setEligibilityChecked] = useState<boolean[]>([]);
   const [docUploads, setDocUploads] = useState<(File | null)[]>([]);
   const [appMessage, setAppMessage] = useState("");
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [gradeLevel, setGradeLevel] = useState<GradeLevel>("pre_school");
+  const [academicLevel, setAcademicLevel] = useState<AcademicLevel>("high_school");
+
+  // Fetch courses whenever the main tab changes
+  useEffect(() => {
+    setLoading(true);
+    setFetchError(null);
+    fetchCourses({ programLevel: mainTab })
+      .then((records) => setCourses(records.map(mapApiCourse)))
+      .catch((e: Error) => setFetchError(e.message))
+      .finally(() => setLoading(false));
+  }, [mainTab]);
+
+  // Client-side filter on top of the fetched list
+  const displayedCourses = useMemo(() => {
+    let result = courses;
+    if (mainTab === "school") {
+      const label = GRADE_PILL_LABELS[gradeLevel];
+      result = result.filter((c) => c.allAdmissionFor.includes(label));
+    } else if (mainTab === "college") {
+      const label = ACADEMIC_PILL_LABELS[academicLevel];
+      result = result.filter((c) => c.allAcademicLevels.includes(label));
+    } else if (mainTab === "professional") {
+      const label = levelTab.charAt(0).toUpperCase() + levelTab.slice(1);
+      result = result.filter((c) => c.allCourseLevels.includes(label));
+    }
+    if (filters.modes.length > 0) {
+      result = result.filter((c) =>
+        filters.modes.some((m) => c.mode.toLowerCase().includes(m.toLowerCase())),
+      );
+    }
+    if (filters.participantLevels.length > 0) {
+      result = result.filter((c) =>
+        filters.participantLevels.some((l) =>
+          c.academicLevel.toLowerCase().includes(l.toLowerCase()),
+        ),
+      );
+    }
+    return result;
+  }, [courses, filters, mainTab, gradeLevel, academicLevel, levelTab]);
 
   function openApplication(course: Course) {
+    setApplyError(null);
     setSelectedCourse(course);
     setEligibilityChecked(new Array(course.eligibilityCriteria.length).fill(false));
     setDocUploads(new Array(course.requiredDocs.length).fill(null));
@@ -940,11 +1038,25 @@ export default function LearningDirectoryPage() {
     setAppStep(null);
     setSelectedCourse(null);
     setAppForm({ name: "", email: "", mobile: "" });
+    setApplyError(null);
   }
 
-  function handleSubmit() {
-    closeApplication();
-    // TODO: wire to backend
+  async function handleSubmit() {
+    if (!selectedCourse) return;
+    setSubmitting(true);
+    setApplyError(null);
+    try {
+      await applyToCourse(
+        selectedCourse.id,
+        { name: appForm.name, email: appForm.email, mobile: appForm.mobile, message: appMessage },
+        docUploads,
+      );
+      setAppStep("success");
+    } catch (e: unknown) {
+      setApplyError(e instanceof Error ? e.message : "Failed to submit application");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function toggleEligibility(i: number) {
@@ -968,9 +1080,6 @@ export default function LearningDirectoryPage() {
     { key: "intermediate", label: "Intermediate" },
     { key: "advanced", label: "Advanced" },
   ];
-
-  const [gradeLevel, setGradeLevel] = useState<GradeLevel>("pre_school");
-  const [academicLevel, setAcademicLevel] = useState<AcademicLevel>("high_school");
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -1004,7 +1113,10 @@ export default function LearningDirectoryPage() {
               ))}
             </div>
 
-            <button className="shrink-0 bg-[#f77f00] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#e07000] transition-colors mb-1">
+            <button
+              onClick={() => navigate('/learning-directory/list-course', { state: { programLevel: mainTab } })}
+              className="shrink-0 bg-[#f77f00] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#e07000] transition-colors mb-1"
+            >
               List your course
             </button>
           </div>
@@ -1049,7 +1161,25 @@ export default function LearningDirectoryPage() {
 
               {/* Course List */}
               <div className="flex flex-col gap-4">
-                {COURSES.map((course) => (
+                {loading && (
+                  <p className="text-center text-[#6b7280] py-10 text-sm">Loading courses…</p>
+                )}
+                {!loading && fetchError && (
+                  <p className="text-center text-red-500 py-10 text-sm">{fetchError}</p>
+                )}
+                {!loading && !fetchError && displayedCourses.length === 0 && (
+                  <p className="text-center text-[#6b7280] py-10 text-sm">
+                    No courses found. Be the first to{" "}
+                    <button
+                      onClick={() => navigate('/learning-directory/list-course', { state: { programLevel: mainTab } })}
+                      className="text-[#f77f00] hover:underline font-medium"
+                    >
+                      list a course
+                    </button>
+                    .
+                  </p>
+                )}
+                {!loading && displayedCourses.map((course) => (
                   <CourseCard
                     key={course.id}
                     course={course}
@@ -1070,10 +1200,10 @@ export default function LearningDirectoryPage() {
               onToggleStream={(s) => setFilters((f) => ({ ...f, streams: toggle(f.streams, s) }))}
               onToggleMode={(m) => setFilters((f) => ({ ...f, modes: toggle(f.modes, m) }))}
               onToggleFee={(fee) => setFilters((f) => ({ ...f, fees: toggle(f.fees, fee) }))}
-              onToggleHigherEducationStream={(s) => setFilters((f) => ({ ...f, higherEducationStreams: toggle(f.higherEducationStreams, s) }))}
-              onToggleEducationBoard={(b) => setFilters((f) => ({ ...f, educationBoards: toggle(f.educationBoards, b) }))}
+              onToggleScholarship={(s) => setFilters((f) => ({ ...f, scholarships: toggle(f.scholarships, s) }))}
+              onToggleParticipantLevel={(l) => setFilters((f) => ({ ...f, participantLevels: toggle(f.participantLevels, l) }))}
               onApply={() => {}}
-              onReset={() => setFilters({ streams: [], modes: [], fees: [], locations: [], educationBoards: [], higherEducationStreams: [] })}
+              onReset={() => setFilters({ streams: [], modes: [], scholarships: [], fees: [], participantLevels: [] })}
             />
           </div>
         </div>
@@ -1110,7 +1240,31 @@ export default function LearningDirectoryPage() {
           onBack={() => setAppStep("eligibility")}
           onSubmit={handleSubmit}
           onClose={closeApplication}
+          submitting={submitting}
+          applyError={applyError}
         />
+      )}
+
+      {appStep === "success" && (
+        <ModalOverlay onClose={closeApplication}>
+          <div className="p-8 flex flex-col items-center text-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <path d="M5 13l4 4L19 7" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <h2 className="text-[#18191c] text-2xl font-bold">Application Submitted!</h2>
+            <p className="text-[#6b7280] text-sm max-w-xs">
+              Your application has been received. The course provider will reach out to you shortly.
+            </p>
+            <button
+              onClick={closeApplication}
+              className="mt-2 bg-[#f77f00] text-white text-sm font-semibold px-8 py-3 rounded-full hover:bg-[#e07000] transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </ModalOverlay>
       )}
     </div>
   );

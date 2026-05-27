@@ -1,17 +1,42 @@
+import { createClient } from '@supabase/supabase-js';
 import type { UserProfile, EditProfileForm } from '../types/profile';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-function getToken(): string {
-  const user = JSON.parse(localStorage.getItem('user') ?? '{}');
-  return user.access_token ?? '';
+const _supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+);
+
+async function getFreshToken(): Promise<string> {
+  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
+  const accessToken: string = stored.access_token ?? '';
+  const refreshToken: string = stored.refresh_token ?? '';
+  if (!accessToken) return '';
+  if (refreshToken) {
+    try {
+      const { data, error } = await _supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (!error && data.session) {
+        stored.access_token = data.session.access_token;
+        stored.refresh_token = data.session.refresh_token;
+        localStorage.setItem('user', JSON.stringify(stored));
+        return data.session.access_token;
+      }
+    } catch {
+      // fall through to stored token
+    }
+  }
+  return accessToken;
 }
 
-function authHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${getToken()}`,
-  };
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getFreshToken();
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
 }
 
 // Map snake_case API response → camelCase UserProfile
@@ -60,14 +85,15 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
 }
 
 export async function fetchProfile(userId: string): Promise<UserProfile> {
-  const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const isOwn = userId === 'me' || userId === storedUser.id;
+  const { data: sessionData } = await _supabase.auth.getSession();
+  const currentUserId = sessionData.session?.user?.id ?? '';
+  const isOwn = userId === 'me' || (!!currentUserId && userId === currentUserId);
 
   const endpoint = isOwn
     ? `${API_URL}/api/profile`
     : `${API_URL}/api/profile/${userId}`;
 
-  const res = await fetch(endpoint, { headers: authHeaders() });
+  const res = await fetch(endpoint, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`${res.status}`);
   const data = await res.json();
   return mapApiToProfile(data, isOwn);
@@ -92,7 +118,7 @@ export async function updateProfile(data: Partial<EditProfileForm>): Promise<voi
 
   const res = await fetch(`${API_URL}/api/profile`, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
