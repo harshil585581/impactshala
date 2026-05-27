@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { useProfile } from "../hooks/useProfile";
 import { fetchExperiences } from "../services/experienceService";
 import type { Experience } from "../services/experienceService";
+import GetInTouchModal from "./GetInTouchModal";
+import helpIcon from "../assets/images/svg/h-help.svg";
 
 const courseImg = "https://placehold.co/354x120/003049/ffffff?text=UI/UX+Course";
 
 export default function RightPanel() {
   const [helpDismissed, setHelpDismissed] = useState(false);
+  const [getInTouchOpen, setGetInTouchOpen] = useState(false);
   const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
   const { profile } = useProfile("me");
   const [currentExp, setCurrentExp] = useState<Experience | null>(null);
@@ -18,7 +21,7 @@ export default function RightPanel() {
           const current = exps.find((e) => e.is_current);
           setCurrentExp(current || exps[0] || null);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [storedUser.id]);
 
@@ -131,12 +134,9 @@ export default function RightPanel() {
 
       {/* Help Box */}
       {!helpDismissed && (
-        <div className="bg-[#fffcf8] border border-[#ffeacc] rounded-[17px] p-4 flex flex-col gap-2 relative shadow-sm">
+        <div className="bg-white border border-[#f2f2f3] rounded-[14px] p-4 flex flex-col gap-2 relative shadow-sm">
           <div className="flex items-start justify-between">
-            <svg width="32" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M22 2L11 13" stroke="#FF9400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="#FF9400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <img src={helpIcon} alt="Help" className="w-10 h-10 object-contain" />
             <button
               onClick={() => setHelpDismissed(true)}
               className="text-[#9ca3af] hover:text-[#6b7280] transition-colors"
@@ -159,11 +159,16 @@ export default function RightPanel() {
               Not able to find what you're looking for? Let us help you.
             </p>
           </div>
-          <button className="bg-[#FF9400] text-white text-sm font-semibold px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-all shadow-md active:scale-95">
+          <button
+            onClick={() => setGetInTouchOpen(true)}
+            className="bg-[#FF9400] text-white text-sm font-semibold px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-all shadow-md active:scale-95"
+          >
             Click Here
           </button>
         </div>
       )}
+
+      <GetInTouchModal isOpen={getInTouchOpen} onClose={() => setGetInTouchOpen(false)} />
     </aside>
   );
 }

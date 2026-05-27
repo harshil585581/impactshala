@@ -29,6 +29,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isOnLearningRoute = location.pathname === "/learning-directory";
   const isOnDiscoverRoute = location.pathname === "/discover";
   const isOnHomeRoute = location.pathname === "/home";
+  const isOnCommunityRoute = location.pathname === "/community";
   const [appExpanded, setAppExpanded] = useState(isOnAppsRoute);
   const [activeSubItem, setActiveSubItem] = useState(
     ROUTE_TO_SUB_ITEM[location.pathname] ?? "Discover",
@@ -142,6 +143,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <NavItem
             icon={<img src={communityIcon} alt="" className="w-5 h-5 shrink-0" />}
             label="My Community"
+            active={isOnCommunityRoute}
+            onClick={() => { navigate("/community"); onClose(); }}
           />
 
           {/* My Application — accordion */}

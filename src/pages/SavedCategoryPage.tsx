@@ -44,7 +44,7 @@ function UserInitials({ name, size = 40 }: { name: string; size?: number }) {
 function BookmarkIcon({ saved = true }: { saved?: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill={saved ? '#22c55e' : 'none'} stroke={saved ? '#22c55e' : '#9199a3'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
     </svg>
   );
 }
@@ -65,10 +65,10 @@ function CommunityCard({ post }: { post: typeof COMMUNITY_POSTS[0] }) {
         </div>
         <div className="flex items-center gap-2">
           <button className="text-[#ff9400]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>
           </button>
           <button className="text-[#9199a3]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
           </button>
         </div>
       </div>
@@ -100,15 +100,15 @@ function CommunityCard({ post }: { post: typeof COMMUNITY_POSTS[0] }) {
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-4 text-[#9199a3] text-sm">
           <span className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4757"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4757"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" /></svg>
             {post.likes}
           </span>
           <span className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
             {post.comments}
           </span>
           <span className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" /></svg>
             {post.shares}
           </span>
         </div>
@@ -164,7 +164,7 @@ function DiscoverCard({ post }: { post: typeof DISCOVER_POSTS[0] }) {
         <div className="flex items-center justify-between text-[#9199a3] text-sm">
           <div className="flex items-center gap-1.5">
             <div className="flex -space-x-1.5">
-              {['#ff4757','#3b82f6','#22c55e'].map(c => (
+              {['#ff4757', '#3b82f6', '#22c55e'].map(c => (
                 <div key={c} className="w-5 h-5 rounded-full border-2 border-white" style={{ background: c }} />
               ))}
             </div>
@@ -174,10 +174,10 @@ function DiscoverCard({ post }: { post: typeof DISCOVER_POSTS[0] }) {
         </div>
         <div className="flex border-t border-[#f2f2f3] pt-3 gap-1">
           {[
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>, label: 'Like' },
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>, label: 'Comment' },
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>, label: 'Share' },
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>, label: 'Save' },
+            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" /><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" /></svg>, label: 'Like' },
+            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>, label: 'Comment' },
+            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" /></svg>, label: 'Share' },
+            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" /></svg>, label: 'Save' },
           ].map(({ icon, label }) => (
             <button key={label} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[#9199a3] text-xs font-medium hover:text-[#ff9400] hover:bg-[#fff8ee] rounded-lg transition-colors">
               {icon}{label}
@@ -196,7 +196,7 @@ function LearningCard({ post }: { post: typeof LEARNING_POSTS[0] }) {
       <div className="p-5 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-[#9199a3] text-xs">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
             {post.university}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -247,7 +247,7 @@ function EmploymentCard({ post }: { post: typeof EMPLOYMENT_POSTS[0] }) {
           </button>
           <button className="text-[#9199a3] hover:text-[#ff9400] transition-colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
             </svg>
           </button>
         </div>
@@ -295,9 +295,9 @@ function EmploymentCard({ post }: { post: typeof EMPLOYMENT_POSTS[0] }) {
 
 const CATEGORIES: Record<string, { title: string; cols: string }> = {
   community: { title: 'My Community Posts', cols: 'grid-cols-1 sm:grid-cols-2' },
-  discover:  { title: 'Discover',           cols: 'grid-cols-1 sm:grid-cols-2' },
-  learning:  { title: 'Learning Directory', cols: 'grid-cols-1 sm:grid-cols-2' },
-  employment:{ title: 'Employment Hub',     cols: 'grid-cols-1 sm:grid-cols-2' },
+  discover: { title: 'Discover', cols: 'grid-cols-1 sm:grid-cols-2' },
+  learning: { title: 'Learning Directory', cols: 'grid-cols-1 sm:grid-cols-2' },
+  employment: { title: 'Employment Hub', cols: 'grid-cols-1 sm:grid-cols-2' },
 };
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -311,9 +311,9 @@ export default function SavedCategoryPage() {
 
   function renderCards() {
     if (category === 'community') return COMMUNITY_POSTS.map(p => <CommunityCard key={p.id} post={p} />);
-    if (category === 'discover')  return DISCOVER_POSTS.map(p => <DiscoverCard key={p.id} post={p} />);
-    if (category === 'learning')  return LEARNING_POSTS.map(p => <LearningCard key={p.id} post={p} />);
-    if (category === 'employment')return EMPLOYMENT_POSTS.map(p => <EmploymentCard key={p.id} post={p} />);
+    if (category === 'discover') return DISCOVER_POSTS.map(p => <DiscoverCard key={p.id} post={p} />);
+    if (category === 'learning') return LEARNING_POSTS.map(p => <LearningCard key={p.id} post={p} />);
+    if (category === 'employment') return EMPLOYMENT_POSTS.map(p => <EmploymentCard key={p.id} post={p} />);
     return null;
   }
 
@@ -331,7 +331,7 @@ export default function SavedCategoryPage() {
             className="flex items-center gap-2 text-[#9199a3] text-sm font-medium hover:text-[#18191c] transition-colors mb-4"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
             Saved
           </button>

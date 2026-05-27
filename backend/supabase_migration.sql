@@ -390,3 +390,120 @@ CREATE POLICY "Users update own collab accomplishments"
 CREATE POLICY "Users delete own collab accomplishments"
   ON collaborative_accomplishments FOR DELETE
   USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Discover Posts table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS discover_posts (
+  id                     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_type              TEXT        NOT NULL CHECK (post_type IN ('provider', 'seeker')),
+  visibility             TEXT        NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'community')),
+
+  -- Common fields
+  title                  TEXT        NOT NULL,
+  domain                 TEXT,
+  nature                 TEXT,
+  keyword                TEXT,
+  target_audience        TEXT,
+  educational_level      TEXT,
+  body                   TEXT,
+  image_url              TEXT,
+
+  -- Provider-specific
+  event_occurrence       TEXT        CHECK (event_occurrence IN ('one_day', 'weekly', 'custom_multi_day')),
+  event_date             DATE,
+  start_time             TEXT,
+  end_time               TEXT,
+  delivery_mode          TEXT,
+  address                TEXT,
+  communication_language TEXT,
+  level_of_participant   TEXT,
+  eligibility_criteria   TEXT,
+  last_date_to_apply     DATE,
+  fee                    TEXT,
+  onsite_venue           TEXT,
+  online_access          TEXT,
+  weekly_slots           JSONB       NOT NULL DEFAULT '[]',
+
+  -- Seeker-specific
+  professional_level     TEXT,
+  can_pay                BOOLEAN,
+  budget                 TEXT,
+  provider_preferences   TEXT,
+  preferred_date         DATE,
+
+  -- Stats
+  reactions_count        INT         NOT NULL DEFAULT 0,
+  comments_count         INT         NOT NULL DEFAULT 0,
+
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE discover_posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public discover posts readable by all"
+  ON discover_posts FOR SELECT
+  USING (visibility = 'public' OR auth.uid() = user_id);
+
+CREATE POLICY "Users insert own discover posts"
+  ON discover_posts FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users update own discover posts"
+  ON discover_posts FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users delete own discover posts"
+  ON discover_posts FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Discover Bookmarks table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS discover_bookmarks (
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    UUID        NOT NULL REFERENCES discover_posts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, post_id)
+);
+
+ALTER TABLE discover_bookmarks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own bookmarks"
+  ON discover_bookmarks FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ============================================================
+-- Discover Applications table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS discover_applications (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id    UUID        NOT NULL REFERENCES discover_posts(id) ON DELETE CASCADE,
+  user_id    UUID        REFERENCES users(id) ON DELETE SET NULL,
+  name       TEXT        NOT NULL,
+  email      TEXT        NOT NULL,
+  phone      TEXT,
+  status     TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'accepted', 'rejected')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE discover_applications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Post owner can read applications"
+  ON discover_applications FOR SELECT
+  USING (
+    auth.uid() = user_id
+    OR auth.uid() IN (
+      SELECT user_id FROM discover_posts WHERE id = post_id
+    )
+  );
+
+CREATE POLICY "Anyone can submit application"
+  ON discover_applications FOR INSERT
+  WITH CHECK (true);
