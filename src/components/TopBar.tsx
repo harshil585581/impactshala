@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import logoImg from "../assets/images/logo/logo.png";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 type TopBarProps = {
   onMenuToggle: () => void;
@@ -57,6 +57,8 @@ const roleLabels: Record<string, string> = {
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMessagesActive = location.pathname === "/messages";
   const [meOpen, setMeOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
@@ -137,7 +139,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       .then((data) => {
         if (data?.avatar_url) setAvatarUrl(data.avatar_url);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Close dropdowns on outside click
@@ -212,11 +214,14 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       {/* Right actions */}
       <div className="flex items-center gap-4 md:gap-6 ml-auto shrink-0">
         {/* Messages */}
-        <button className="hidden sm:flex flex-col items-center gap-0.5 text-[#6c6c6c] hover:text-[#f77f00] transition-colors">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <button
+          onClick={() => navigate("/messages")}
+          className={`hidden sm:flex flex-col items-center gap-0.5 transition-colors ${isMessagesActive ? "text-[#f77f00]" : "text-[#6c6c6c] hover:text-[#f77f00]"}`}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill={isMessagesActive ? "#f77f00" : "none"}>
             <path
               d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"
-              stroke="currentColor"
+              stroke={isMessagesActive ? "#f77f00" : "currentColor"}
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"

@@ -51,6 +51,7 @@ import SavedCategoryPage from './pages/SavedCategoryPage';
 import MyCommunityPage from './pages/MyCommunityPage';
 import ManageCommunityPage from './pages/ManageCommunityPage';
 import ManageRequestPage from './pages/ManageRequestPage';
+import MessagesPage from './pages/MessagesPage';
 
 export default function App() {
   return (
@@ -120,6 +121,9 @@ export default function App() {
         <Route path="/community" element={<MyCommunityPage />} />
         <Route path="/community/manage" element={<ManageCommunityPage />} />
         <Route path="/community/requests" element={<ManageRequestPage />} />
+
+        {/* Messages */}
+        <Route path="/messages" element={<MessagesPage />} />
       </Routes>
     </BrowserRouter>
   );

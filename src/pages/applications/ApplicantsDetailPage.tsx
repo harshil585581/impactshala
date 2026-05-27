@@ -367,7 +367,7 @@ export default function ApplicantsDetailPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
-        <div className="px-4 sm:px-6 py-6">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
           {/* Posting header */}
           <div className="flex items-start justify-between mb-6 gap-4">
             <div className="flex items-start gap-4 min-w-0">

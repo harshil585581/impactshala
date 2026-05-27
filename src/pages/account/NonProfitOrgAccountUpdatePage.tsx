@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
-import userIcon       from '../../assets/images/svg/User.svg';
+import userIcon from '../../assets/images/svg/User.svg';
 import userCircleIcon from '../../assets/images/svg/UserCircle.svg';
-import atIcon         from '../../assets/images/svg/At.svg';
-import linkIcon       from '../../assets/images/svg/LinkSimple.svg';
-import envelopeIcon   from '../../assets/images/svg/Envelope.svg';
+import atIcon from '../../assets/images/svg/At.svg';
+import linkIcon from '../../assets/images/svg/LinkSimple.svg';
+import envelopeIcon from '../../assets/images/svg/Envelope.svg';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 type Tab = 'org' | 'more' | 'contact' | 'complete';
 
@@ -114,9 +114,9 @@ function UploadArea({ hint, accept, cover, imageType }: {
     <label className="flex flex-col items-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full h-full min-h-[140px] justify-center">
       <input type="file" accept={accept} className="sr-only" onChange={handleChange} />
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#7c8493]">
-        <polyline points="16 16 12 12 8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points="16 16 12 12 8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <div className="text-center">
         <p className="text-sm text-[#18191c]">
@@ -148,7 +148,7 @@ function TagInput({ label, placeholder, hint, tags, onAdd, onRemove }: {
             {t}
             <button type="button" onClick={() => onRemove(t)} className="hover:text-[#cc7700] transition-colors">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
               </svg>
             </button>
           </span>
@@ -184,9 +184,8 @@ function NPOTypeDropdown({ value, onChange }: { value: string; onChange: (v: str
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full h-[48px] border rounded-full px-4 flex items-center justify-between text-sm transition-colors bg-white ${
-          open ? 'border-[#ff9400] ring-1 ring-[#ff9400]' : 'border-[#e4e5e8]'
-        }`}
+        className={`w-full h-[48px] border rounded-full px-4 flex items-center justify-between text-sm transition-colors bg-white ${open ? 'border-[#ff9400] ring-1 ring-[#ff9400]' : 'border-[#e4e5e8]'
+          }`}
       >
         <span className={value ? 'text-[#18191c]' : 'text-[#9199a3]'}>
           {value || 'Select NPO type'}
@@ -195,7 +194,7 @@ function NPOTypeDropdown({ value, onChange }: { value: string; onChange: (v: str
           className={`text-[#9199a3] transition-transform ${open ? 'rotate-180' : ''}`}
           width="16" height="16" viewBox="0 0 24 24" fill="none"
         >
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
@@ -206,11 +205,10 @@ function NPOTypeDropdown({ value, onChange }: { value: string; onChange: (v: str
               key={t}
               type="button"
               onClick={() => { onChange(t); setOpen(false); }}
-              className={`w-full text-left px-5 py-3.5 text-sm transition-colors ${
-                value === t
+              className={`w-full text-left px-5 py-3.5 text-sm transition-colors ${value === t
                   ? 'text-[#ff9400] font-semibold bg-[#fff8f0]'
                   : 'text-[#18191c] hover:bg-[#f9fafb]'
-              }`}
+                }`}
             >
               {t}
             </button>
@@ -309,9 +307,9 @@ export default function NonProfitOrgAccountUpdatePage() {
   };
 
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'org',     label: 'Organization Info', icon: userIcon },
-    { id: 'more',    label: 'More Info',          icon: userCircleIcon },
-    { id: 'contact', label: 'Contact',            icon: atIcon },
+    { id: 'org', label: 'Organization Info', icon: userIcon },
+    { id: 'more', label: 'More Info', icon: userCircleIcon },
+    { id: 'contact', label: 'Contact', icon: atIcon },
   ];
 
   function toggleSdg(sdg: string) {
@@ -326,8 +324,8 @@ export default function NonProfitOrgAccountUpdatePage() {
     if (!token) { navigate('/'); return; }
 
     const payloadByTab: Record<string, object> = {
-      org:     { sector, describe_as: npoType, skills: causeKeywords, edu_levels_offered: operateLocations, applicable_industries: sdgFocusAreas, bio },
-      more:    { services, industries, website, social_links: socialLinks },
+      org: { sector, describe_as: npoType, skills: causeKeywords, edu_levels_offered: operateLocations, applicable_industries: sdgFocusAreas, bio },
+      more: { services, industries, website, social_links: socialLinks },
       contact: { reach_for: reachFor, location, phone, setup_complete: true },
     };
 
@@ -378,7 +376,7 @@ export default function NonProfitOrgAccountUpdatePage() {
             <div className="flex flex-col items-center gap-8 text-center max-w-md w-full">
               <div className="bg-[#ffeacc] p-10 rounded-full">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-[#ff9400]">
-                  <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polyline points="20 6 9 17 4 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <h2 className="text-[#18191c] text-xl sm:text-2xl font-semibold leading-snug">
@@ -390,7 +388,7 @@ export default function NonProfitOrgAccountUpdatePage() {
               >
                 Go To Home
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
             </div>
@@ -422,11 +420,10 @@ export default function NonProfitOrgAccountUpdatePage() {
                   <button
                     key={t.id}
                     onClick={() => setTab(t.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-5 py-3 rounded-[10px] text-sm transition-all ${
-                      tab === t.id
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-5 py-3 rounded-[10px] text-sm transition-all ${tab === t.id
                         ? 'bg-white shadow-sm text-[#ff9400] font-semibold'
                         : 'text-[#4f5665] font-medium hover:text-[#18191c]'
-                    }`}
+                      }`}
                   >
                     <img src={t.icon} alt="" className="w-5 h-5 shrink-0" />
                     <span className="hidden xs:inline sm:inline">{t.label}</span>
@@ -467,22 +464,20 @@ export default function NonProfitOrgAccountUpdatePage() {
                     <button
                       type="button"
                       onClick={() => setSector('government')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'government'
+                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${sector === 'government'
                           ? 'border-[#ff9400] text-[#ff9400] bg-white'
                           : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
+                        }`}
                     >
                       Government Sector
                     </button>
                     <button
                       type="button"
                       onClick={() => setSector('private')}
-                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${
-                        sector === 'private'
+                      className={`px-5 py-2.5 rounded-full border text-sm font-medium transition-colors ${sector === 'private'
                           ? 'border-[#ff9400] text-[#ff9400] bg-white'
                           : 'border-[#d1d5db] text-[#6b7280] bg-white hover:border-[#ff9400] hover:text-[#ff9400]'
-                      }`}
+                        }`}
                     >
                       Private Sector
                     </button>
@@ -523,15 +518,14 @@ export default function NonProfitOrgAccountUpdatePage() {
                       <label key={sdg} className="flex items-center gap-2.5 cursor-pointer group">
                         <div
                           onClick={() => toggleSdg(sdg)}
-                          className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                            sdgFocusAreas.includes(sdg)
+                          className={`w-4 h-4 shrink-0 border rounded flex items-center justify-center transition-colors cursor-pointer ${sdgFocusAreas.includes(sdg)
                               ? 'bg-[#ff9400] border-[#ff9400]'
                               : 'border-[#d1d5db] bg-white group-hover:border-[#ff9400]'
-                          }`}
+                            }`}
                         >
                           {sdgFocusAreas.includes(sdg) && (
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                              <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                           )}
                         </div>
@@ -600,8 +594,8 @@ export default function NonProfitOrgAccountUpdatePage() {
                       className="w-full h-[44px] bg-[#ffeacc] rounded-full flex items-center justify-center gap-2 text-sm font-medium text-[#18191c] hover:bg-[#ffd99a] transition-colors"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="#ff9400" strokeWidth="1.5"/>
-                        <path d="M12 8v8M8 12h8" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="12" cy="12" r="10" stroke="#ff9400" strokeWidth="1.5" />
+                        <path d="M12 8v8M8 12h8" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
                       Add More
                     </button>
@@ -651,8 +645,8 @@ export default function NonProfitOrgAccountUpdatePage() {
                           aria-label="Remove link"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="10" stroke="#9199a3" strokeWidth="1.5"/>
-                            <path d="M15 9l-6 6M9 9l6 6" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/>
+                            <circle cx="12" cy="12" r="10" stroke="#9199a3" strokeWidth="1.5" />
+                            <path d="M15 9l-6 6M9 9l6 6" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round" />
                           </svg>
                         </button>
                       </div>
@@ -663,8 +657,8 @@ export default function NonProfitOrgAccountUpdatePage() {
                       className="w-full h-[44px] bg-[#ffeacc] rounded-full flex items-center justify-center gap-2 text-sm font-medium text-[#18191c] hover:bg-[#ffd99a] transition-colors"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="#ff9400" strokeWidth="1.5"/>
-                        <path d="M12 8v8M8 12h8" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round"/>
+                        <circle cx="12" cy="12" r="10" stroke="#ff9400" strokeWidth="1.5" />
+                        <path d="M12 8v8M8 12h8" stroke="#ff9400" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
                       Add New Social Link
                     </button>
