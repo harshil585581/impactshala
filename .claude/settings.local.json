@@ -12,7 +12,25 @@
       "Bash(grep -E \"\\\\.\\(tsx|ts|css\\)$\")",
       "mcp__claude_ai_Figma__get_variable_defs",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\HARSHIL\\\\Documents\\\\Mavixy code\\\\impact\" -Recurse -Depth 2)",
-      "Bash(Select-Object -First 50)"
+      "Bash(Select-Object -First 50)",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/figma_messages.png\" \"https://www.figma.com/api/mcp/asset/70b9ca91-cff6-4ccd-91c2-f510e2970aef\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/figma_msg_full.png\" \"https://www.figma.com/api/mcp/asset/c849049c-ff66-4659-ae2f-8366e9ba2b18\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/chat_main.png\" \"https://www.figma.com/api/mcp/asset/392946cd-d915-4027-a6d3-41780f36cefd\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/chat_empty.png\" \"https://www.figma.com/api/mcp/asset/8604305f-757d-4b0e-b959-0da38d72cd86\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/chat_groups.png\" \"https://www.figma.com/api/mcp/asset/1d343202-a510-4546-8114-c9e63960b796\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\HARSHIL\\\\Documents\\\\Mavixy code\\\\impact\\\\src\\\\pages\" -Name)",
+      "Bash(Sort-Object)",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/chat_empty.png\" \"https://www.figma.com/api/mcp/asset/2c5f7f1c-50b8-4a54-9162-484fe367fea9\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/chat_active.png\" \"https://www.figma.com/api/mcp/asset/4387b1c7-f263-4773-9a84-74f2b7c54dfc\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups.png\" \"https://www.figma.com/api/mcp/asset/da5e07da-dbbb-4f58-912d-36173f50458b\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/chat_bubble.png\" \"https://www.figma.com/api/mcp/asset/aabc5d52-cb34-465b-8cc7-9de22dd60ade\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/calls.png\" \"https://www.figma.com/api/mcp/asset/256bd243-ebde-4c05-846a-3f0d4b9aabd5\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups2.png\" \"https://www.figma.com/api/mcp/asset/566940f9-6b17-497e-a542-3082e8acbc1c\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups1.png\" \"https://www.figma.com/api/mcp/asset/acb89f7e-9c88-41c2-85c7-ca2212be212b\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups2.png\" \"https://www.figma.com/api/mcp/asset/0d8f3eae-97f0-4e25-94b6-a9a89a03bf4b\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups3.png\" \"https://www.figma.com/api/mcp/asset/361cbc1f-2a38-4f42-bdd3-8a67a36bd2a5\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/calls1.png\" \"https://www.figma.com/api/mcp/asset/3e2f40f4-ba51-4b2f-a760-f37a7a95ebeb\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/reactions.png\" \"https://www.figma.com/api/mcp/asset/fff94c20-6008-4389-81bc-47bc91e16426\")"
     ]
   }
 }

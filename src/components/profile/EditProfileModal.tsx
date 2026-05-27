@@ -174,7 +174,7 @@ export default function EditProfileModal({
 
   const sections = [
     { id: "basic" as const, label: "Basic Info" },
-    { id: "skills" as const, label: "Skills & Reach" },
+    { id: "skills" as const, label: isOrg ? "Edit Service" : "Skills & Reach" },
     { id: "contact" as const, label: "Contact & Social" },
   ];
 
