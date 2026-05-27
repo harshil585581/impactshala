@@ -34,6 +34,7 @@ type Message = {
   type?: "image" | "separator" | "attachment";
   separator?: string;
   sender: "me" | "them";
+  senderName?: string;
   time: string;
   replies?: number;
   edited?: boolean;
@@ -46,6 +47,42 @@ type Message = {
   audioUrl?: string;
   audioDuration?: number;
   waveform?: number[];
+};
+
+type GroupMember = {
+  id: string;
+  name: string;
+  initials: string;
+  avatarColor: string;
+  role?: "Owner" | "Admin" | "Moderator";
+};
+
+const DEFAULT_MEMBERS: GroupMember[] = [
+  { id: "gm1", name: "Alex Mason", initials: "AM", avatarColor: "#4f46e5", role: "Owner" },
+  { id: "gm2", name: "Andrew Joseph", initials: "AJ", avatarColor: "#10b981", role: "Admin" },
+  { id: "gm3", name: "Avery Quinn", initials: "AQ", avatarColor: "#ec4899", role: "Moderator" },
+  { id: "gm4", name: "Brian Michael", initials: "BM", avatarColor: "#f59e0b" },
+  { id: "gm5", name: "Carol Davis", initials: "CD", avatarColor: "#0ea5e9" },
+  { id: "gm6", name: "David Wilson", initials: "DW", avatarColor: "#8b5cf6" },
+  { id: "gm7", name: "Emma Roberts", initials: "ER", avatarColor: "#f77f00" },
+  { id: "gm8", name: "Frank Turner", initials: "FT", avatarColor: "#14b8a6" },
+];
+
+const MOCK_GROUP_MEMBERS: Record<string, GroupMember[]> = {
+  default: DEFAULT_MEMBERS,
+};
+
+const MOCK_GROUP_CHAT_MESSAGES: Record<string, Message[]> = {
+  g9: [
+    { id: "gc1", text: "Yes, it's available.", sender: "them", time: "4:56 pm", senderName: "George Alan" },
+    { id: "gc2", text: "Awesome! Can I see a couple of pictures?", sender: "me", time: "4:56 pm" },
+    { id: "gc3", text: "Sure! Sending them over now.", sender: "them", time: "4:56 pm", senderName: "George Alan" },
+    { id: "gc4", text: "Thanks! Looks good.", sender: "me", time: "4:56 pm" },
+    { id: "gc5", text: "I'll take it. Can you ship it?", sender: "me", time: "4:56 pm" },
+    { id: "gc6", text: "Absolutely. Just send your address, and I'll ship it out.", sender: "them", time: "4:56 pm", senderName: "Tessa" },
+    { id: "gc7", text: "Great, I'll send it now. Thanks!", sender: "me", time: "4:56 pm" },
+    { id: "gc8", text: "Thank you!", sender: "them", time: "4:56 pm", senderName: "George Alan" },
+  ],
 };
 
 const INITIAL_MESSAGES: Message[] = [
@@ -260,6 +297,10 @@ export default function MessagesPage() {
   const [activeTab, setActiveTab] = useState<Tab>("chats");
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [groupMessages, setGroupMessages] = useState<Record<string, Message[]>>(MOCK_GROUP_CHAT_MESSAGES);
+  const [groupInfoTab, setGroupInfoTab] = useState<"members" | "banned">("members");
+  const [memberSearch, setMemberSearch] = useState("");
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [draft, setDraft] = useState("");
   const [userSearch, setUserSearch] = useState("");
@@ -305,10 +346,15 @@ export default function MessagesPage() {
   const sharedAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const groupMessagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    groupMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [groupMessages]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -430,6 +476,42 @@ export default function MessagesPage() {
       sendMessage();
     }
   }
+
+  function sendGroupMessage() {
+    if (!activeGroupId) return;
+    if (recordedUrl) {
+      if (audioPreviewRef.current) { audioPreviewRef.current.pause(); audioPreviewRef.current.src = ""; }
+      const gid = activeGroupId;
+      setGroupMessages(prev => ({
+        ...prev,
+        [gid]: [...(prev[gid] ?? []), {
+          id: `gmsg-${Date.now()}`,
+          sender: "me" as const,
+          time: nowTime(),
+          audioUrl: recordedUrl,
+          audioDuration: recordedDuration,
+          waveform: previewWaveform,
+        }],
+      }));
+      setRecordedUrl(null); setRecordedDuration(0); setPreviewWaveform([]);
+      setIsPreviewPlaying(false); setPreviewProgress(0);
+      return;
+    }
+    const text = draft.trim();
+    if (!text) return;
+    const gid = activeGroupId;
+    setGroupMessages(prev => ({
+      ...prev,
+      [gid]: [...(prev[gid] ?? []), { id: `gmsg-${Date.now()}`, text, sender: "me" as const, time: nowTime() }],
+    }));
+    setDraft("");
+    if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
+  }
+
+  function handleGroupKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendGroupMessage(); }
+  }
+
 
   function nowTime() {
     const now = new Date();
@@ -683,6 +765,8 @@ export default function MessagesPage() {
 
   const activeChat = MOCK_CHATS.find((c) => c.id === activeChatId);
   const activeCall = MOCK_CALLS.find((c) => c.id === activeCallId);
+  const activeGroup = MOCK_GROUPS.find((g) => g.id === activeGroupId) ?? null;
+  const currentGroupMessages = activeGroupId ? (groupMessages[activeGroupId] ?? []) : [];
   const filteredGroups = MOCK_GROUPS.filter((g) =>
     g.name.toLowerCase().includes(groupSearch.toLowerCase())
   );
@@ -859,7 +943,8 @@ export default function MessagesPage() {
                 {filteredGroups.map((group) => (
                   <button
                     key={group.id}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors text-left"
+                    onClick={() => setActiveGroupId(group.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors text-left ${activeGroupId === group.id ? "bg-[#fff6ed]" : ""}`}
                   >
                     <Avatar initials={group.initials} color={group.avatarColor} size={42} online={group.online} />
                     <div className="min-w-0">
@@ -877,7 +962,7 @@ export default function MessagesPage() {
             {(["chats", "calls", "users", "groups"] as Tab[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setActiveChatId(null); setActiveCallId(null); }}
+                onClick={() => { setActiveTab(tab); setActiveChatId(null); setActiveCallId(null); setActiveGroupId(null); }}
                 className={`flex-1 flex flex-col items-center py-3 gap-1 transition-colors text-[11px] font-medium capitalize ${activeTab === tab ? "text-[#f77f00]" : "text-[#9ca3af] hover:text-[#f77f00]"}`}
               >
                 <TabIcon tab={tab} active={activeTab === tab} />
@@ -1365,11 +1450,184 @@ export default function MessagesPage() {
             <CallDetailView call={activeCall} />
           )}
 
+          {/* Groups: active group chat — chat area + info sidebar */}
+          {activeTab === "groups" && activeGroup && (() => {
+            const members = MOCK_GROUP_MEMBERS[activeGroupId!] ?? MOCK_GROUP_MEMBERS.default;
+            const filteredMembers = members.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
+            return (
+            <div className="flex h-full">
+
+              {/* ── Chat column ── */}
+              <div className="flex flex-col flex-1 min-w-0">
+
+                {/* Messages area */}
+                <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-2">
+                  {currentGroupMessages.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <p className="text-[14px] text-[#9ca3af]">No messages yet. Start the conversation!</p>
+                    </div>
+                  )}
+                  {currentGroupMessages.map((msg) => {
+                    const isSent = msg.sender === "me";
+                    if (msg.audioUrl) {
+                      return (
+                        <div key={msg.id} className={`flex ${isSent ? "justify-end" : "justify-start"}`}>
+                          <AudioBubble msgId={msg.id} audioUrl={msg.audioUrl} waveform={msg.waveform ?? []} audioDuration={msg.audioDuration ?? 0} isSent={isSent} isPlaying={playingMsgId === msg.id} playProgress={playProgress} onToggle={toggleMsgPlay} />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={msg.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"}`}>
+                        {!isSent && msg.senderName && (
+                          <p className="text-[11px] font-medium text-[#9ca3af] mb-0.5 px-1">{msg.senderName}</p>
+                        )}
+                        <div className={`max-w-[45%] min-w-0 px-4 py-2.5 rounded-2xl ${isSent ? "bg-[#ffeacc] rounded-tr-sm" : "bg-white border border-[#e5e7eb] rounded-tl-sm"}`}>
+                          <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{msg.text}</p>
+                          <p className={`text-[11px] mt-0.5 ${isSent ? "text-right" : ""} text-[#9ca3af]`}>{msg.time}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={groupMessagesEndRef} />
+                </div>
+
+                {/* Input emoji picker */}
+                {showInputEmoji && inputEmojiPos && (
+                  <div ref={inputEmojiPickerRef} className="fixed z-[200]" style={{ top: inputEmojiPos.top, left: inputEmojiPos.left }}>
+                    <EmojiPicker onSelect={appendEmoji} />
+                  </div>
+                )}
+
+                {/* Sticker panel */}
+                {showStickerPanel && stickerPanelPos && (
+                  <div ref={stickerPanelRef} className="fixed z-[200]" style={{ top: stickerPanelPos.top, left: stickerPanelPos.left }}>
+                    <div className="bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.16)] border border-[#e5e7eb] w-[288px] p-3">
+                      <p className="text-[13px] font-semibold text-[#374151] mb-2 px-1">Stickers</p>
+                      <div className="grid grid-cols-6 gap-1">
+                        {["🥰","😂","😎","🥳","😭","🤩","👍","❤️","🙏","🎉","🔥","💯","😅","🤔","😤","🥺","😴","🤯","👋","✨","🎊","💪","🫂","😇"].map((s) => (
+                          <button key={s} onClick={() => { if (!activeGroupId) return; const gid = activeGroupId; setGroupMessages(prev => ({ ...prev, [gid]: [...(prev[gid] ?? []), { id: `gmsg-${Date.now()}`, text: s, sender: "me", time: nowTime(), sticker: true }] })); setShowStickerPanel(false); }} className="w-10 h-10 flex items-center justify-center text-[28px] rounded-xl hover:bg-[#f5f5f5] transition-colors">{s}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input bar */}
+                <div className="bg-white border-t border-[#e5e7eb] px-4 py-3">
+                  <input ref={fileInputRef} type="file" className="hidden" multiple accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt" onChange={handleFileSelect} />
+                  <div className="border border-[#e5e7eb] rounded-2xl overflow-hidden">
+                    {!isRecording && !recordedUrl && (
+                      <textarea ref={textareaRef} rows={1} value={draft} onChange={(e) => { setDraft(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }} onKeyDown={handleGroupKeyDown} placeholder="Type your message..." className="w-full px-4 pt-3 pb-2 bg-transparent text-[14px] text-[#18191c] placeholder:text-[#9ca3af] focus:outline-none resize-none overflow-hidden leading-relaxed" />
+                    )}
+                    {isRecording && (
+                      <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+                        <span className="w-3 h-3 bg-red-500 rounded-full shrink-0 animate-pulse" />
+                        <span className="text-[14px] text-red-500 font-medium flex-1 tabular-nums">Recording… {String(Math.floor(recordingSeconds / 60)).padStart(2, "0")}:{String(recordingSeconds % 60).padStart(2, "0")}</span>
+                      </div>
+                    )}
+                    {recordedUrl && (
+                      <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+                        <button onClick={togglePreviewPlay} className="w-8 h-8 rounded-full bg-[#f77f00] flex items-center justify-center shrink-0 hover:bg-[#e06c00] transition-colors">
+                          {isPreviewPlaying ? <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> : <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>}
+                        </button>
+                        <div className="flex items-center gap-[2px] flex-1 h-8">
+                          {previewWaveform.map((h, i) => { const lit = isPreviewPlaying && (i / previewWaveform.length) < previewProgress; return <div key={i} className="rounded-full transition-colors" style={{ width: 3, height: `${Math.max(4, h)}px`, backgroundColor: lit ? "#f77f00" : "#fcd2a0" }} />; })}
+                        </div>
+                        <span className="text-[12px] text-[#f77f00] font-medium tabular-nums shrink-0">{isPreviewPlaying ? formatDuration(Math.round(recordedDuration * previewProgress)) : formatDuration(recordedDuration)}</span>
+                        <button onClick={discardRecording} className="shrink-0 text-[#9ca3af] hover:text-red-500 transition-colors p-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-3 pb-2.5 pt-1 border-t border-[#f3f4f6]">
+                      {recordedUrl ? <p className="text-[12px] text-[#9ca3af] pl-1">Voice message ready</p> : (
+                        <div className="flex items-center gap-1 text-[#9ca3af]">
+                          <button onClick={() => fileInputRef.current?.click()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#f5f5f5] hover:text-[#f77f00] transition-colors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
+                          <button onClick={toggleRecording} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isRecording ? "bg-red-50 text-red-500 hover:bg-red-100" : "hover:bg-[#f5f5f5] hover:text-[#f77f00]"}`}>{isRecording ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}</button>
+                          <button onClick={openInputEmojiPicker} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showInputEmoji ? "bg-[#fff6ed] text-[#f77f00]" : "hover:bg-[#f5f5f5] hover:text-[#f77f00]"}`}><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M8 13s1.5 2 4 2 4-2 4-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="9" y1="9" x2="9.01" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></button>
+                          <button onClick={openStickerPanel} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showStickerPanel ? "bg-[#fff6ed] text-[#f77f00]" : "hover:bg-[#f5f5f5] hover:text-[#f77f00]"}`}><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2v-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M13 2l7 7M13 2v7h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                        </div>
+                      )}
+                      <button onClick={sendGroupMessage} className="w-9 h-9 rounded-full bg-[#f77f00] flex items-center justify-center hover:bg-[#e06c00] transition-colors shrink-0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Info sidebar ── */}
+              <div className="w-[300px] shrink-0 bg-white border-l border-[#e5e7eb] flex flex-col overflow-hidden">
+
+                {/* Profile */}
+                <div className="flex flex-col items-center px-5 pt-7 pb-5 border-b border-[#f5f5f5]">
+                  <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center text-white font-bold text-[28px]" style={{ backgroundColor: activeGroup.avatarColor }}>
+                    {activeGroup.initials}
+                  </div>
+                  <p className="font-bold text-[16px] text-[#141414] mt-3 text-center leading-snug">{activeGroup.name}</p>
+                  <p className="text-[13px] text-[#9ca3af] mt-0.5">{activeGroup.members} Members</p>
+                </div>
+
+                {/* Actions */}
+                <div className="border-b border-[#f5f5f5]">
+                  <button className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#fff6ed] transition-colors text-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f77f00] shrink-0"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/><circle cx="19" cy="8" r="3.5" fill="white"/><line x1="19" y1="6" x2="19" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="8" x2="21" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    <span className="text-[15px] text-[#ff9400] font-normal">Add Members</span>
+                  </button>
+                  <button className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 00-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/></svg>
+                    <span className="text-[15px] text-[#f44649] font-normal">Leave</span>
+                  </button>
+                  <button className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+                    <span className="text-[15px] text-[#f44649] font-normal">Delete and Exit</span>
+                  </button>
+                </div>
+
+                {/* Members tabs */}
+                <div className="flex border-b border-[#e5e7eb] shrink-0">
+                  <button onClick={() => setGroupInfoTab("members")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "members" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>View Members</button>
+                  <button onClick={() => setGroupInfoTab("banned")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "banned" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>Banned Members</button>
+                </div>
+
+                {/* Members search */}
+                <div className="px-4 py-2.5 shrink-0">
+                  <div className="relative">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    <input type="search" value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="Search" className="w-full pl-8 pr-3 py-1.5 rounded-full bg-[#f5f5f5] text-[13px] text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors" />
+                  </div>
+                </div>
+
+                {/* Members list */}
+                <div className="flex-1 overflow-y-auto">
+                  {groupInfoTab === "members" ? (
+                    filteredMembers.length === 0 ? (
+                      <p className="text-center text-[13px] text-[#9ca3af] py-6">No members found</p>
+                    ) : filteredMembers.map(member => (
+                      <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#f5f5f5] hover:bg-[#fafafa] transition-colors">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-[13px] shrink-0" style={{ backgroundColor: member.avatarColor }}>
+                          {member.initials}
+                        </div>
+                        <p className="flex-1 font-medium text-[14px] text-[#141414] truncate">{member.name}</p>
+                        {member.role === "Owner" && (
+                          <span className="shrink-0 bg-[#ff9400] text-white text-[11px] font-normal px-2.5 py-0.5 rounded-full">{member.role}</span>
+                        )}
+                        {(member.role === "Admin" || member.role === "Moderator") && (
+                          <span className="shrink-0 border border-[#ff9400] text-[#ff9400] text-[11px] font-normal px-2.5 py-0.5 rounded-full">{member.role}</span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-[13px] text-[#9ca3af] py-6">No banned members</p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+            );
+          })()}
+
           {/* Default empty states */}
           {((activeTab === "chats" && !activeChat) ||
             (activeTab === "calls" && !activeCall) ||
             activeTab === "users" ||
-            activeTab === "groups") && (
+            (activeTab === "groups" && !activeGroup)) && (
             <RightEmptyState tab={activeTab} />
           )}
         </div>

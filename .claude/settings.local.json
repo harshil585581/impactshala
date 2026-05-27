@@ -28,7 +28,9 @@
       "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups2.png\" \"https://www.figma.com/api/mcp/asset/566940f9-6b17-497e-a542-3082e8acbc1c\")",
       "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups1.png\" \"https://www.figma.com/api/mcp/asset/acb89f7e-9c88-41c2-85c7-ca2212be212b\")",
       "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups2.png\" \"https://www.figma.com/api/mcp/asset/0d8f3eae-97f0-4e25-94b6-a9a89a03bf4b\")",
-      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups3.png\" \"https://www.figma.com/api/mcp/asset/361cbc1f-2a38-4f42-bdd3-8a67a36bd2a5\")"
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups3.png\" \"https://www.figma.com/api/mcp/asset/361cbc1f-2a38-4f42-bdd3-8a67a36bd2a5\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/calls1.png\" \"https://www.figma.com/api/mcp/asset/3e2f40f4-ba51-4b2f-a760-f37a7a95ebeb\")",
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/reactions.png\" \"https://www.figma.com/api/mcp/asset/fff94c20-6008-4389-81bc-47bc91e16426\")"
     ]
   }
 }

@@ -1,11 +1,22 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import logoImg from "../../assets/images/logo/logo.png";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 const inputCls =
-  "w-full h-[40px] sm:h-[44px] border border-[#e5e7eb] rounded-full px-4 text-[#1e1e1e] text-sm placeholder-[#adaebc] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
+  "w-full h-[50px] border border-[#e5e7eb] rounded-full px-4 text-[#1e1e1e] text-[16px] placeholder-[#adaebc] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
+
+const CalendarIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="4" width="18" height="17" rx="2" stroke="#adaebc" strokeWidth="1.5" fill="none" />
+    <path d="M3 9h18" stroke="#adaebc" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M8 2v4M16 2v4" stroke="#adaebc" strokeWidth="1.5" strokeLinecap="round" />
+    <rect x="7" y="13" width="3" height="3" rx="0.5" fill="#adaebc" />
+    <rect x="11" y="13" width="3" height="3" rx="0.5" fill="#adaebc" />
+    <rect x="7" y="17" width="3" height="2" rx="0.5" fill="#adaebc" />
+  </svg>
+);
 
 export default function OrgFormPage() {
   const navigate = useNavigate();
@@ -14,15 +25,15 @@ export default function OrgFormPage() {
 
   const [form, setForm] = useState({
     orgName: "",
-    website: "",
-    contactName: "",
+    yearOfFounding: "",
     email: "",
-    phone: "",
     password: "",
     confirmPassword: "",
     agreeTerms: false,
   });
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,6 +48,10 @@ export default function OrgFormPage() {
       setError("Passwords do not match");
       return;
     }
+    if (!form.agreeTerms) {
+      setError("Please agree to the Terms of Service and Privacy Policy");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -46,10 +61,8 @@ export default function OrgFormPage() {
         body: JSON.stringify({
           org_name: form.orgName,
           org_type: orgType,
-          website: form.website,
-          contact_name: form.contactName,
+          year_of_founding: form.yearOfFounding,
           email: form.email,
-          phone: form.phone,
           password: form.password,
           agreed_terms: form.agreeTerms,
         }),
@@ -67,187 +80,185 @@ export default function OrgFormPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen">
-      {/* ── Main form panel (left on desktop) ── */}
-      <div className="flex-1 bg-white flex flex-col overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 sm:px-8 lg:px-10 py-4 sm:py-5 shrink-0">
-          <div className="flex items-center gap-2">
-            <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
-          </div>
-          <Link
-            to="/signup/org/select"
-            className="flex items-center gap-1 text-[#8692a6] font-semibold text-sm sm:text-base hover:text-[#f77f00] transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M15 18l-6-6 6-6"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Back
-          </Link>
+    <div className="min-h-screen flex flex-col lg:flex-row bg-white">
+      {/* ── Left panel ── */}
+      <div className="flex-1 flex flex-col bg-white overflow-y-auto">
+        {/* Logo */}
+        <div className="px-8 sm:px-10 py-6 shrink-0">
+          <img src={logoImg} alt="Impactshaala" className="h-9 w-auto object-contain" />
         </div>
 
-        {/* Form area */}
-        <div className="flex-1 flex items-start justify-center px-4 sm:px-6 lg:px-8 pb-4">
+        {/* Form centred in remaining space */}
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 pb-8">
           <div className="w-full max-w-[576px]">
-            <div className="bg-white sm:rounded-[23px] sm:shadow-[0px_4px_3px_rgba(0,0,0,0.07),0px_10px_20px_rgba(0,0,0,0.08)] px-0 sm:px-6 md:px-8 py-0 sm:py-5 lg:py-6">
-              <div className="text-center mb-4 sm:mb-5">
-                <h2 className="text-[#003049] text-xl sm:text-2xl font-semibold leading-snug">
-                  Organization Details
+            {/* Card */}
+            <div className="bg-white rounded-[23px] shadow-[0px_4px_3px_rgba(0,0,0,0.07),0px_10px_20px_rgba(0,0,0,0.10)] px-8 sm:px-[36px] py-8 sm:py-[32px]">
+
+              {/* Header */}
+              <div className="text-center mb-[32px]">
+                <h2 className="text-[#003049] text-[30px] font-semibold leading-[1.25] mb-1">
+                  Create Account
                 </h2>
-                <p className="text-[#4b5563] text-xs sm:text-sm mt-0.5">
-                  Tell us about your organization
-                </p>
+                <p className="text-[#4b5563] text-[16px]">Join our community today</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 sm:gap-3">
-                {/* Organization Name */}
+              <form onSubmit={handleSubmit} className="flex flex-col gap-[15px]">
+
+                {/* Organisation Name */}
                 <div>
-                  <label className="block text-[#374151] text-xs font-medium mb-1">
-                    Organization Name
+                  <label className="block text-[#374151] text-[14px] mb-[8px]">
+                    Organisation Name
                   </label>
                   <input
                     type="text"
-                    placeholder="Enter organization name"
+                    placeholder="Organisation name"
                     value={form.orgName}
                     onChange={(e) => update("orgName", e.target.value)}
+                    required
                     className={inputCls}
                   />
                 </div>
 
-                {/* Website */}
+                {/* Year of Founding */}
                 <div>
-                  <label className="block text-[#374151] text-sm font-medium mb-1.5">
-                    Website URL
+                  <label className="block text-[#374151] text-[14px] mb-[8px]">
+                    Year of Founding
                   </label>
-                  <input
-                    type="url"
-                    placeholder="https://yourorganization.com"
-                    value={form.website}
-                    onChange={(e) => update("website", e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-
-                {/* Contact person + phone — side by side on sm+ */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1">
-                    <label className="block text-[#374151] text-sm font-medium mb-1.5">
-                      Contact Person
-                    </label>
+                  <div className="relative">
                     <input
-                      type="text"
-                      placeholder="Full name"
-                      value={form.contactName}
-                      onChange={(e) => update("contactName", e.target.value)}
-                      className={inputCls}
+                      type="number"
+                      placeholder="Enter the year"
+                      value={form.yearOfFounding}
+                      onChange={(e) => update("yearOfFounding", e.target.value)}
+                      min={1800}
+                      max={new Date().getFullYear()}
+                      className={`${inputCls} pr-12 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                     />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[#374151] text-sm font-medium mb-1.5">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="Enter phone number"
-                      value={form.phone}
-                      onChange={(e) => update("phone", e.target.value)}
-                      className={inputCls}
-                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <CalendarIcon />
+                    </span>
                   </div>
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="block text-[#374151] text-sm font-medium mb-1.5">
-                    Official Email
+                  <label className="block text-[#374151] text-[14px] mb-[8px]">
+                    Email
                   </label>
                   <input
                     type="email"
-                    placeholder="Enter official email"
+                    placeholder="Enter your email"
                     value={form.email}
                     onChange={(e) => update("email", e.target.value)}
+                    required
                     className={inputCls}
                   />
                 </div>
 
-                {/* Password + Confirm — side by side on md+ */}
-                <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1">
-                    <label className="block text-[#374151] text-sm font-medium mb-1.5">
-                      Password
-                    </label>
+                {/* Password */}
+                <div>
+                  <label className="block text-[#374151] text-[14px] mb-[8px]">
+                    Password
+                  </label>
+                  <div className="relative">
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="Create password"
                       value={form.password}
                       onChange={(e) => update("password", e.target.value)}
-                      className={inputCls}
+                      required
+                      className={`${inputCls} pr-12`}
                     />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[#374151] text-sm font-medium mb-1.5">
-                      Confirm Password
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="Confirm password"
-                      value={form.confirmPassword}
-                      onChange={(e) =>
-                        update("confirmPassword", e.target.value)
-                      }
-                      className={inputCls}
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#adaebc] hover:text-[#6b7280] transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
 
-                {/* Terms */}
-                <label className="flex items-start sm:items-center gap-3 cursor-pointer mt-1">
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-[#374151] text-[14px] mb-[8px]">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirm ? "text" : "password"}
+                      placeholder="Confirm password"
+                      value={form.confirmPassword}
+                      onChange={(e) => update("confirmPassword", e.target.value)}
+                      required
+                      className={`${inputCls} pr-12`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm((v) => !v)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#adaebc] hover:text-[#6b7280] transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showConfirm ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Terms checkbox */}
+                <label className="flex items-center gap-3 cursor-pointer mt-1">
                   <input
                     type="checkbox"
                     checked={form.agreeTerms}
                     onChange={(e) => update("agreeTerms", e.target.checked)}
-                    className="w-4 h-4 mt-0.5 sm:mt-0 border border-gray-400 rounded-sm accent-[#f77f00] cursor-pointer shrink-0"
+                    className="w-[16px] h-[16px] border border-black rounded-[1px] accent-[#f77f00] cursor-pointer shrink-0"
                   />
-                  <span className="text-[#4b5563] text-xs sm:text-sm leading-relaxed">
+                  <span className="text-[#4b5563] text-[14px]">
                     I agree to the{" "}
-                    <span className="text-[#f77f00] hover:underline cursor-pointer">
-                      Terms of Service
-                    </span>{" "}
-                    and{" "}
-                    <span className="text-[#f77f00] hover:underline cursor-pointer">
-                      Privacy Policy
-                    </span>
+                    <span className="text-[#f77f00] hover:underline cursor-pointer">Terms of Service</span>
+                    {" "}and{" "}
+                    <span className="text-[#f77f00] hover:underline cursor-pointer">Privacy Policy</span>
                   </span>
                 </label>
 
-                {/* Error message */}
+                {/* Error */}
                 {error && (
-                  <p className="text-red-500 text-sm text-center -mb-1">
-                    {error}
-                  </p>
+                  <p className="text-red-500 text-sm text-center -mb-1">{error}</p>
                 )}
 
                 {/* Submit */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-[42px] sm:h-[46px] bg-[#f77f00] text-white text-sm sm:text-base font-semibold rounded-full hover:bg-[#e68500] transition-colors mt-0.5 shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full h-[48px] bg-[#ff9400] text-white text-[16px] font-semibold rounded-full hover:bg-[#e68500] transition-colors mt-[17px] shadow-[0px_4px_12px_rgba(255,148,0,0.30)] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? "Creating Account…" : "Create Account"}
                 </button>
 
-                <p className="text-center text-sm sm:text-base text-[#4b5563] mt-1">
+                {/* Login link */}
+                <p className="text-center text-[16px] text-[#4b5563] mt-1">
                   Already have an account?{" "}
-                  <Link
-                    to="/"
-                    className="text-[#f77f00] font-semibold hover:underline"
-                  >
+                  <Link to="/" className="text-[#ff9400] hover:underline">
                     Login
                   </Link>
                 </p>
@@ -257,23 +268,20 @@ export default function OrgFormPage() {
         </div>
       </div>
 
-      {/* ── Right orange photo panel (desktop only) ── */}
-      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-gradient-to-br from-[#ff9400] to-[#003049]">
-        <div className="relative z-10 flex flex-col h-full px-10 py-8">
-          <div className="flex items-center gap-2 self-start">
-            <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
-          </div>
-          <div className="flex-1 flex items-center">
-            <div>
-              <span className="text-white text-8xl font-bold leading-none">
-                "
-              </span>
-              <h2 className="text-[#e5e7eb] text-3xl xl:text-4xl font-semibold leading-[1.5] -mt-4">
-                Inspiring Education,
-                <br />
-                Aspiring Opportunities!
-              </h2>
-            </div>
+      {/* ── Right panel — photo + orange overlay + quote ── */}
+      <div className="hidden lg:flex relative lg:w-[45%] xl:w-[46%] shrink-0 overflow-hidden">
+        {/* Background gradient fallback (photo would go here) */}
+        <div className="absolute inset-0 bg-[#c8956c]" />
+        {/* Orange overlay */}
+        <div className="absolute inset-0 bg-[rgba(255,148,0,0.50)]" />
+        {/* Quote */}
+        <div className="relative z-10 flex items-center justify-center w-full px-16">
+          <div>
+            <span className="text-white text-[96px] font-bold leading-none block -mb-6">"</span>
+            <p className="text-[#e5e7eb] text-[48px] font-semibold leading-[1.5]">
+              Inspiring Education,{" "}
+              <span className="text-white">Aspiring Opportunities!</span>
+            </p>
           </div>
         </div>
       </div>
