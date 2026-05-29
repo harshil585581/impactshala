@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
@@ -72,6 +72,42 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const YEARS = Array.from({ length: 30 }, (_, i) => String(new Date().getFullYear() - i));
 const EMP_TYPES = ['Full Time', 'Part Time', 'Self-employed', 'Freelance', 'Contract', 'Internship', 'Apprenticeship'];
 
+function SimpleSelect({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handler(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  return (
+    <div ref={ref} className="relative w-full">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full h-[44px] border border-[#e4e5e8] rounded-full px-3 bg-white flex items-center justify-between text-sm focus:outline-none focus:border-[#ff9400] transition-colors">
+        <span className={value ? 'text-[#18191c]' : 'text-[#9199a3]'}>{value || placeholder || 'Select...'}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
+          <path d="M6 9l6 6 6-6" stroke="#9199a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-[#d6d6d6] rounded-[8px] shadow-lg max-h-[220px] overflow-y-auto">
+          {options.map(opt => {
+            const selected = opt === value;
+            return (
+              <div key={opt} onClick={() => { onChange(opt); setOpen(false); }}
+                className={`flex items-center px-[8px] py-[2px] cursor-pointer ${selected ? 'border-l-4 border-[#ff9400]' : ''}`}>
+                <div className="flex items-center px-[8px] py-[12px] w-full">
+                  <span className={`text-[12px] leading-normal flex-1 ${selected ? 'text-[#ff9400]' : 'text-[#6b6b6b]'}`}>{opt}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => void; onSaved: () => void; experience?: Experience }) {
   const [title, setTitle] = useState(experience?.role ?? '');
   const [empType, setEmpType] = useState(experience?.emp_type ?? '');
@@ -114,10 +150,7 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[#18191c] font-medium">Employment Type <span className="text-red-500">*</span></label>
-            <select className={sel} value={empType} onChange={(e) => setEmpType(e.target.value)}>
-              <option value="">Ex: Full Time</option>
-              {EMP_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
+            <SimpleSelect value={empType} onChange={setEmpType} options={EMP_TYPES} placeholder="Ex: Full Time" />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[#18191c] font-medium">Company or Organization <span className="text-red-500">*</span></label>

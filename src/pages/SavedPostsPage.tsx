@@ -42,13 +42,6 @@ function getDisplayName(user: FeedPost['user']): string {
   return full || user.org_name || 'User';
 }
 
-function getUserRole(user: FeedPost['user']): string {
-  if (!user) return '';
-  if (user.user_type === 'organization') return user.org_type || 'Organization';
-  const exp = user.experiences?.find(e => e.is_current) || user.experiences?.[0];
-  if (exp) return `${exp.role} · ${exp.company}`;
-  return [user.title, user.company].filter(Boolean).join(' · ');
-}
 
 function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
   if (url) return <img src={url} alt={name} className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />;
