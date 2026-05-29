@@ -21,17 +21,6 @@ supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 app = FastAPI(title="Impactshaala API")
 
 
-_raw_origins = os.environ.get(
-    "ALLOWED_ORIGINS",
-    "http://localhost:5173,http://localhost:3000,http://localhost:5174",
-)
-_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allowed_origins,
-
-# Parse allowed origins
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
@@ -229,6 +218,16 @@ async def signup_individual(data: IndividualSignup):
 @app.get("/api/profile")
 async def get_profile(authorization: str = Header(None)):
     user_id = get_user_id(authorization)
+    result = supabase_admin.table("users").select("*").eq("id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return result.data[0]
+
+
+@app.get("/api/profile/{user_id}")
+async def get_public_profile(user_id: str, authorization: str = Header(None)):
+    """Return a public profile for any user by ID (requires auth)."""
+    get_user_id(authorization)  # verify caller is logged in
     result = supabase_admin.table("users").select("*").eq("id", user_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -735,7 +734,7 @@ class TrackRequest(BaseModel):
 
 
 @app.post("/api/discover/track")
-async def track_impression(data: TrackRequest, authorization: Optional[str] = Header(None)):
+async def track_impression(data: TrackRequest, authorization: Optional[str] = Header(None)):  # noqa: ARG001
     return {"ok": True}
 
 
@@ -762,7 +761,7 @@ async def submit_discover_application(
     name: str = Form(...),
     email: str = Form(...),
     phone: str = Form(""),
-    documents: List[UploadFile] = File(default=[]),
+    documents: List[UploadFile] = File(default=[]),  # noqa: ARG001
     authorization: Optional[str] = Header(None),
 ):
     user_id = _optional_user_id(authorization)
@@ -895,3 +894,480 @@ async def upload_discover_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
     return {"url": supabase_admin.storage.from_("post-media").get_public_url(path)}
+
+
+# ============================================================
+# Community Endpoints
+# ============================================================
+
+def _format_user(u: dict) -> dict:
+    """Return a consistent user shape for community responses."""
+    first = u.get("first_name") or ""
+    last = u.get("last_name") or ""
+    name = f"{first} {last}".strip() or u.get("org_name") or "Unknown"
+
+    raw_role = u.get("title") or u.get("role") or ""
+    title = raw_role.replace("_", " ").title() if raw_role else ""
+
+    # Don't show company if it duplicates the display name
+    company_raw = u.get("company") or u.get("org_name") or ""
+    company = "" if company_raw == name else company_raw
+
+    return {
+        "id": u["id"],
+        "name": name,
+        "title": title,
+        "company": company,
+        "avatar_url": u.get("avatar_url"),
+        "cover_url": u.get("cover_url"),
+    }
+
+
+@app.get("/api/community/connections")
+async def get_connections(
+    q: Optional[str] = None,
+    authorization: str = Header(None),
+):
+    """Return all accepted connections for the authenticated user."""
+    user_id = get_user_id(authorization)
+
+    rows = supabase_admin.table("community_connections").select(
+        "id, requester_id, addressee_id, created_at"
+    ).eq("status", "accepted").or_(
+        f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
+    ).order("created_at", desc=True).execute()
+
+    if not rows.data:
+        return {"connections": [], "total": 0}
+
+    peer_ids = [
+        r["addressee_id"] if r["requester_id"] == user_id else r["requester_id"]
+        for r in rows.data
+    ]
+
+    users_result = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, title, role, company, avatar_url, cover_url"
+    ).in_("id", peer_ids).execute()
+
+    users_map = {u["id"]: u for u in (users_result.data or [])}
+
+    connections = []
+    for row in rows.data:
+        peer_id = row["addressee_id"] if row["requester_id"] == user_id else row["requester_id"]
+        peer = users_map.get(peer_id)
+        if not peer:
+            continue
+        formatted = _format_user(peer)
+        formatted["connection_id"] = row["id"]
+        formatted["connected_at"] = row["created_at"]
+        if q and q.lower() not in formatted["name"].lower():
+            continue
+        connections.append(formatted)
+
+    return {"connections": connections, "total": len(connections)}
+
+
+@app.get("/api/community/pending")
+async def get_pending_requests(authorization: str = Header(None)):
+    """Return incoming connection requests that are still pending."""
+    user_id = get_user_id(authorization)
+
+    rows = supabase_admin.table("community_connections").select(
+        "id, requester_id, created_at"
+    ).eq("addressee_id", user_id).eq("status", "pending").order("created_at", desc=True).execute()
+
+    if not rows.data:
+        return {"requests": []}
+
+    requester_ids = [r["requester_id"] for r in rows.data]
+
+    users_result = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, title, role, company, avatar_url, cover_url"
+    ).in_("id", requester_ids).execute()
+
+    users_map = {u["id"]: u for u in (users_result.data or [])}
+
+    requests = []
+    for row in rows.data:
+        peer = users_map.get(row["requester_id"])
+        if not peer:
+            continue
+        formatted = _format_user(peer)
+        formatted["request_id"] = row["id"]
+        formatted["requested_at"] = row["created_at"]
+        requests.append(formatted)
+
+    return {"requests": requests}
+
+
+@app.get("/api/community/sent")
+async def get_sent_requests(authorization: str = Header(None)):
+    """Return outgoing connection requests sent by the current user that are still pending."""
+    user_id = get_user_id(authorization)
+
+    rows = supabase_admin.table("community_connections").select(
+        "id, addressee_id, created_at"
+    ).eq("requester_id", user_id).eq("status", "pending").order("created_at", desc=True).execute()
+
+    if not rows.data:
+        return {"requests": []}
+
+    addressee_ids = [r["addressee_id"] for r in rows.data]
+
+    users_result = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, title, role, company, avatar_url, cover_url"
+    ).in_("id", addressee_ids).execute()
+
+    users_map = {u["id"]: u for u in (users_result.data or [])}
+
+    requests = []
+    for row in rows.data:
+        peer = users_map.get(row["addressee_id"])
+        if not peer:
+            continue
+        formatted = _format_user(peer)
+        formatted["request_id"] = row["id"]
+        formatted["sent_at"] = row["created_at"]
+        requests.append(formatted)
+
+    return {"requests": requests}
+
+
+@app.get("/api/community/suggestions")
+async def get_suggestions(authorization: str = Header(None)):
+    """Return users who are not yet connected or pending with the current user."""
+    user_id = get_user_id(authorization)
+
+    existing = supabase_admin.table("community_connections").select(
+        "requester_id, addressee_id"
+    ).or_(
+        f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
+    ).execute()
+
+    excluded_ids = {user_id}
+    for row in (existing.data or []):
+        excluded_ids.add(row["requester_id"])
+        excluded_ids.add(row["addressee_id"])
+
+    all_users = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, title, role, company, avatar_url, cover_url"
+    ).limit(50).execute()
+
+    # Collect candidate IDs first
+    candidate_ids = [u["id"] for u in (all_users.data or []) if u["id"] not in excluded_ids]
+
+    # Batch-fetch achievement counts for all candidates
+    achievement_counts: dict[str, int] = {}
+    if candidate_ids:
+        try:
+            ach_rows = supabase_admin.table("personal_achievements").select(
+                "user_id"
+            ).in_("user_id", candidate_ids).execute()
+            for row in (ach_rows.data or []):
+                uid = row["user_id"]
+                achievement_counts[uid] = achievement_counts.get(uid, 0) + 1
+        except Exception:
+            pass  # table may not exist yet
+
+    suggestions = []
+    for u in (all_users.data or []):
+        if u["id"] in excluded_ids:
+            continue
+        formatted = _format_user(u)
+        uid = u["id"]
+        formatted["endorsement_count"] = 0
+        formatted["review_count"] = 0
+        formatted["achievement_count"] = achievement_counts.get(uid, 0)
+        suggestions.append(formatted)
+
+    return {"suggestions": suggestions}
+
+
+class ConnectionRequestBody(BaseModel):
+    addressee_id: str
+
+
+@app.post("/api/community/request")
+async def send_connection_request(data: ConnectionRequestBody, authorization: str = Header(None)):
+    """Send a connection request to another user."""
+    user_id = get_user_id(authorization)
+
+    if data.addressee_id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot connect with yourself")
+
+    existing = supabase_admin.table("community_connections").select("id, status").or_(
+        f"and(requester_id.eq.{user_id},addressee_id.eq.{data.addressee_id}),"
+        f"and(requester_id.eq.{data.addressee_id},addressee_id.eq.{user_id})"
+    ).execute()
+
+    if existing.data:
+        raise HTTPException(status_code=409, detail="Connection already exists or is pending")
+
+    result = supabase_admin.table("community_connections").insert({
+        "requester_id": user_id,
+        "addressee_id": data.addressee_id,
+        "status": "pending",
+    }).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to send request")
+
+    return {"message": "Request sent", "id": result.data[0]["id"]}
+
+
+@app.post("/api/community/accept/{request_id}")
+async def accept_connection_request(request_id: str, authorization: str = Header(None)):
+    """Accept an incoming connection request."""
+    user_id = get_user_id(authorization)
+
+    result = supabase_admin.table("community_connections").update({
+        "status": "accepted",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", request_id).eq("addressee_id", user_id).eq("status", "pending").execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Request not found or already handled")
+
+    return {"message": "Connection accepted"}
+
+
+@app.delete("/api/community/reject/{request_id}")
+async def reject_or_cancel_request(request_id: str, authorization: str = Header(None)):
+    """Reject an incoming request or cancel an outgoing one."""
+    user_id = get_user_id(authorization)
+
+    supabase_admin.table("community_connections").delete().eq("id", request_id).or_(
+        f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
+    ).execute()
+
+    return {"message": "Request removed"}
+
+
+@app.delete("/api/community/remove/{peer_id}")
+async def remove_connection(peer_id: str, authorization: str = Header(None)):
+    """Remove an accepted connection."""
+    user_id = get_user_id(authorization)
+
+    supabase_admin.table("community_connections") \
+        .delete() \
+        .eq("status", "accepted") \
+        .or_(
+            f"and(requester_id.eq.{user_id},addressee_id.eq.{peer_id}),"
+            f"and(requester_id.eq.{peer_id},addressee_id.eq.{user_id})"
+        ).execute()
+
+    return {"message": "Connection removed"}
+
+
+# ============================================================
+# Messaging Endpoints
+# ============================================================
+
+class SendMessageBody(BaseModel):
+    content: str
+    message_type: str = "text"
+    file_url: Optional[str] = None
+    file_name: Optional[str] = None
+    reply_to_id: Optional[str] = None
+
+
+class EditMessageBody(BaseModel):
+    content: str
+
+
+def _get_or_create_conversation(user_id: str, peer_id: str) -> dict:
+    """Return existing conversation or create one. Always stores participant_1 < participant_2."""
+    p1, p2 = sorted([user_id, peer_id])
+    existing = supabase_admin.table("conversations").select("*") \
+        .eq("participant_1", p1).eq("participant_2", p2).execute()
+    if existing.data:
+        return existing.data[0]
+    result = supabase_admin.table("conversations").insert({
+        "participant_1": p1,
+        "participant_2": p2,
+    }).execute()
+    return result.data[0]
+
+
+@app.get("/api/messages/conversations")
+async def list_conversations(authorization: str = Header(None)):
+    """Return all conversations for the current user, newest first."""
+    user_id = get_user_id(authorization)
+
+    rows = supabase_admin.table("conversations").select("*").or_(
+        f"participant_1.eq.{user_id},participant_2.eq.{user_id}"
+    ).order("last_message_at", desc=True, nullsfirst=False).execute()
+
+    if not rows.data:
+        return {"conversations": []}
+
+    peer_ids = [
+        r["participant_2"] if r["participant_1"] == user_id else r["participant_1"]
+        for r in rows.data
+    ]
+
+    users_res = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, title, role, avatar_url"
+    ).in_("id", peer_ids).execute()
+    users_map = {u["id"]: u for u in (users_res.data or [])}
+
+    conversations = []
+    for row in rows.data:
+        peer_id = row["participant_2"] if row["participant_1"] == user_id else row["participant_1"]
+        peer = users_map.get(peer_id, {})
+        peer_name = (
+            f"{peer.get('first_name', '')} {peer.get('last_name', '')}".strip()
+            or peer.get("org_name", "")
+            or "Unknown"
+        )
+        conversations.append({
+            "id": row["id"],
+            "peer_id": peer_id,
+            "peer_name": peer_name,
+            "peer_avatar": peer.get("avatar_url"),
+            "peer_title": peer.get("title") or peer.get("role") or "",
+            "last_message": row.get("last_message"),
+            "last_message_at": row.get("last_message_at"),
+        })
+
+    return {"conversations": conversations}
+
+
+@app.post("/api/messages/conversations")
+async def get_or_create_conversation(
+    data: ConnectionRequestBody,  # reuse {addressee_id} body shape
+    authorization: str = Header(None),
+):
+    """Get or create a direct conversation with a peer."""
+    user_id = get_user_id(authorization)
+    if data.addressee_id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot message yourself")
+    conv = _get_or_create_conversation(user_id, data.addressee_id)
+    return {"id": conv["id"]}
+
+
+@app.get("/api/messages/conversations/{conv_id}/messages")
+async def get_messages(conv_id: str, authorization: str = Header(None)):
+    """Return messages in a conversation, oldest first."""
+    user_id = get_user_id(authorization)
+
+    # Verify user is a participant
+    conv = supabase_admin.table("conversations").select("participant_1, participant_2") \
+        .eq("id", conv_id).execute()
+    if not conv.data:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    c = conv.data[0]
+    if user_id not in (c["participant_1"], c["participant_2"]):
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    msgs = supabase_admin.table("direct_messages").select(
+        "id, sender_id, content, message_type, file_url, file_name, reply_to_id, is_edited, is_deleted, created_at"
+    ).eq("conversation_id", conv_id).order("created_at").execute()
+
+    return {"messages": msgs.data or []}
+
+
+@app.post("/api/messages/conversations/{conv_id}/messages")
+async def send_message(
+    conv_id: str,
+    data: SendMessageBody,
+    authorization: str = Header(None),
+):
+    """Send a message in a conversation."""
+    user_id = get_user_id(authorization)
+
+    conv = supabase_admin.table("conversations").select("participant_1, participant_2") \
+        .eq("id", conv_id).execute()
+    if not conv.data:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    c = conv.data[0]
+    if user_id not in (c["participant_1"], c["participant_2"]):
+        raise HTTPException(status_code=403, detail="Not a participant")
+
+    payload = {
+        "conversation_id": conv_id,
+        "sender_id": user_id,
+        "content": data.content,
+        "message_type": data.message_type,
+        "file_url": data.file_url,
+        "file_name": data.file_name,
+        "reply_to_id": data.reply_to_id or None,
+    }
+    result = supabase_admin.table("direct_messages").insert(payload).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to send message")
+
+    msg = result.data[0]
+
+    # Update conversation last message
+    supabase_admin.table("conversations").update({
+        "last_message": data.content if data.message_type == "text" else f"[{data.message_type}]",
+        "last_message_at": msg["created_at"],
+    }).eq("id", conv_id).execute()
+
+    return msg
+
+
+def _validate_uuid(value: str, field: str = "id") -> None:
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid {field}: must be a UUID")
+
+
+@app.patch("/api/messages/messages/{msg_id}")
+async def edit_message(
+    msg_id: str,
+    data: EditMessageBody,
+    authorization: str = Header(None),
+):
+    """Edit the text content of a sent message."""
+    _validate_uuid(msg_id, "msg_id")
+    user_id = get_user_id(authorization)
+    result = supabase_admin.table("direct_messages").update({
+        "content": data.content,
+        "is_edited": True,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", msg_id).eq("sender_id", user_id).eq("is_deleted", False).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Message not found or not yours")
+    return result.data[0]
+
+
+@app.delete("/api/messages/messages/{msg_id}")
+async def delete_message(msg_id: str, authorization: str = Header(None)):
+    """Soft-delete a message (marks it deleted, clears content)."""
+    _validate_uuid(msg_id, "msg_id")
+    user_id = get_user_id(authorization)
+    result = supabase_admin.table("direct_messages").update({
+        "is_deleted": True,
+        "content": None,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", msg_id).eq("sender_id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Message not found or not yours")
+    return {"message": "Deleted"}
+
+
+@app.post("/api/messages/upload")
+async def upload_message_file(
+    file: UploadFile = File(...),
+    authorization: str = Header(None),
+):
+    """Upload a file for use in a message (image, audio, document)."""
+    user_id = get_user_id(authorization)
+    content = await file.read()
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 20 MB)")
+    ext = (file.filename or "file").rsplit(".", 1)[-1].lower()
+    path = f"{user_id}/messages/{int(datetime.now(timezone.utc).timestamp())}.{ext}"
+    try:
+        supabase_admin.storage.from_("post-media").upload(
+            path=path,
+            file=content,
+            file_options={"content-type": file.content_type or "application/octet-stream", "upsert": "true"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+    url = supabase_admin.storage.from_("post-media").get_public_url(path)
+    return {"url": url, "name": file.filename}

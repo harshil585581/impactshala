@@ -1,29 +1,44 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
-import pr1 from "../assets/images/profile/pr1.png";
-import pr2 from "../assets/images/profile/pr2.png";
+import {
+  fetchConnections,
+  removeConnection,
+  type Connection,
+} from "../services/communityService";
 
-const PROFILE_IMGS = [pr1, pr2];
+// ─── Avatar helper ────────────────────────────────────────────────────────────
 
-type Connection = {
-  id: number;
-  name: string;
-  role: string;
-  extra?: string;
-  time: string;
-};
+function Avatar({ url, name, size = 64 }: { url?: string | null; name: string; size?: number }) {
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
-const CONNECTIONS: Connection[] = [
-  { id: 1,  name: "Eleanor Pena", role: "President of Sales", time: "Today" },
-  { id: 2,  name: "Robin Menon",  role: "President of Sales", extra: "Marketing Coordinator", time: "Today" },
-  { id: 3,  name: "Eleanor Pena", role: "President of Sales", time: "Today" },
-  { id: 4,  name: "Robin Menon",  role: "President of Sales", extra: "Marketing Coordinator", time: "Today" },
-  { id: 5,  name: "Eleanor Pena", role: "President of Sales", time: "Today" },
-  { id: 6,  name: "Robin Menon",  role: "President of Sales", extra: "Marketing Coordinator", time: "Today" },
-  { id: 7,  name: "Eleanor Pena", role: "President of Sales", time: "Today" },
-];
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={name}
+        style={{ width: size, height: size }}
+        className="rounded-full object-cover shrink-0"
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: size, height: size, fontSize: size * 0.35 }}
+      className="rounded-full bg-gradient-to-br from-[#84081F] to-[#A95BFD] flex items-center justify-center text-white font-bold shrink-0"
+    >
+      {initials || "?"}
+    </div>
+  );
+}
+
+// ─── Three-dot menu ───────────────────────────────────────────────────────────
 
 function ThreeDotMenu({ onRemove }: { onRemove: () => void }) {
   const [open, setOpen] = useState(false);
@@ -63,19 +78,55 @@ function ThreeDotMenu({ onRemove }: { onRemove: () => void }) {
   );
 }
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse bg-[#f2f2f3] rounded ${className}`} />;
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function ManageCommunityPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [connections, setConnections] = useState<Connection[]>(CONNECTIONS);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const load = useCallback(async (q: string) => {
+    setLoading(true);
+    try {
+      const result = await fetchConnections(q || undefined);
+      setConnections(result.connections);
+    } catch {
+      // leave previous list
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const filtered = connections.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase())
-  );
+  useEffect(() => { load(""); }, [load]);
 
-  function removeConnection(id: number) {
-    setConnections((prev) => prev.filter((c) => c.id !== id));
+  function handleSearch() {
+    setQuery(search);
+    load(search);
+  }
+
+  async function handleRemove(conn: Connection) {
+    setConnections((prev) => prev.filter((c) => c.connection_id !== conn.connection_id));
+    try {
+      await removeConnection(conn.id);
+    } catch {
+      load(query); // revert by reloading
+    }
+  }
+
+  function formatTime(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86_400_000);
+    if (days === 0) return "Today";
+    if (days === 1) return "Yesterday";
+    return `${days} days ago`;
   }
 
   return (
@@ -103,7 +154,9 @@ export default function ManageCommunityPage() {
           <div className="bg-white rounded-2xl border border-[#f2f2f3] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 gap-4 flex-wrap">
-              <span className="text-[#18191c] text-[22px] font-normal">{connections.length} Connections</span>
+              <span className="text-[#18191c] text-[22px] font-normal">
+                {loading ? "—" : connections.length} Connections
+              </span>
               <div className="flex items-center gap-2 flex-1 max-w-[400px]">
                 <div className="flex items-center gap-2 flex-1 border border-[#e5e7eb] rounded-full px-4 py-2.5 bg-white">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9199a3" strokeWidth="2" strokeLinecap="round">
@@ -113,13 +166,13 @@ export default function ManageCommunityPage() {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && setQuery(search)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     placeholder="Search By Name"
                     className="flex-1 text-sm text-[#18191c] placeholder-[#9199a3] outline-none bg-transparent"
                   />
                 </div>
                 <button
-                  onClick={() => setQuery(search)}
+                  onClick={handleSearch}
                   className="px-5 py-2.5 rounded-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold hover:bg-[#fff6ed] transition-colors shrink-0"
                 >
                   Search
@@ -129,33 +182,54 @@ export default function ManageCommunityPage() {
 
             <div className="h-px bg-[#f2f2f3]" />
 
-            {/* Connection list */}
+            {/* List */}
             <div className="divide-y divide-[#f2f2f3]">
-              {filtered.map((c, i) => (
-                <div key={c.id} className="flex items-center gap-4 px-6 py-4">
-                  <img
-                    src={PROFILE_IMGS[i % 2]}
-                    alt={c.name}
-                    className="w-16 h-16 rounded-full object-cover shrink-0"
-                  />
+              {loading && (
+                <>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-4 px-6 py-4">
+                      <Skeleton className="w-16 h-16 rounded-full" />
+                      <div className="flex-1 flex flex-col gap-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-28" />
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {!loading && connections.length === 0 && (
+                <div className="py-16 text-center text-[#9199a3] text-sm">
+                  {query ? "No connections match your search." : "No connections yet."}
+                </div>
+              )}
+
+              {!loading && connections.map((c) => (
+                <div key={c.connection_id} className="flex items-center gap-4 px-6 py-4">
+                  <button onClick={() => navigate(`/profile/${c.id}`)} className="shrink-0 focus:outline-none">
+                    <Avatar url={c.avatar_url} name={c.name} size={64} />
+                  </button>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[#18191c] text-base font-semibold">{c.name}</p>
-                    <p className="text-[#9199a3] text-sm">{c.role}</p>
-                    {c.extra && <p className="text-[#9199a3] text-sm">{c.extra}</p>}
-                    <p className="text-[#18191c] text-sm font-semibold mt-0.5">{c.time}</p>
+                    <button onClick={() => navigate(`/profile/${c.id}`)} className="text-[#18191c] text-base font-semibold hover:text-[#f77f00] transition-colors text-left">
+                      {c.name}
+                    </button>
+                    {c.title && <p className="text-[#9199a3] text-sm">{c.title}</p>}
+                    {c.company && <p className="text-[#9199a3] text-sm">{c.company}</p>}
+                    <p className="text-[#18191c] text-sm font-semibold mt-0.5">
+                      {formatTime(c.connected_at)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button className="px-5 py-2 rounded-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold hover:bg-[#fff6ed] transition-colors">
+                    <button
+                      onClick={() => navigate("/messages", { state: { userId: c.id, userName: c.name, userAvatar: c.avatar_url } })}
+                      className="px-5 py-2 rounded-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold hover:bg-[#fff6ed] transition-colors"
+                    >
                       Message
                     </button>
-                    <ThreeDotMenu onRemove={() => removeConnection(c.id)} />
+                    <ThreeDotMenu onRemove={() => handleRemove(c)} />
                   </div>
                 </div>
               ))}
-
-              {filtered.length === 0 && (
-                <div className="py-16 text-center text-[#9199a3] text-sm">No connections found.</div>
-              )}
             </div>
           </div>
 

@@ -1,49 +1,88 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
-import pr1 from "../assets/images/profile/pr1.png";
-import pr2 from "../assets/images/profile/pr2.png";
+import {
+  fetchPendingRequests,
+  fetchSentRequests,
+  acceptRequest,
+  rejectOrCancelRequest,
+  type PendingRequest,
+  type SentRequest,
+} from "../services/communityService";
 
-const PROFILE_IMGS = [pr1, pr2];
+function Avatar({ url, name, size = 64 }: { url?: string | null; name: string; size?: number }) {
+  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  if (url) {
+    return (
+      <img src={url} alt={name} style={{ width: size, height: size }}
+        className="rounded-full object-cover shrink-0" />
+    );
+  }
+  return (
+    <div style={{ width: size, height: size, fontSize: size * 0.35 }}
+      className="rounded-full bg-gradient-to-br from-[#84081F] to-[#A95BFD] flex items-center justify-center text-white font-bold shrink-0">
+      {initials || "?"}
+    </div>
+  );
+}
 
-type Request = {
-  id: number;
-  name: string;
-  role: string;
-  location: string;
-};
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse bg-[#f2f2f3] rounded ${className}`} />;
+}
 
-const RECEIVED: Request[] = [
-  { id: 1, name: "Eleanor Pena", role: "President of Sales", location: "Today" },
-  { id: 2, name: "Eleanor Pena", role: "President of Sales", location: "Bangaluru, Karnataka" },
-  { id: 3, name: "Eleanor Pena", role: "President of Sales", location: "Bangaluru, Karnataka" },
-  { id: 4, name: "Eleanor Pena", role: "President of Sales", location: "Bangaluru, Karnataka" },
-  { id: 5, name: "Eleanor Pena", role: "President of Sales", location: "Bangaluru, Karnataka" },
-  { id: 6, name: "Eleanor Pena", role: "President of Sales", location: "Bangaluru, Karnataka" },
-  { id: 7, name: "Eleanor Pena", role: "President of Sales", location: "Bangaluru, Karnataka" },
-];
-
-const SENT: Request[] = [
-  { id: 10, name: "Robin Menon",  role: "UI/UX Designer",     location: "Bangaluru, Karnataka" },
-  { id: 11, name: "Arun Menon",   role: "Product Manager",    location: "Mumbai, Maharashtra" },
-  { id: 12, name: "Robin Menon",  role: "UI/UX Designer",     location: "Bangaluru, Karnataka" },
-  { id: 13, name: "Arun Menon",   role: "Product Manager",    location: "Mumbai, Maharashtra" },
-];
+function formatTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return `${days} days ago`;
+}
 
 export default function ManageRequestPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<"received" | "sent">("received");
-  const [received, setReceived] = useState<Request[]>(RECEIVED);
-  const [sent, setSent] = useState<Request[]>(SENT);
 
-  const list = tab === "received" ? received : sent;
+  const [received, setReceived] = useState<PendingRequest[]>([]);
+  const [sent, setSent] = useState<SentRequest[]>([]);
+  const [loadingReceived, setLoadingReceived] = useState(true);
+  const [loadingSent, setLoadingSent] = useState(true);
 
-  function dismiss(id: number) {
-    if (tab === "received") setReceived((p) => p.filter((r) => r.id !== id));
-    else setSent((p) => p.filter((r) => r.id !== id));
+  useEffect(() => {
+    fetchPendingRequests()
+      .then((r) => setReceived(r.requests))
+      .catch(() => {})
+      .finally(() => setLoadingReceived(false));
+
+    fetchSentRequests()
+      .then((r) => setSent(r.requests))
+      .catch(() => {})
+      .finally(() => setLoadingSent(false));
+  }, []);
+
+  async function handleAccept(req: PendingRequest) {
+    try {
+      await acceptRequest(req.request_id);
+      setReceived((prev) => prev.filter((r) => r.request_id !== req.request_id));
+    } catch { /* keep list */ }
   }
+
+  async function handleReject(req: PendingRequest) {
+    try {
+      await rejectOrCancelRequest(req.request_id);
+      setReceived((prev) => prev.filter((r) => r.request_id !== req.request_id));
+    } catch { /* keep list */ }
+  }
+
+  async function handleWithdraw(req: SentRequest) {
+    try {
+      await rejectOrCancelRequest(req.request_id);
+      setSent((prev) => prev.filter((r) => r.request_id !== req.request_id));
+    } catch { /* keep list */ }
+  }
+
+  const loading = tab === "received" ? loadingReceived : loadingSent;
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -63,10 +102,9 @@ export default function ManageRequestPage() {
                 <path d="M19 12H5M12 5l-7 7 7 7" />
               </svg>
             </button>
-            <h1 className="text-[#18191c] text-[24px] font-normal">Manage request</h1>
+            <h1 className="text-[#18191c] text-[24px] font-normal">Manage requests</h1>
           </div>
 
-          {/* Card */}
           <div className="bg-white rounded-2xl border border-[#f2f2f3] overflow-hidden">
 
             {/* Tabs */}
@@ -79,7 +117,7 @@ export default function ManageRequestPage() {
                     : "border border-[#f77f00] text-[#f77f00] hover:bg-[#fff6ed]"
                 }`}
               >
-                Received
+                Received {!loadingReceived && received.length > 0 && `(${received.length})`}
               </button>
               <button
                 onClick={() => setTab("sent")}
@@ -89,7 +127,7 @@ export default function ManageRequestPage() {
                     : "border border-[#f77f00] text-[#f77f00] hover:bg-[#fff6ed]"
                 }`}
               >
-                Sent
+                Sent {!loadingSent && sent.length > 0 && `(${sent.length})`}
               </button>
             </div>
 
@@ -97,48 +135,78 @@ export default function ManageRequestPage() {
 
             {/* List */}
             <div className="divide-y divide-[#f2f2f3]">
-              {list.map((r, i) => (
-                <div key={r.id} className="flex items-center gap-4 px-6 py-4">
-                  <img
-                    src={PROFILE_IMGS[i % 2]}
-                    alt={r.name}
-                    className="w-16 h-16 rounded-full object-cover shrink-0"
-                  />
+              {loading && (
+                <>
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-center gap-4 px-6 py-4">
+                      <Skeleton className="w-16 h-16 rounded-full" />
+                      <div className="flex-1 flex flex-col gap-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-28" />
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {!loading && tab === "received" && received.map((r) => (
+                <div key={r.request_id} className="flex items-center gap-4 px-6 py-4">
+                  <button onClick={() => navigate(`/profile/${r.id}`)} className="shrink-0 focus:outline-none">
+                    <Avatar url={r.avatar_url} name={r.name} size={64} />
+                  </button>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[#18191c] text-base font-semibold">{r.name}</p>
-                    <p className="text-[#9199a3] text-sm">{r.role}</p>
-                    <p className="text-[#18191c] text-sm font-semibold mt-0.5">{r.location}</p>
+                    <button onClick={() => navigate(`/profile/${r.id}`)} className="text-[#18191c] text-base font-semibold hover:text-[#f77f00] transition-colors text-left">
+                      {r.name}
+                    </button>
+                    {r.title && <p className="text-[#9199a3] text-sm">{r.title}</p>}
+                    {r.company && <p className="text-[#9199a3] text-sm">{r.company}</p>}
+                    <p className="text-[#18191c] text-sm font-semibold mt-0.5">{formatTime(r.requested_at)}</p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    {tab === "sent" ? (
-                      <button
-                        onClick={() => dismiss(r.id)}
-                        className="text-[#f77f00] text-sm font-semibold hover:text-[#e06800] transition-colors"
-                      >
-                        Withdraw
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => dismiss(r.id)}
-                          className="text-[#9199a3] text-sm font-medium hover:text-[#474d57] transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => dismiss(r.id)}
-                          className="px-5 py-1.5 rounded-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold hover:bg-[#fff6ed] transition-colors"
-                        >
-                          Add
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={() => handleReject(r)}
+                      className="text-[#9199a3] text-sm font-medium hover:text-[#474d57] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleAccept(r)}
+                      className="px-5 py-1.5 rounded-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold hover:bg-[#fff6ed] transition-colors"
+                    >
+                      Add
+                    </button>
                   </div>
                 </div>
               ))}
 
-              {list.length === 0 && (
-                <div className="py-16 text-center text-[#9199a3] text-sm">No requests here.</div>
+              {!loading && tab === "sent" && sent.map((r) => (
+                <div key={r.request_id} className="flex items-center gap-4 px-6 py-4">
+                  <button onClick={() => navigate(`/profile/${r.id}`)} className="shrink-0 focus:outline-none">
+                    <Avatar url={r.avatar_url} name={r.name} size={64} />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <button onClick={() => navigate(`/profile/${r.id}`)} className="text-[#18191c] text-base font-semibold hover:text-[#f77f00] transition-colors text-left">
+                      {r.name}
+                    </button>
+                    {r.title && <p className="text-[#9199a3] text-sm">{r.title}</p>}
+                    {r.company && <p className="text-[#9199a3] text-sm">{r.company}</p>}
+                    <p className="text-[#9199a3] text-sm mt-0.5">Sent {formatTime(r.sent_at)}</p>
+                  </div>
+                  <button
+                    onClick={() => handleWithdraw(r)}
+                    className="text-[#f77f00] text-sm font-semibold hover:text-[#e06800] transition-colors shrink-0"
+                  >
+                    Withdraw
+                  </button>
+                </div>
+              ))}
+
+              {!loading && tab === "received" && received.length === 0 && (
+                <div className="py-16 text-center text-[#9199a3] text-sm">No pending requests received.</div>
+              )}
+
+              {!loading && tab === "sent" && sent.length === 0 && (
+                <div className="py-16 text-center text-[#9199a3] text-sm">No pending requests sent.</div>
               )}
             </div>
           </div>
