@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logoImg from "../../assets/images/logo/logo.png";
+import loginBg from "../../assets/images/loginsignup/l1.png";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -61,7 +62,7 @@ export default function LoginPage() {
     setError("");
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -94,7 +95,8 @@ export default function LoginPage() {
       {/* ── Left / main panel ── */}
       <div className="flex-1 bg-white flex flex-col">
         {/* Mobile / Tablet top banner */}
-        <div className="lg:hidden relative overflow-hidden shrink-0 bg-gradient-to-br from-[#ff9400] to-[#003049]">
+        <div className="lg:hidden relative overflow-hidden shrink-0 bg-cover bg-center" style={{ backgroundImage: `url(${loginBg})` }}>
+          <div className="absolute inset-0" style={{ background: 'rgba(255, 148, 0, 0.50)' }} />
           <div className="relative z-10 flex items-center justify-between px-5 sm:px-8 py-5">
             <div className="flex items-center gap-2">
               <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
@@ -102,7 +104,7 @@ export default function LoginPage() {
           </div>
           <div className="relative z-10 px-5 sm:px-8 pb-6 sm:pb-8">
             <p className="text-white text-lg sm:text-xl font-semibold leading-snug max-w-xs">
-              Inspiring Education, Aspiring Opportunities!
+              Where Growth Meets Purpose
             </p>
           </div>
         </div>
@@ -221,8 +223,8 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right orange photo panel (desktop only) ── */}
-      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-gradient-to-br from-[#ff9400] to-[#003049]">
-        <div className="relative z-10 flex flex-col h-full px-10 py-8">
+      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-cover bg-center" style={{ backgroundImage: `url(${loginBg})` }}>
+        <div className="relative z-10 flex flex-col h-full px-10 py-8" style={{backgroundColor:"#FF940080"}}>
           <div className="flex items-center gap-2 self-start">
             <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
           </div>
@@ -232,9 +234,9 @@ export default function LoginPage() {
                 "
               </span>
               <h2 className="text-[#e5e7eb] text-3xl xl:text-4xl font-semibold leading-[1.5] -mt-4">
-                Inspiring Education,
+                Where Growth,
                 <br />
-                Aspiring Opportunities!
+                 Meets Purpose
               </h2>
             </div>
           </div>

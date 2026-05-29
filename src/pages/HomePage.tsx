@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
 import PostCard from "../components/PostCard";
@@ -8,6 +8,7 @@ import EventModal from "../components/EventModal";
 import PollModal from "../components/PollModal";
 import { fetchFeedPosts } from "../services/postService";
 import type { FeedPost, FeedFilter } from "../services/postService";
+import { fetchSavedPostIds, savePost, unsavePost } from "../services/savedService";
 import { useProfile } from "../hooks/useProfile";
 
 
@@ -55,6 +56,7 @@ export default function HomePage() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
 
   const { profile: liveProfile } = useProfile("me");
   const storedUser = getStoredUser();
@@ -69,6 +71,20 @@ export default function HomePage() {
     : formatName(storedUser.first_name, storedUser.last_name, storedUser.org_name);
 
   const userAvatarUrl = liveProfile?.avatarUrl || storedUser.avatar_url;
+
+  useEffect(() => {
+    fetchSavedPostIds().then(setSavedPostIds).catch(() => {});
+  }, []);
+
+  const handleSaveToggle = useCallback((postId: string, willSave: boolean) => {
+    setSavedPostIds(prev => {
+      const next = new Set(prev);
+      if (willSave) next.add(postId); else next.delete(postId);
+      return next;
+    });
+    if (willSave) savePost(postId).catch(() => {});
+    else unsavePost(postId).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,7 +218,12 @@ export default function HomePage() {
               )}
 
               {!loadingPosts && posts.map((post) => (
-                <PostCard key={post.id} post={post} />
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  isSaved={savedPostIds.has(post.id)}
+                  onSaveToggle={handleSaveToggle}
+                />
               ))}
             </div>
           </div>

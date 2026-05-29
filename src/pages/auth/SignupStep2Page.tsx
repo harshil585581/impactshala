@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import logoImg from "../../assets/images/logo/logo.png";
+import signupBg from "../../assets/images/loginsignup/l2.jpg";
 
 const roles = [
   { id: "student", label: "Student", desc: "School or college learners" },
@@ -28,14 +29,23 @@ export default function SignupStep2Page() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#ff9400] to-[#003049]">
-      {/* White logo — top left */}
-      <div className="absolute top-6 left-8 sm:top-8 sm:left-10 z-10 flex items-center gap-2">
+    <div className="min-h-screen relative flex flex-col">
+      {/* Split background */}
+      <div className="absolute inset-0 flex">
+        <div className="w-1/2 relative bg-cover bg-center" style={{ backgroundImage: `url(${signupBg})` }}>
+          <div className="absolute inset-0" style={{ background: 'rgba(255, 148, 0, 0.50)' }} />
+        </div>
+        <div className="w-1/2" style={{ background: 'rgba(255, 148, 0, 0.50)' }} />
+      </div>
+
+      {/* Logo */}
+      <div className="relative z-10 px-6 sm:px-10 py-6">
         <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
       </div>
 
       {/* Card */}
-      <div className="relative z-10 bg-white rounded-2xl shadow-[0px_8px_40px_rgba(0,0,0,0.14)] w-full max-w-[700px] mx-4 px-8 sm:px-12 py-5 sm:py-6 lg:py-8">
+      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-6">
+      <div className="relative z-10 bg-white rounded-2xl shadow-[0px_8px_40px_rgba(0,0,0,0.14)] w-full max-w-[700px] px-8 sm:px-12 py-5 sm:py-6 lg:py-8">
         {/* Close / back */}
         <button
           onClick={() => navigate("/signup")}
@@ -121,6 +131,7 @@ export default function SignupStep2Page() {
             Sign In
           </Link>
         </p>
+      </div>
       </div>
     </div>
   );

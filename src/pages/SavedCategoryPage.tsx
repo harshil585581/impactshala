@@ -1,320 +1,401 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
+import likeIcon from '../assets/images/svg/like.svg';
+import heartIcon from '../assets/images/svg/heart.svg';
+import congratulateIcon from '../assets/images/svg/congratulate.svg';
+import {
+  fetchSavedDiscoverItems,
+  fetchSavedCommunityPosts,
+  unsaveDiscoverItem,
+  unsavePost,
+  type SavedDiscoverSnapshot,
+} from '../services/savedService';
+import type { FeedPost } from '../services/postService';
 
-const CODE_IMG = 'https://placehold.co/400x300/f5f5f5/cccccc';
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
-const COMMUNITY_POSTS = [
-  { id: '1', user: 'Sarah Johnson', role: 'UX/UX Designer', time: '2 hours ago', text: "Excited to share my latest project on sustainable development! 🌱\n#Innovation #Sustainability", img: CODE_IMG, likes: 245, comments: 18, shares: 5 },
-  { id: '2', user: 'Sarah Johnson', role: 'UX/UX Designer', time: '2 hours ago', text: "Excited to share my latest project on sustainable development! 🌱\n#Innovation #Sustainability", img: CODE_IMG, likes: 245, comments: 18, shares: 5 },
-  { id: '3', user: 'Sarah Johnson', role: 'UX/UX Designer', time: '2 hours ago', text: "What's the most important factor when choosing a job?", isPoll: true, pollOptions: [{ label: 'Work-Life Balance', pct: 89 }, { label: 'Salary & Benefits', pct: 95 }, { label: 'Growth Opportunities', pct: 65 }, { label: 'Company Culture', pct: 0 }], likes: 245, comments: 18, shares: 5 },
-];
+function getDisplayName(user: FeedPost['user']): string {
+  if (!user) return 'User';
+  return [user.first_name, user.last_name].filter(Boolean).join(' ') || user.org_name || 'User';
+}
 
-const DISCOVER_POSTS = [
-  { id: '1', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education • Experiential learning • Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: CODE_IMG, likes: 1507, comments: 14 },
-  { id: '2', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education • Experiential learning • Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: CODE_IMG, likes: 1507, comments: 14 },
-  { id: '3', user: 'Alex Johnson', role: 'UI/UX Designer • Accenture', time: '12h', title: 'Evolution Of Space And About Aliens', tags: ['Opportunity', 'Education • Experiential learning • Guest lecture'], mode: 'Onsite', payment: '₹ 5,000 / No fee', audience: 'Students', lastDate: '12/12/2024', img: CODE_IMG, likes: 1507, comments: 14 },
-];
-
-const LEARNING_POSTS = [
-  { id: '1', img: CODE_IMG, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-  { id: '2', img: CODE_IMG, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-  { id: '3', img: CODE_IMG, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-];
-
-const EMPLOYMENT_POSTS = [
-  { id: '1', role: 'Product Manager', company: 'Accenture', location: 'Bangalore, Karnataka (Onsite)', exp: '0 – 2 Month', salary: '2 – 5 LPA', type: 'Full – Time', skills: ['Productivity', 'React', 'Management skill'], posted: '5 week Ago' },
-  { id: '2', role: 'Product Manager', company: 'Accenture', location: 'Bangalore, Karnataka (Onsite)', exp: '0 – 2 Month', salary: '2 – 5 LPA', type: 'Full – Time', skills: ['Productivity', 'React', 'Management skill'], posted: '5 week Ago' },
-  { id: '3', role: 'Product Manager', company: 'Accenture', location: 'Bangalore, Karnataka (Onsite)', exp: '0 – 2 Month', salary: '2 – 5 LPA', type: 'Full – Time', skills: ['Productivity', 'React', 'Management skill'], posted: '5 week Ago' },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function UserInitials({ name, size = 40 }: { name: string; size?: number }) {
+function Avatar({ name, url, size = 40 }: { name: string; url?: string | null; size?: number }) {
+  if (url) return <img src={url} alt={name} className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />;
   const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   return (
-    <div style={{ width: size, height: size }} className="rounded-full bg-[#ff9400] flex items-center justify-center shrink-0">
-      <span className="text-white text-xs font-bold">{initials}</span>
+    <div className="rounded-full bg-[#ff9400] flex items-center justify-center shrink-0 text-white font-bold" style={{ width: size, height: size, fontSize: size * 0.35 }}>
+      {initials}
     </div>
   );
 }
 
-function BookmarkIcon({ saved = true }: { saved?: boolean }) {
+function SavedBadge({ onUnsave }: { onUnsave: () => void }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill={saved ? '#22c55e' : 'none'} stroke={saved ? '#22c55e' : '#9199a3'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
-    </svg>
+    <button onClick={onUnsave} title="Remove from saved" className="text-[#22c55e] hover:text-red-400 transition-colors shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+      </svg>
+    </button>
   );
 }
 
-// ── Card components ───────────────────────────────────────────────────────────
-
-function CommunityCard({ post }: { post: typeof COMMUNITY_POSTS[0] }) {
+function EmptyState({ message, sub }: { message: string; sub: string }) {
   return (
-    <div className="bg-white border border-[#f2f2f3] rounded-2xl p-5 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <UserInitials name={post.user} />
-          <div>
-            <p className="text-[#18191c] text-sm font-semibold">{post.user}</p>
-            <p className="text-[#9199a3] text-xs">{post.time}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="text-[#ff9400]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>
-          </button>
-          <button className="text-[#9199a3]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <p className="text-[#18191c] text-sm leading-relaxed whitespace-pre-line">{post.text}</p>
-
-      {/* Image */}
-      {post.img && !post.isPoll && (
-        <img src={post.img} alt="" className="w-full h-[200px] object-cover rounded-xl" />
-      )}
-
-      {/* Poll */}
-      {post.isPoll && post.pollOptions && (
-        <div className="flex flex-col gap-2">
-          {post.pollOptions.map(opt => (
-            <div key={opt.label} className="flex items-center gap-2">
-              <div className="flex-1 bg-[#fff6ed] rounded-full h-8 relative overflow-hidden">
-                {opt.pct > 0 && <div className="absolute left-0 top-0 bottom-0 bg-[#ffd9a0] rounded-full" style={{ width: `${opt.pct}%` }} />}
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#18191c]">{opt.label}</span>
-              </div>
-              {opt.pct > 0 && <span className="text-sm text-[#18191c] shrink-0 w-8 text-right">{opt.pct}%</span>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-4 text-[#9199a3] text-sm">
-          <span className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4757"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" /></svg>
-            {post.likes}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
-            {post.comments}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" /></svg>
-            {post.shares}
-          </span>
-        </div>
-        <BookmarkIcon saved />
-      </div>
+    <div className="col-span-2 flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[#e5e7eb] rounded-2xl">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-[#d1d5db] mb-3">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <p className="text-[#6b7280] font-semibold text-base">{message}</p>
+      <p className="text-[#9199a3] text-sm mt-1">{sub}</p>
     </div>
   );
 }
 
-function DiscoverCard({ post }: { post: typeof DISCOVER_POSTS[0] }) {
+function SkeletonCard() {
   return (
-    <div className="bg-white border border-[#f2f2f3] rounded-2xl overflow-hidden flex flex-col">
-      {/* Header */}
+    <div className="bg-white rounded-2xl border border-[#f2f2f3] overflow-hidden animate-pulse">
       <div className="p-5 flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <UserInitials name={post.user} />
-            <div>
-              <p className="text-[#18191c] text-sm font-semibold">{post.user}</p>
-              <div className="flex items-center gap-1 text-[#9199a3] text-xs">
-                <span>{post.role}</span>
-                <span>·</span>
-                <span>{post.time}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button className="h-[30px] px-4 bg-[#ff9400] text-white text-xs font-bold rounded-full hover:bg-[#e68500] transition-colors">Get Started</button>
-            <BookmarkIcon saved />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
+          <div className="flex flex-col gap-1.5 flex-1">
+            <div className="h-3.5 bg-gray-200 rounded w-1/3" />
+            <div className="h-3 bg-gray-100 rounded w-1/4" />
           </div>
         </div>
+        <div className="h-4 bg-gray-100 rounded w-2/3" />
+        <div className="h-3 bg-gray-100 rounded w-full" />
+        <div className="h-3 bg-gray-100 rounded w-3/4" />
+      </div>
+      <div className="h-[180px] bg-gray-100" />
+    </div>
+  );
+}
 
-        <h3 className="text-[#18191c] text-base font-bold">{post.title}</h3>
+// ─── Discover Card (matches Figma 303593:49846) ───────────────────────────────
 
+function DiscoverCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void }) {
+  const [showMore, setShowMore] = useState(false);
+  const [liked, setLiked] = useState(false);
+
+  return (
+    <div className="bg-white border border-[#c5c5c5] rounded-xl p-4 flex flex-col gap-4">
+
+      {/* ── Header ── */}
+      <div className="flex items-start gap-2.5 w-full">
+        <Avatar name={post.userName} url={post.userAvatarUrl} size={50} />
+
+        <div className="flex flex-1 min-w-0 items-start gap-2">
+          {/* Name / role / time */}
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <p className="text-[#222] text-[15px] font-semibold leading-tight">{post.userName}</p>
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-[#666] text-[12px]">{post.userRole}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[#787777] text-[12px]">{post.time}</span>
+              <span className="w-[4px] h-[4px] rounded-full bg-[#787777] shrink-0" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#787777" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* Get Started + bookmark */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button className="bg-[#f77f00] text-white text-[13px] font-semibold px-5 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
+              Get Started
+            </button>
+            <button
+              onClick={() => onUnsave(post.id)}
+              title="Remove from saved"
+              className="w-[40px] h-[40px] flex items-center justify-center text-[#f77f00] hover:text-red-400 transition-colors"
+            >
+              <svg width="26" height="28" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Title ── */}
+      <h3 className="text-[#222] text-[17px] font-semibold leading-snug">{post.title}</h3>
+
+      {/* ── Tags ── */}
+      {post.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {post.tags.map(t => (
-            <span key={t} className="text-xs border border-[#e4e5e8] rounded-full px-2.5 py-0.5 text-[#5e6670]">{t}</span>
+            <span key={t} className="bg-[#fff4e5] text-black text-[10.5px] font-medium px-3 py-1.5 rounded-full whitespace-nowrap">{t}</span>
           ))}
         </div>
+      )}
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-          <div><span className="text-[#5e6670]">Mode : </span><span className="text-[#18191c]">{post.mode}</span></div>
-          <div><span className="text-[#5e6670]">Payment : </span><span className="text-[#18191c]">{post.payment}</span></div>
-          <div><span className="text-[#5e6670]">Target audience : </span><span className="text-[#18191c]">{post.audience}</span></div>
-          <div><span className="text-[#5e6670]">Last date to apply : </span><span className="text-[#18191c]">{post.lastDate}</span></div>
+      {/* ── Details grid ── */}
+      <div className="flex flex-col gap-2 text-[12px]">
+        <div className="flex gap-6">
+          <div className="flex-1"><span className="text-[#18191c] font-normal">Mode : </span><span className="text-[#717171]">{post.mode}</span></div>
+          <div className="flex-1"><span className="text-[#18191c] font-normal">Payment : </span><span className="text-[#717171]">{post.payment}</span></div>
+        </div>
+        <div className="flex gap-6">
+          <div className="flex-1"><span className="text-[#18191c] font-normal">Target audience : </span><span className="text-[#717171]">{post.audience}</span></div>
+          <div className="flex-1"><span className="text-[#18191c] font-normal">Last date to apply : </span><span className="text-[#717171]">{post.lastDate}</span></div>
         </div>
       </div>
 
-      <img src={post.img} alt="" className="w-full h-[180px] object-cover" />
+      {/* ── Image ── */}
+      {post.imageUrl && (
+        <div className="w-full h-[115px] rounded-[5px] overflow-hidden">
+          <img
+            src={post.imageUrl} alt=""
+            className="w-full h-full object-cover"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
+      )}
 
-      <div className="p-5 flex flex-col gap-3">
-        <button className="text-[#ff9400] text-sm font-medium text-left">Show more</button>
-        <div className="flex items-center justify-between text-[#9199a3] text-sm">
-          <div className="flex items-center gap-1.5">
-            <div className="flex -space-x-1.5">
-              {['#ff4757', '#3b82f6', '#22c55e'].map(c => (
-                <div key={c} className="w-5 h-5 rounded-full border-2 border-white" style={{ background: c }} />
-              ))}
-            </div>
-            <span>{post.likes.toLocaleString()}</span>
+      {/* ── Show more ── */}
+      <button
+        onClick={() => setShowMore(v => !v)}
+        className="text-[#f77f00] text-[13.5px] font-normal text-left hover:underline"
+      >
+        {showMore ? 'Show less' : 'Show more'}
+      </button>
+
+      {/* ── Reactions + comments ── */}
+      <div className="flex items-center justify-between text-[9.5px] font-semibold">
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
+            <img src={likeIcon} alt="like" className="w-[17px] h-[17px]" />
+            <img src={heartIcon} alt="heart" className="w-[17px] h-[17px]" />
+            <img src={congratulateIcon} alt="congratulate" className="w-[17px] h-[17px]" />
           </div>
-          <span>{post.comments} comments</span>
+          <span className="text-[#646464]">{post.reactions.toLocaleString()}</span>
         </div>
-        <div className="flex border-t border-[#f2f2f3] pt-3 gap-1">
-          {[
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" /><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" /></svg>, label: 'Like' },
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>, label: 'Comment' },
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" /></svg>, label: 'Share' },
-            { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" /></svg>, label: 'Save' },
-          ].map(({ icon, label }) => (
-            <button key={label} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[#9199a3] text-xs font-medium hover:text-[#ff9400] hover:bg-[#fff8ee] rounded-lg transition-colors">
-              {icon}{label}
-            </button>
-          ))}
-        </div>
+        <span className="text-[#6f6f6f]">{post.comments} comments</span>
       </div>
-    </div>
-  );
-}
 
-function LearningCard({ post }: { post: typeof LEARNING_POSTS[0] }) {
-  return (
-    <div className="bg-white border border-[#f2f2f3] rounded-2xl overflow-hidden flex flex-col">
-      <img src={post.img} alt="" className="w-full h-[180px] object-cover" />
-      <div className="p-5 flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-[#9199a3] text-xs">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
-            {post.university}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button className="h-[28px] px-3 bg-[#ff9400] text-white text-xs font-bold rounded-full hover:bg-[#e68500] transition-colors">Get Started</button>
-            <BookmarkIcon saved />
-          </div>
-        </div>
+      {/* ── Divider ── */}
+      <div className="h-px bg-[#f2f2f3] -mx-4" />
 
-        <h3 className="text-[#18191c] text-sm font-bold leading-snug">{post.title}</h3>
-
-        <button className="self-start h-[28px] px-3 border border-[#e4e5e8] text-[#18191c] text-xs rounded-lg hover:border-[#ff9400] transition-colors">Download Brochure</button>
-
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-          {[
-            { label: 'Academic level', value: post.level },
-            { label: 'Mode', value: post.mode },
-            { label: 'Course Fee', value: post.fee },
-            { label: 'Duration', value: post.duration },
-            { label: 'Application Deadline', value: post.deadline },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <p className="text-[#ff9400] text-[11px] font-medium">{label}</p>
-              <p className="text-[#18191c] text-xs">{value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmploymentCard({ post }: { post: typeof EMPLOYMENT_POSTS[0] }) {
-  return (
-    <div className="bg-white border border-[#e4e5e8] rounded-2xl p-5 flex flex-col gap-4">
-      {/* Top: avatar + role/company/location + Get Started + bookmark */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="w-12 h-12 rounded-full bg-[#18191c] shrink-0" />
-          <div className="flex flex-col gap-0.5">
-            <p className="text-[#18191c] text-[15px] font-bold leading-tight">{post.role}</p>
-            <p className="text-[#5e6670] text-sm">{post.company}</p>
-            <p className="text-[#5e6670] text-sm">{post.location}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button className="h-[36px] px-5 bg-[#ff9400] text-white text-sm font-bold rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
-            Get Started
+      {/* ── Action bar ── */}
+      <div className="flex items-center justify-around -mx-1">
+        {[
+          {
+            label: 'Like',
+            icon: (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
+                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+              </svg>
+            ),
+            onClick: () => setLiked(v => !v),
+            active: liked,
+          },
+          {
+            label: 'Comment',
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              </svg>
+            ),
+          },
+          {
+            label: 'Share',
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+              </svg>
+            ),
+          },
+          {
+            label: 'Save',
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              </svg>
+            ),
+            onClick: () => onUnsave(post.id),
+          },
+        ].map(({ label, icon, onClick, active }) => (
+          <button
+            key={label}
+            onClick={onClick}
+            className={`flex items-center gap-1.5 text-[10.5px] font-medium py-1 px-2 rounded-md transition-colors ${active ? 'text-[#f77f00]' : 'text-[#575555] hover:text-[#f77f00] hover:bg-[#fff8ee]'}`}
+          >
+            {icon}{label}
           </button>
-          <button className="text-[#9199a3] hover:text-[#ff9400] transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="h-px bg-[#f2f2f3]" />
-
-      {/* Exp / Salary / Type */}
-      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-sm">
-        <span>
-          <span className="text-[#ff9400] font-medium">Exp - </span>
-          <span className="text-[#18191c] font-semibold">{post.exp}</span>
-        </span>
-        <span className="text-[#d0d3d8] select-none">|</span>
-        <span>
-          <span className="text-[#ff9400] font-medium">Salary - </span>
-          <span className="text-[#18191c] font-semibold">{post.salary}</span>
-        </span>
-        <span className="text-[#d0d3d8] select-none">|</span>
-        <span>
-          <span className="text-[#ff9400] font-medium">Type - </span>
-          <span className="text-[#18191c] font-semibold">{post.type}</span>
-        </span>
-      </div>
-
-      {/* Skills */}
-      <div className="flex items-center flex-wrap gap-2">
-        <span className="text-[#ff9400] text-sm font-medium">Skills -</span>
-        {post.skills.map(s => (
-          <span key={s} className="text-sm border border-[#e4e5e8] rounded-full px-3 py-0.5 text-[#18191c]">{s}</span>
         ))}
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-[#9199a3]">{post.posted}</span>
-        <button className="text-[#ff9400] font-medium hover:underline">Show more</button>
+    </div>
+  );
+}
+
+// ─── Community Card ───────────────────────────────────────────────────────────
+
+function CommunityCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: string) => void }) {
+  const [liked, setLiked] = useState(false);
+  const name = getDisplayName(post.user);
+  const isPoll = post.post_type === 'poll' && post.poll_options && post.poll_options.length > 0;
+  const hasMedia = post.media_urls && post.media_urls.length > 0;
+
+  return (
+    <div className="bg-white border border-[#f2f2f3] rounded-2xl p-5 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Avatar name={name} url={post.user?.avatar_url} size={44} />
+          <div>
+            <p className="text-[#18191c] text-sm font-bold leading-tight">{name}</p>
+            <p className="text-[#9199a3] text-xs">{relativeTime(post.created_at)}</p>
+          </div>
+        </div>
+        <SavedBadge onUnsave={() => onUnsave(post.id)} />
+      </div>
+
+      {post.content && <p className="text-[#18191c] text-sm leading-relaxed">{post.content}</p>}
+      {isPoll && post.poll_question && <p className="text-[#18191c] text-sm font-medium">{post.poll_question}</p>}
+
+      {hasMedia && !isPoll && (
+        <img src={post.media_urls![0]} alt="" className="w-full h-[200px] object-cover rounded-xl" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+      )}
+      {isPoll && post.poll_options && (
+        <div className="flex flex-col gap-2">
+          {post.poll_options.map(opt => (
+            <div key={opt} className="bg-[#fff6ed] rounded-lg px-3 py-2 text-sm text-[#18191c]">{opt}</div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-4 pt-1 border-t border-[#f2f2f3]">
+        <button onClick={() => setLiked(v => !v)} className={`flex items-center gap-1.5 text-sm transition-colors ${liked ? 'text-[#ff4757]' : 'text-[#9199a3] hover:text-[#ff4757]'}`}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill={liked ? '#ff4757' : 'none'} stroke={liked ? '#ff4757' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+          </svg>
+          Like
+        </button>
+        <button className="flex items-center gap-1.5 text-sm text-[#9199a3] hover:text-[#f77f00] transition-colors">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+          Comment
+        </button>
       </div>
     </div>
   );
 }
 
-// ── Category config ───────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-const CATEGORIES: Record<string, { title: string; cols: string }> = {
-  community: { title: 'My Community Posts', cols: 'grid-cols-1 sm:grid-cols-2' },
-  discover: { title: 'Discover', cols: 'grid-cols-1 sm:grid-cols-2' },
-  learning: { title: 'Learning Directory', cols: 'grid-cols-1 sm:grid-cols-2' },
-  employment: { title: 'Employment Hub', cols: 'grid-cols-1 sm:grid-cols-2' },
+const CATEGORY_META: Record<string, { title: string }> = {
+  community: { title: 'My Community Posts' },
+  discover:  { title: 'Saved Discover Posts' },
+  learning:  { title: 'Learning Directory' },
+  employment:{ title: 'Employment Hub' },
 };
 
-// ── Page ─────────────────────────────────────────────────────────────────────
-
 export default function SavedCategoryPage() {
-  const { category = 'community' } = useParams<{ category: string }>();
+  const { category = 'discover' } = useParams<{ category: string }>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
-  const config = CATEGORIES[category] ?? CATEGORIES.community;
+  const [discoverPosts, setDiscoverPosts] = useState<SavedDiscoverSnapshot[]>([]);
+  const [communityPosts, setCommunityPosts] = useState<FeedPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  function renderCards() {
-    if (category === 'community') return COMMUNITY_POSTS.map(p => <CommunityCard key={p.id} post={p} />);
-    if (category === 'discover') return DISCOVER_POSTS.map(p => <DiscoverCard key={p.id} post={p} />);
-    if (category === 'learning') return LEARNING_POSTS.map(p => <LearningCard key={p.id} post={p} />);
-    if (category === 'employment') return EMPLOYMENT_POSTS.map(p => <EmploymentCard key={p.id} post={p} />);
-    return null;
+  const meta = CATEGORY_META[category] ?? CATEGORY_META.discover;
+
+  useEffect(() => {
+    setLoading(true);
+    if (category === 'discover') {
+      fetchSavedDiscoverItems()
+        .then(setDiscoverPosts)
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else if (category === 'community') {
+      fetchSavedCommunityPosts()
+        .then(setCommunityPosts)
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [category]);
+
+  function handleDiscoverUnsave(id: string) {
+    unsaveDiscoverItem(id).catch(() => {});
+    setDiscoverPosts(prev => prev.filter(p => p.id !== id));
+  }
+
+  function handleCommunityUnsave(id: string) {
+    unsavePost(id).catch(() => {});
+    setCommunityPosts(prev => prev.filter(p => p.id !== id));
+  }
+
+  function renderContent() {
+    if (loading) {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+        </div>
+      );
+    }
+
+    if (category === 'discover') {
+      if (discoverPosts.length === 0) {
+        return (
+          <div className="grid grid-cols-1">
+            <EmptyState
+              message="No saved discover posts"
+              sub="Bookmark any opportunity on the Discover page and it will appear here."
+            />
+          </div>
+        );
+      }
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {discoverPosts.map(p => (
+            <DiscoverCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} />
+          ))}
+        </div>
+      );
+    }
+
+    if (category === 'community') {
+      if (communityPosts.length === 0) {
+        return (
+          <div className="grid grid-cols-1">
+            <EmptyState
+              message="No saved community posts"
+              sub='Click "Save" on any home feed post and it will appear here.'
+            />
+          </div>
+        );
+      }
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {communityPosts.map(p => (
+            <CommunityCard key={p.id} post={p} onUnsave={handleCommunityUnsave} />
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1">
+        <EmptyState message="Coming soon" sub="This category will be available soon." />
+      </div>
+    );
   }
 
   return (
@@ -325,22 +406,32 @@ export default function SavedCategoryPage() {
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8">
 
-          {/* Back nav */}
+          {/* Back */}
           <button
             onClick={() => navigate('/saved')}
-            className="flex items-center gap-2 text-[#9199a3] text-sm font-medium hover:text-[#18191c] transition-colors mb-4"
+            className="flex items-center gap-3 text-[#565555] text-base font-medium hover:text-[#18191c] transition-colors mb-5"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
+            <svg width="9" height="17" viewBox="0 0 9 17" fill="none">
+              <path d="M8 1L1 8.5L8 16" stroke="#565555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             Saved
           </button>
 
-          <h1 className="text-[#18191c] text-2xl font-bold mb-6">{config.title}</h1>
-
-          <div className={`grid ${config.cols} gap-5`}>
-            {renderCards()}
+          <div className="flex items-center gap-3 mb-6">
+            <h1 className="text-black text-2xl font-medium tracking-[0.48px]">{meta.title}</h1>
+            {!loading && category === 'discover' && discoverPosts.length > 0 && (
+              <span className="bg-[#fff6ed] text-[#ff9400] text-sm font-semibold px-2.5 py-0.5 rounded-full">
+                {discoverPosts.length}
+              </span>
+            )}
+            {!loading && category === 'community' && communityPosts.length > 0 && (
+              <span className="bg-[#fff6ed] text-[#ff9400] text-sm font-semibold px-2.5 py-0.5 rounded-full">
+                {communityPosts.length}
+              </span>
+            )}
           </div>
+
+          {renderContent()}
 
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import logoImg from "../../assets/images/logo/logo.png";
+import signupBg from "../../assets/images/loginsignup/l1.png";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -269,11 +270,9 @@ export default function OrgFormPage() {
       </div>
 
       {/* ── Right panel — photo + orange overlay + quote ── */}
-      <div className="hidden lg:flex relative lg:w-[45%] xl:w-[46%] shrink-0 overflow-hidden">
-        {/* Background gradient fallback (photo would go here) */}
-        <div className="absolute inset-0 bg-[#c8956c]" />
+      <div className="hidden lg:flex relative lg:w-[45%] xl:w-[46%] shrink-0 overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url(${signupBg})` }}>
         {/* Orange overlay */}
-        <div className="absolute inset-0 bg-[rgba(255,148,0,0.50)]" />
+        <div className="absolute inset-0" style={{ background: 'rgba(255, 148, 0, 0.50)' }} />
         {/* Quote */}
         <div className="relative z-10 flex items-center justify-center w-full px-16">
           <div>
