@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   UserProfile,
   EditProfileForm,
@@ -15,10 +15,167 @@ const SOCIAL_PLATFORMS = [
   "LinkedIn",
 ];
 
-const EDUCATION_LEVELS = ["High School", "Diploma", "Undergraduate", "Postgraduate", "PhD", "Other"];
-const WORK_SECTORS = ["Private", "Public / Government", "Non-Profit / NGO", "Self-Employed", "Other"];
-const WORK_INDUSTRIES = ["Technology", "Finance & Banking", "Healthcare", "Education", "Manufacturing", "Retail & Commerce", "Media & Entertainment", "Consulting", "Other"];
-const EXPERIENCE_OPTIONS = ["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+ years"];
+const EDUCATION_LEVELS = [
+  "Middle School (Class 6–8)",
+  "Secondary School (Class 9–10)",
+  "Vocational / Diploma / ITI",
+  "Higher Secondary (Class 11–12)",
+  "Undergraduate (UG)",
+  "Postgraduate (PG)",
+  "PhD / Research",
+];
+
+const WORK_SECTORS = [
+  "Government Sector",
+  "Private Sector",
+  "Freelance / Independent",
+  "Others",
+];
+
+const WORK_INDUSTRIES = [
+  "Agriculture and Agribusiness",
+  "Aerospace and Defense",
+  "Architecture & Design",
+  "Arts and Culture (Museums, Galleries)",
+  "Automotive",
+  "Aviation",
+  "Banking and Finance",
+  "Biotechnology",
+  "Chemicals",
+  "Consumer Electronics",
+  "Construction",
+  "Consulting Services (Management, Environmental)",
+  "Cybersecurity",
+  "Defense Manufacturing",
+  "Digital Marketing and Advertising",
+  "Education and EdTech",
+  "Energy & Utilities (Electric, Water, and Waste Management)",
+  "Entertainment & Media",
+  "Environmental Services and Sustainability",
+  "Fashion & Apparel",
+  "Fintech and Financial Services",
+  "Food and Beverage",
+  "Healthcare Services",
+  "Hospitality & Tourism",
+  "Human Resources & Staffing",
+  "Information Technology (IT) and Business Process Management (BPM)",
+  "Insurance",
+  "Legal Services",
+  "Logistics & Supply Chain",
+  "Manufacturing",
+  "Marine & Shipping (Port Operations)",
+  "Marketing & Advertising",
+  "Medical Devices",
+  "Metals and Mining",
+  "Oil and Gas",
+  "Pharmaceuticals",
+  "Professional Services (Legal, Accounting)",
+  "Real Estate",
+  "Retail & E-commerce",
+  "Software Development",
+  "Sports Management and Recreational Services",
+  "Technology Services",
+  "Telecommunications",
+  "Transportation and Logistics",
+  "Others",
+];
+
+const DESCRIBE_OPTIONS: Record<string, string[]> = {
+  established: ["Startup Mentor", "Angel Investor", "Others"],
+  aspiring: ["Student", "Working Professional", "Out of Work"],
+};
+
+const TEACH_SUBJECTS = [
+  "Creative Arts",
+  "Music and Performing Arts",
+  "Sports and Physical Activities",
+  "Language Learning",
+  "DIY Projects",
+  "Photography and Videography",
+  "Cooking and Culinary Arts",
+  "Gardening and Nature Exploration",
+  "Writing and Literature",
+  "Crafts and Handmade Creations",
+  "Science and Technology Exploration",
+  "Mindfulness and Meditation",
+  "Cultural Exploration",
+  "Health and Fitness",
+  "Gaming and E-Sports",
+  "Astronomy and Space Exploration",
+  "Historical Reenactments and Study",
+  "Martial Arts and Self-Defense",
+  "Fashion Design and Styling",
+  "Aquatic Sports and Activities",
+  "Public Speaking and Debate",
+  "Others",
+];
+
+// ── Custom Dropdown (Figma design) ────────────────────────────────────────────
+function CustomSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative w-full">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full h-[44px] border border-[#e4e5e8] rounded-full px-4 bg-white flex items-center justify-between text-sm focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors"
+      >
+        <span className={value ? "text-[#18191c]" : "text-[#9199a3]"}>
+          {value || placeholder || "Select..."}
+        </span>
+        <svg
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+          className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6 6-6" stroke="#9199a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-[#d6d6d6] rounded-[8px] shadow-lg max-h-[220px] overflow-y-auto">
+          {options.map((opt) => {
+            const selected = opt === value;
+            return (
+              <div
+                key={opt}
+                onClick={() => { onChange(opt); setOpen(false); }}
+                className={`flex items-center px-[8px] py-[2px] cursor-pointer ${selected ? "border-l-4 border-[#f77f00]" : ""}`}
+              >
+                <div className="flex items-center px-[8px] py-[12px] w-full">
+                  <span className={`text-[12px] leading-normal flex-1 ${selected ? "text-[#f77f00]" : "text-[#6b6b6b]"}`}>
+                    {opt}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   profile: UserProfile;
@@ -317,14 +474,12 @@ export default function EditProfileModal({
                     <>
                       <div>
                         <label className={labelCls}>Education Level</label>
-                        <select
+                        <CustomSelect
                           value={form.educationLevel ?? ""}
-                          onChange={(e) => set("educationLevel", e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">Select education level</option>
-                          {EDUCATION_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                        </select>
+                          onChange={(v) => set("educationLevel", v)}
+                          options={EDUCATION_LEVELS}
+                          placeholder="Select education level"
+                        />
                       </div>
                       <div>
                         <label className={labelCls}>School / College Name</label>
@@ -364,36 +519,21 @@ export default function EditProfileModal({
                       </div>
                       <div>
                         <label className={labelCls}>Work Sector</label>
-                        <select
+                        <CustomSelect
                           value={form.workSector ?? ""}
-                          onChange={(e) => set("workSector", e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">Select work sector</option>
-                          {WORK_SECTORS.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                          onChange={(v) => set("workSector", v)}
+                          options={WORK_SECTORS}
+                          placeholder="Select work sector"
+                        />
                       </div>
                       <div>
                         <label className={labelCls}>Industry</label>
-                        <select
+                        <CustomSelect
                           value={form.workIndustry ?? ""}
-                          onChange={(e) => set("workIndustry", e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">Select industry</option>
-                          {WORK_INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls}>Years of Experience</label>
-                        <select
-                          value={form.experience ?? ""}
-                          onChange={(e) => set("experience", e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">Select experience</option>
-                          {EXPERIENCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                          onChange={(v) => set("workIndustry", v)}
+                          options={WORK_INDUSTRIES}
+                          placeholder="Select industry"
+                        />
                       </div>
                     </>
                   )}
@@ -423,26 +563,28 @@ export default function EditProfileModal({
                       </div>
                       <div>
                         <label className={labelCls}>Entrepreneur Type</label>
-                        <select
-                          value={form.entrepreneurType ?? ""}
-                          onChange={(e) => set("entrepreneurType", e.target.value as 'established' | 'aspiring')}
-                          className={inputCls}
-                        >
-                          <option value="">Select type</option>
-                          <option value="established">Established Entrepreneur</option>
-                          <option value="aspiring">Aspiring Entrepreneur</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls}>Describe Yourself As</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. SaaS Founder, Social Entrepreneur"
-                          value={form.describeAs ?? ""}
-                          onChange={(e) => set("describeAs", e.target.value)}
-                          className={inputCls}
+                        <CustomSelect
+                          value={form.entrepreneurType === 'established' ? 'Established Entrepreneur' : form.entrepreneurType === 'aspiring' ? 'Aspiring Entrepreneur' : ""}
+                          onChange={(v) => {
+                            const val = v === 'Established Entrepreneur' ? 'established' : 'aspiring';
+                            set("entrepreneurType", val as 'established' | 'aspiring');
+                            set("describeAs", "");
+                          }}
+                          options={['Established Entrepreneur', 'Aspiring Entrepreneur']}
+                          placeholder="Select type"
                         />
                       </div>
+                      {form.entrepreneurType && (
+                        <div>
+                          <label className={labelCls}>Describe Yourself As</label>
+                          <CustomSelect
+                            value={form.describeAs ?? ""}
+                            onChange={(v) => set("describeAs", v)}
+                            options={DESCRIBE_OPTIONS[form.entrepreneurType] ?? []}
+                            placeholder="Select description"
+                          />
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -451,12 +593,11 @@ export default function EditProfileModal({
                     <>
                       <div>
                         <label className={labelCls}>Subject / Area You Teach</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Music, Yoga, Fine Arts"
+                        <CustomSelect
                           value={form.teachSubject ?? ""}
-                          onChange={(e) => set("teachSubject", e.target.value)}
-                          className={inputCls}
+                          onChange={(v) => set("teachSubject", v)}
+                          options={TEACH_SUBJECTS}
+                          placeholder="Select subject / area"
                         />
                       </div>
                       <div>
@@ -468,17 +609,6 @@ export default function EditProfileModal({
                           onChange={(e) => set("company", e.target.value)}
                           className={inputCls}
                         />
-                      </div>
-                      <div>
-                        <label className={labelCls}>Years of Experience</label>
-                        <select
-                          value={form.experience ?? ""}
-                          onChange={(e) => set("experience", e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">Select experience</option>
-                          {EXPERIENCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                        </select>
                       </div>
                     </>
                   )}

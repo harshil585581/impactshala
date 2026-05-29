@@ -41,15 +41,7 @@ function Avatar({ name, url, size = 40 }: { name: string; url?: string | null; s
   );
 }
 
-function SavedBadge({ onUnsave }: { onUnsave: () => void }) {
-  return (
-    <button onClick={onUnsave} title="Remove from saved" className="text-[#22c55e] hover:text-red-400 transition-colors shrink-0">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
-      </svg>
-    </button>
-  );
-}
+
 
 function EmptyState({ message, sub }: { message: string; sub: string }) {
   return (
@@ -341,7 +333,6 @@ function CommunityCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: stri
           )}
           <div className="flex flex-col gap-2">
             {(post.poll_options ?? []).map(opt => {
-              const totalV = totalVotes + (voted ? 0 : 0);
               const pct = voted
                 ? Math.round(((pollCounts[opt] ?? 0) / Math.max(totalVotes, 1)) * 100)
                 : (POLL_WIDTHS[opt] ?? 0);
