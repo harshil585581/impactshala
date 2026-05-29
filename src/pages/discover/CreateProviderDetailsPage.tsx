@@ -33,6 +33,7 @@ export default function CreateProviderDetailsPage() {
   const [eligibility, setEligibility] = useState("");
   const [lastDate, setLastDate] = useState("");
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
   const [onsiteVenue, setOnsiteVenue] = useState("");
   const [onlineAccess, setOnlineAccess] = useState("");
@@ -67,7 +68,10 @@ export default function CreateProviderDetailsPage() {
 
   function handleCover(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) setCoverPreview(URL.createObjectURL(file));
+    if (file) {
+      setCoverFile(file);
+      setCoverPreview(URL.createObjectURL(file));
+    }
   }
 
   function handleNext() {
@@ -82,6 +86,7 @@ export default function CreateProviderDetailsPage() {
         eligibility,
         lastDate,
         coverPreview,
+        coverFile,
         description,
         onsiteVenue,
         onlineAccess,

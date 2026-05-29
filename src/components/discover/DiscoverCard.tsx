@@ -118,11 +118,16 @@ export default function DiscoverCard({
       </div>
 
       {/* Cover image */}
-      <img
-        src={item.imageUrl || "https://placehold.co/670x150/f5f5f5/cccccc"}
-        alt=""
-        className="w-full h-[150px] object-cover"
-      />
+      {item.imageUrl && (
+        <img
+          src={item.imageUrl}
+          alt=""
+          className="w-full h-[150px] object-cover"
+          onError={e => {
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+        />
+      )}
 
       <div className="px-5 py-4">
         {/* Body text */}
