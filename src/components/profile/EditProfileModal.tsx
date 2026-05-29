@@ -15,6 +15,11 @@ const SOCIAL_PLATFORMS = [
   "LinkedIn",
 ];
 
+const EDUCATION_LEVELS = ["High School", "Diploma", "Undergraduate", "Postgraduate", "PhD", "Other"];
+const WORK_SECTORS = ["Private", "Public / Government", "Non-Profit / NGO", "Self-Employed", "Other"];
+const WORK_INDUSTRIES = ["Technology", "Finance & Banking", "Healthcare", "Education", "Manufacturing", "Retail & Commerce", "Media & Entertainment", "Consulting", "Other"];
+const EXPERIENCE_OPTIONS = ["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+ years"];
+
 interface Props {
   profile: UserProfile;
   experiences: any[];
@@ -108,6 +113,14 @@ export default function EditProfileModal({
     services: [...(profile.services ?? [])],
     socialLinks: [...profile.socialLinks],
     reachFor: [...profile.reachFor],
+    educationLevel: profile.educationLevel ?? "",
+    instituteName: profile.instituteName ?? "",
+    workSector: profile.workSector ?? "",
+    workIndustry: profile.workIndustry ?? "",
+    experience: profile.experience ?? "",
+    entrepreneurType: profile.entrepreneurType,
+    describeAs: profile.describeAs ?? "",
+    teachSubject: profile.teachSubject ?? "",
   });
   const [errors, setErrors] = useState<
     Partial<Record<keyof EditProfileForm, string>>
@@ -267,6 +280,7 @@ export default function EditProfileModal({
                 </>
               ) : (
                 <>
+                  {/* First + Last name — common to all individual roles */}
                   <div className="flex gap-3">
                     <div className="flex-1">
                       <label className={labelCls}>First Name *</label>
@@ -279,9 +293,7 @@ export default function EditProfileModal({
                         aria-invalid={!!errors.firstName}
                       />
                       {errors.firstName && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.firstName}
-                        </p>
+                        <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
                       )}
                     </div>
                     <div className="flex-1">
@@ -295,32 +307,183 @@ export default function EditProfileModal({
                         aria-invalid={!!errors.lastName}
                       />
                       {errors.lastName && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.lastName}
-                        </p>
+                        <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
                       )}
                     </div>
                   </div>
-                  <div>
-                    <label className={labelCls}>Job Title / Role</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. UI/UX Designer"
-                      value={form.title}
-                      onChange={(e) => set("title", e.target.value)}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Company / Organisation</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Accenture"
-                      value={form.company}
-                      onChange={(e) => set("company", e.target.value)}
-                      className={inputCls}
-                    />
-                  </div>
+
+                  {/* Student-specific fields */}
+                  {profile.role === 'student' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Education Level</label>
+                        <select
+                          value={form.educationLevel ?? ""}
+                          onChange={(e) => set("educationLevel", e.target.value)}
+                          className={inputCls}
+                        >
+                          <option value="">Select education level</option>
+                          {EDUCATION_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>School / College Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. IIT Bombay"
+                          value={form.instituteName ?? ""}
+                          onChange={(e) => set("instituteName", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Working Professional-specific fields */}
+                  {profile.role === 'professional' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Job Title / Role</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. UI/UX Designer"
+                          value={form.title}
+                          onChange={(e) => set("title", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Company / Organisation</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Accenture"
+                          value={form.company}
+                          onChange={(e) => set("company", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Work Sector</label>
+                        <select
+                          value={form.workSector ?? ""}
+                          onChange={(e) => set("workSector", e.target.value)}
+                          className={inputCls}
+                        >
+                          <option value="">Select work sector</option>
+                          {WORK_SECTORS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Industry</label>
+                        <select
+                          value={form.workIndustry ?? ""}
+                          onChange={(e) => set("workIndustry", e.target.value)}
+                          className={inputCls}
+                        >
+                          <option value="">Select industry</option>
+                          {WORK_INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Years of Experience</label>
+                        <select
+                          value={form.experience ?? ""}
+                          onChange={(e) => set("experience", e.target.value)}
+                          className={inputCls}
+                        >
+                          <option value="">Select experience</option>
+                          {EXPERIENCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Entrepreneur-specific fields */}
+                  {profile.role === 'entrepreneur' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Job Title / Role</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Founder & CEO"
+                          value={form.title}
+                          onChange={(e) => set("title", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Venture / Company Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. My Startup"
+                          value={form.company}
+                          onChange={(e) => set("company", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Entrepreneur Type</label>
+                        <select
+                          value={form.entrepreneurType ?? ""}
+                          onChange={(e) => set("entrepreneurType", e.target.value as 'established' | 'aspiring')}
+                          className={inputCls}
+                        >
+                          <option value="">Select type</option>
+                          <option value="established">Established Entrepreneur</option>
+                          <option value="aspiring">Aspiring Entrepreneur</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Describe Yourself As</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. SaaS Founder, Social Entrepreneur"
+                          value={form.describeAs ?? ""}
+                          onChange={(e) => set("describeAs", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Educator-specific fields */}
+                  {profile.role === 'educator' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Subject / Area You Teach</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Music, Yoga, Fine Arts"
+                          value={form.teachSubject ?? ""}
+                          onChange={(e) => set("teachSubject", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Teaching At (Institute / Studio)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Self-employed, XYZ Academy"
+                          value={form.company}
+                          onChange={(e) => set("company", e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Years of Experience</label>
+                        <select
+                          value={form.experience ?? ""}
+                          onChange={(e) => set("experience", e.target.value)}
+                          className={inputCls}
+                        >
+                          <option value="">Select experience</option>
+                          {EXPERIENCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Location and Bio — common to all individual roles */}
                   <div>
                     <label className={labelCls}>Location</label>
                     <input
