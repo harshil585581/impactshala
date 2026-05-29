@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
         </div>
         <div className="relative z-10 px-5 sm:px-8 pb-6 sm:pb-8">
           <p className="text-white text-lg sm:text-xl font-semibold leading-snug max-w-xs">
-            Inspiring Education, Aspiring Opportunities!
+            Where Growth Meets Purpose
           </p>
         </div>
       </div>
@@ -130,9 +130,9 @@ export default function ForgotPasswordPage() {
                 "
               </span>
               <h2 className="text-[#e5e7eb] text-3xl xl:text-4xl font-semibold leading-[1.5] -mt-4">
-                Inspiring Education,
+                Where Growth,
                 <br />
-                Aspiring Opportunities!
+                Meets Purpose!
               </h2>
             </div>
           </div>

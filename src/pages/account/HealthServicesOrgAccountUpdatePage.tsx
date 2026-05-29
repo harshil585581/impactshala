@@ -45,15 +45,6 @@ const SOCIAL_PLATFORMS = [
   'Medium / Substack',
 ];
 
-const PLATFORM_ICONS: Record<string, string> = {
-  LinkedIn: '💼',
-  GitHub: '🐙',
-  'Behance / Dribbble': '🎨',
-  Instagram: '📸',
-  'Twitter / X': '🐦',
-  Facebook: '📘',
-  'Medium / Substack': '📝',
-};
 
 const inputCls =
   'w-full h-[48px] border border-[#e4e5e8] bg-white rounded-full px-4 text-sm text-[#18191c] placeholder-[#9199a3] focus:outline-none focus:border-[#ff9400] focus:ring-1 focus:ring-[#ff9400] transition-colors';
@@ -191,7 +182,6 @@ function SocialPlatformDropdown({ value, onChange }: { value: string; onChange: 
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 text-sm font-medium text-[#18191c] bg-transparent focus:outline-none whitespace-nowrap"
       >
-        <span>{PLATFORM_ICONS[value] ?? '🔗'}</span>
         <span>{value}</span>
         <svg className={`text-[#9199a3] transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none">
           <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -199,17 +189,16 @@ function SocialPlatformDropdown({ value, onChange }: { value: string; onChange: 
       </button>
 
       {open && (
-        <div className="absolute z-50 top-[calc(100%+10px)] left-0 bg-white rounded-2xl shadow-[0px_8px_32px_rgba(0,0,0,0.12)] border border-[#f2f2f3] overflow-hidden min-w-[190px]">
+        <div className="absolute z-50 top-[calc(100%+10px)] left-0 bg-white rounded-[8px] shadow-lg border border-[#d6d6d6] overflow-y-auto max-h-[220px] min-w-[190px]">
           {SOCIAL_PLATFORMS.map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => { onChange(p); setOpen(false); }}
-              className={`w-full text-left px-5 py-3 text-sm flex items-center gap-2.5 transition-colors ${value === p ? 'text-[#ff9400] font-semibold bg-[#fff8f0]' : 'text-[#18191c] hover:bg-[#f9fafb]'
+              className={`w-full text-left px-3 py-3 text-[12px] transition-colors ${value === p ? 'text-[#f77f00] border-l-4 border-[#f77f00] bg-[#fff8f0]' : 'text-[#6b6b6b] hover:bg-[#f9fafb]'
                 }`}
             >
-              <span>{PLATFORM_ICONS[p]}</span>
-              <span>{p}</span>
+              {p}
             </button>
           ))}
         </div>
