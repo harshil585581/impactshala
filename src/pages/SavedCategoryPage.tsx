@@ -244,53 +244,167 @@ function DiscoverCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onUnsav
   );
 }
 
-// ─── Community Card ───────────────────────────────────────────────────────────
+// ─── Community Card (matches Figma 301913:18228) ──────────────────────────────
 
 function CommunityCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: string) => void }) {
-  const [liked, setLiked] = useState(false);
+  const [voted, setVoted] = useState<string | null>(null);
+  const [pollCounts, setPollCounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries((post.poll_options ?? []).map(o => [o, 0]))
+  );
+
   const name = getDisplayName(post.user);
+  const time = relativeTime(post.created_at);
   const isPoll = post.post_type === 'poll' && post.poll_options && post.poll_options.length > 0;
+  const isEvent = post.post_type === 'event';
   const hasMedia = post.media_urls && post.media_urls.length > 0;
 
+  const totalVotes = Object.values(pollCounts).reduce((s, v) => s + v, 0);
+
+  const POLL_WIDTHS: Record<string, number> = {
+    'Work-Life Balance': 89, 'Salary & Benefits': 95,
+    'Growth Opportunities': 65, 'Company Culture': 40,
+  };
+
+  function handleVote(opt: string) {
+    if (voted) return;
+    setVoted(opt);
+    setPollCounts(prev => ({ ...prev, [opt]: (prev[opt] ?? 0) + 1 }));
+  }
+
   return (
-    <div className="bg-white border border-[#f2f2f3] rounded-2xl p-5 flex flex-col gap-3">
+    <div className="bg-white border border-[#ececec] shadow-[0px_1px_1px_rgba(0,0,0,0.05)] rounded-[16px] px-[25px] py-[15px] flex flex-col gap-[15px]">
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Avatar name={name} url={post.user?.avatar_url} size={44} />
+          <Avatar name={name} url={post.user?.avatar_url} size={40} />
           <div>
-            <p className="text-[#18191c] text-sm font-bold leading-tight">{name}</p>
-            <p className="text-[#9199a3] text-xs">{relativeTime(post.created_at)}</p>
+            <p className="text-[#222] text-[16px] font-semibold leading-tight">{name}</p>
+            <p className="text-[#8e8e8e] text-[12px] leading-tight mt-0.5">{time}</p>
           </div>
         </div>
-        <SavedBadge onUnsave={() => onUnsave(post.id)} />
+        <div className="flex items-center gap-3.5">
+          {/* Add person (orange) — acts as unsave */}
+          <button onClick={() => onUnsave(post.id)} title="Remove from saved" className="text-[#f77f00] hover:opacity-75 transition-opacity">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <line x1="19" y1="8" x2="19" y2="14"/>
+              <line x1="22" y1="11" x2="16" y2="11"/>
+            </svg>
+          </button>
+          {/* 3-dot menu */}
+          <button className="text-[#9ca3af] hover:text-[#374151] transition-colors">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {post.content && <p className="text-[#18191c] text-sm leading-relaxed">{post.content}</p>}
-      {isPoll && post.poll_question && <p className="text-[#18191c] text-sm font-medium">{post.poll_question}</p>}
-
-      {hasMedia && !isPoll && (
-        <img src={post.media_urls![0]} alt="" className="w-full h-[200px] object-cover rounded-xl" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+      {/* ── Content ── */}
+      {post.content && (
+        <p className="text-[#222] text-[16px] leading-normal">{post.content}</p>
       )}
-      {isPoll && post.poll_options && (
-        <div className="flex flex-col gap-2">
-          {post.poll_options.map(opt => (
-            <div key={opt} className="bg-[#fff6ed] rounded-lg px-3 py-2 text-sm text-[#18191c]">{opt}</div>
-          ))}
+
+      {/* ── Media image ── */}
+      {hasMedia && !isPoll && (
+        <div className="w-full h-[200px] bg-[#232246] rounded-[12px] overflow-hidden">
+          <img
+            src={post.media_urls![0]} alt=""
+            className="w-full h-full object-cover block"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
         </div>
       )}
 
-      <div className="flex items-center gap-4 pt-1 border-t border-[#f2f2f3]">
-        <button onClick={() => setLiked(v => !v)} className={`flex items-center gap-1.5 text-sm transition-colors ${liked ? 'text-[#ff4757]' : 'text-[#9199a3] hover:text-[#ff4757]'}`}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill={liked ? '#ff4757' : 'none'} stroke={liked ? '#ff4757' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round">
-            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+      {/* ── Event cover ── */}
+      {isEvent && post.cover_image_url && (
+        <div className="w-full h-[200px] bg-[#232246] rounded-[12px] overflow-hidden">
+          <img src={post.cover_image_url} alt="" className="w-full h-full object-cover block" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        </div>
+      )}
+
+      {/* ── Event info ── */}
+      {isEvent && (
+        <div className="bg-[#fff6ed] border border-[#ffeacc] rounded-xl px-4 py-2.5 flex flex-col gap-0.5">
+          {post.event_title && <p className="text-[#222] text-[15px] font-semibold">{post.event_title}</p>}
+          {post.start_date && <p className="text-[#8e8e8e] text-[13px]">{post.start_date}{post.start_time ? ` · ${post.start_time}` : ''}</p>}
+        </div>
+      )}
+
+      {/* ── Poll ── */}
+      {isPoll && (
+        <div className="bg-white border border-[#e5e7eb] rounded-lg px-4 py-3 flex flex-col gap-[30px]">
+          {post.poll_question && (
+            <p className="text-[#222] text-[16px]">{post.poll_question}</p>
+          )}
+          <div className="flex flex-col gap-2">
+            {(post.poll_options ?? []).map(opt => {
+              const totalV = totalVotes + (voted ? 0 : 0);
+              const pct = voted
+                ? Math.round(((pollCounts[opt] ?? 0) / Math.max(totalVotes, 1)) * 100)
+                : (POLL_WIDTHS[opt] ?? 0);
+              const isVoted = voted === opt;
+              const barWidth = voted ? `${Math.max(pct, 0)}%` : `${POLL_WIDTHS[opt] ?? 40}%`;
+
+              return (
+                <button
+                  key={opt}
+                  onClick={() => handleVote(opt)}
+                  disabled={!!voted}
+                  className={`relative h-[41px] rounded-full border border-[#ffeacc] bg-white text-left overflow-hidden ${voted ? 'cursor-default' : 'cursor-pointer'}`}
+                >
+                  {/* fill bar */}
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                    style={{ width: barWidth, background: 'rgba(255,148,0,0.2)' }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-between px-4">
+                    <span className={`text-[16px] text-[#222] relative z-10 ${isVoted ? 'font-medium' : 'font-light'}`}>{opt}</span>
+                    {(voted || POLL_WIDTHS[opt]) && (
+                      <span className="text-[14px] text-[#222] relative z-10">{pct}%</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Footer: stats + bookmark ── */}
+      <div className="flex items-center justify-between">
+        {/* Stats */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4757" stroke="none">
+              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+            </svg>
+            <span className="text-[#8e8e8e] text-[16px]">245</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e8e" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+            <span className="text-[#8e8e8e] text-[16px]">18</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e8e" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
+            </svg>
+            <span className="text-[#8e8e8e] text-[16px]">5</span>
+          </div>
+        </div>
+
+        {/* Green filled bookmark */}
+        <button onClick={() => onUnsave(post.id)} title="Remove from saved" className="text-[#22c55e] hover:text-red-400 transition-colors">
+          <svg width="16" height="20" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
           </svg>
-          Like
-        </button>
-        <button className="flex items-center gap-1.5 text-sm text-[#9199a3] hover:text-[#f77f00] transition-colors">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
-          Comment
         </button>
       </div>
+
     </div>
   );
 }
