@@ -76,6 +76,22 @@ const MOCK_GROUP_MEMBERS: Record<string, GroupMember[]> = {
   default: DEFAULT_MEMBERS,
 };
 
+type Contact = { id: string; name: string; initials: string; avatarColor: string };
+const ALL_CONTACTS: Contact[] = [
+  { id: "ac1",  name: "Alex Mason",      initials: "AM", avatarColor: "#4f46e5" },
+  { id: "ac2",  name: "Andrew Joseph",   initials: "AJ", avatarColor: "#10b981" },
+  { id: "ac3",  name: "Avery Quinn",     initials: "AQ", avatarColor: "#ec4899" },
+  { id: "ac4",  name: "Brian Michael",   initials: "BM", avatarColor: "#f59e0b" },
+  { id: "ac5",  name: "Cameron Lee",     initials: "CL", avatarColor: "#0ea5e9" },
+  { id: "ac6",  name: "Charles Dean",    initials: "CD", avatarColor: "#8b5cf6" },
+  { id: "ac7",  name: "Dana Cooper",     initials: "DC", avatarColor: "#f77f00" },
+  { id: "ac8",  name: "Emily",           initials: "EM", avatarColor: "#14b8a6" },
+  { id: "ac9",  name: "George Allen",    initials: "GA", avatarColor: "#4f46e5" },
+  { id: "ac10", name: "Jennifer Lynn",   initials: "JL", avatarColor: "#ec4899" },
+  { id: "ac11", name: "Jessica",         initials: "JE", avatarColor: "#f59e0b" },
+  { id: "ac12", name: "John Paul",       initials: "JP", avatarColor: "#0ea5e9" },
+];
+
 const MOCK_GROUP_CHAT_MESSAGES: Record<string, Message[]> = {
   g9: [
     { id: "gc1", text: "Yes, it's available.", sender: "them", time: "4:56 pm", senderName: "George Alan" },
@@ -175,6 +191,16 @@ function Avatar({
 }
 
 // ─── Last message preview ─────────────────────────────────────────────────────
+
+function highlightText(text: string, query: string, isActive = false): React.ReactNode {
+  if (!query.trim()) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <mark key={i} className={`rounded-[2px] not-italic ${isActive ? "bg-[#f77f00] text-white" : "bg-[#ffd580] text-[#141414]"}`}>{part}</mark>
+      : part
+  );
+}
 
 function MessagePreview({ item }: { item: ChatItem }) {
   if (item.lastMessageType === "document") {
@@ -304,6 +330,22 @@ export default function MessagesPage() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [showChatInfo, setShowChatInfo] = useState(false);
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [addMemberSelected, setAddMemberSelected] = useState<string[]>([]);
+  const [addMemberSearch, setAddMemberSearch] = useState("");
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [callOverlay, setCallOverlay] = useState<{ name: string; initials: string; avatarColor: string; avatarImg?: string; isVideo?: boolean } | null>(null);
+  const [callMuted, setCallMuted] = useState(false);
+  const [callHeld, setCallHeld] = useState(false);
+  const [showChatSearch, setShowChatSearch] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [chatSearchIdx, setChatSearchIdx] = useState(0);
+  const [showGroupSearch, setShowGroupSearch] = useState(false);
+  const [groupSearchQuery, setGroupSearchQuery] = useState("");
+  const [groupSearchIdx, setGroupSearchIdx] = useState(0);
   const [groupMessages, setGroupMessages] = useState<Record<string, Message[]>>(MOCK_GROUP_CHAT_MESSAGES);
   const [groupInfoTab, setGroupInfoTab] = useState<"members" | "banned">("members");
   const [memberSearch, setMemberSearch] = useState("");
@@ -642,6 +684,87 @@ export default function MessagesPage() {
       e.preventDefault();
       sendMessage();
     }
+  }
+
+  function toggleAddMember(id: string) {
+    setAddMemberSelected(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
+
+  function handleAddMembers() {
+    setShowAddMembers(false);
+    setAddMemberSelected([]);
+    setAddMemberSearch("");
+  }
+
+  function handleLeaveGroup() {
+    setShowLeaveConfirm(false);
+    setShowGroupInfo(false);
+    setShowChatInfo(false);
+    setActiveGroupId(null);
+  }
+
+  function handleDeleteGroup() {
+    setShowDeleteConfirm(false);
+    setShowGroupInfo(false);
+    setShowChatInfo(false);
+    setActiveGroupId(null);
+    setActiveChatId(null);
+  }
+
+  // ── Chat search navigation ──────────────────────────────────────────────────
+  const chatMatchIds = chatSearchQuery.trim()
+    ? messages.filter(m => m.text?.toLowerCase().includes(chatSearchQuery.toLowerCase())).map(m => m.id)
+    : [];
+
+  useEffect(() => {
+    if (chatMatchIds.length > 0) setChatSearchIdx(chatMatchIds.length - 1);
+    else setChatSearchIdx(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatSearchQuery]);
+
+  useEffect(() => {
+    if (!chatMatchIds.length) return;
+    const idx = Math.min(chatSearchIdx, chatMatchIds.length - 1);
+    document.querySelector(`[data-msg-id="${chatMatchIds[idx]}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatSearchIdx, chatSearchQuery]);
+
+  function chatSearchPrev() {
+    if (!chatMatchIds.length) return;
+    setChatSearchIdx(i => (i - 1 + chatMatchIds.length) % chatMatchIds.length);
+  }
+  function chatSearchNext() {
+    if (!chatMatchIds.length) return;
+    setChatSearchIdx(i => (i + 1) % chatMatchIds.length);
+  }
+
+  // ── Group search navigation ─────────────────────────────────────────────────
+  const groupMatchIds = groupSearchQuery.trim() && activeGroupId
+    ? (groupMessages[activeGroupId] ?? []).filter(m => m.text?.toLowerCase().includes(groupSearchQuery.toLowerCase())).map(m => m.id)
+    : [];
+
+  useEffect(() => {
+    if (groupMatchIds.length > 0) setGroupSearchIdx(groupMatchIds.length - 1);
+    else setGroupSearchIdx(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSearchQuery]);
+
+  useEffect(() => {
+    if (!groupMatchIds.length) return;
+    const idx = Math.min(groupSearchIdx, groupMatchIds.length - 1);
+    document.querySelector(`[data-grp-msg-id="${groupMatchIds[idx]}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSearchIdx, groupSearchQuery]);
+
+  function groupSearchPrev() {
+    if (!groupMatchIds.length) return;
+    setGroupSearchIdx(i => (i - 1 + groupMatchIds.length) % groupMatchIds.length);
+  }
+  function groupSearchNext() {
+    if (!groupMatchIds.length) return;
+    setGroupSearchIdx(i => (i + 1) % groupMatchIds.length);
   }
 
   function sendGroupMessage() {
@@ -1145,23 +1268,29 @@ export default function MessagesPage() {
         {/* ── Right panel ── */}
         <div className="flex-1 bg-[#f5f5f5] flex flex-col overflow-hidden">
           {/* Chats: active conversation */}
-          {activeTab === "chats" && activeChat && (
-            <div className="flex flex-col h-full">
+          {activeTab === "chats" && activeChat && (() => {
+            const chatGroup = MOCK_GROUPS.find(g => g.name === activeChat.name) ?? null;
+            const chatGroupMembers = chatGroup ? (MOCK_GROUP_MEMBERS[chatGroup.id] ?? MOCK_GROUP_MEMBERS.default) : MOCK_GROUP_MEMBERS.default;
+            const filteredChatMembers = chatGroupMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
+            return (
+            <div className="flex h-full">
+              {/* ── Chat column ── */}
+              <div className="flex flex-col flex-1 min-w-0">
               {/* Chat header */}
-              <div className="bg-white border-b border-[#e5e7eb] px-5 py-3.5 flex items-center gap-3">
+              <div className="bg-white border-b border-[#e5e7eb] px-5 py-3.5 flex items-center gap-3 shrink-0">
                 <Avatar initials={activeChat.initials} color={activeChat.avatarColor} img={activeChat.avatarImg} size={40} />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-[15px] text-[#18191c]">{activeChat.name}</p>
                   <p className="text-[12px] text-[#9ca3af]">{activeChat.time ? `Last seen ${activeChat.time}` : "Community member"}</p>
                 </div>
                 <div className="flex items-center gap-3 text-[#9ca3af]">
-                  <button className="hover:text-[#f77f00] transition-colors p-1" aria-label="Video call">
+                  <button onClick={() => setCallOverlay({ name: activeChat.name, initials: activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), avatarColor: activeChat.avatarColor ?? "#f77f00", avatarImg: activeChat.avatarImg, isVideo: true })} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Video call">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><rect x="1" y="5" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" /></svg>
                   </button>
-                  <button className="hover:text-[#f77f00] transition-colors p-1" aria-label="Audio call">
+                  <button onClick={() => setCallOverlay({ name: activeChat.name, initials: activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), avatarColor: activeChat.avatarColor ?? "#f77f00", avatarImg: activeChat.avatarImg })} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Audio call">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </button>
-                  <button className="hover:text-[#f77f00] transition-colors p-1" aria-label="Search">
+                  <button onClick={() => { setShowChatSearch(v => !v); setChatSearchQuery(""); }} className={`transition-colors p-1 ${showChatSearch ? "text-[#f77f00]" : "hover:text-[#f77f00]"}`} aria-label="Search">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5" /><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                   </button>
                   <button className="hover:text-[#f77f00] transition-colors p-1" aria-label="More">
@@ -1169,6 +1298,39 @@ export default function MessagesPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Chat search bar */}
+              {showChatSearch && (
+                <div className="bg-white border-b border-[#e5e7eb] px-4 py-2 flex items-center gap-2 shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#9ca3af] shrink-0"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={chatSearchQuery}
+                    onChange={e => setChatSearchQuery(e.target.value)}
+                    placeholder="Search in conversation…"
+                    className="flex-1 text-[14px] text-[#18191c] placeholder:text-[#9ca3af] bg-transparent focus:outline-none"
+                  />
+                  {chatSearchQuery && (
+                    <span className="text-[12px] text-[#9ca3af] shrink-0">
+                      {chatMatchIds.length > 0 ? `${chatMatchIds.length - chatSearchIdx} of ${chatMatchIds.length}` : "0 found"}
+                    </span>
+                  )}
+                  {chatSearchQuery && chatMatchIds.length > 0 && (
+                    <>
+                      <button onClick={chatSearchPrev} className="text-[#9ca3af] hover:text-[#f77f00] transition-colors shrink-0 p-0.5" title="Previous match">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+                      </button>
+                      <button onClick={chatSearchNext} className="text-[#9ca3af] hover:text-[#f77f00] transition-colors shrink-0 p-0.5" title="Next match">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => { setShowChatSearch(false); setChatSearchQuery(""); }} className="text-[#9ca3af] hover:text-[#374151] transition-colors shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              )}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-2">
@@ -1403,7 +1565,7 @@ export default function MessagesPage() {
                   /* Received message */
                   if (msg.sender === "them") {
                     return (
-                      <div key={msg.id} className="flex justify-start">
+                      <div key={msg.id} data-msg-id={msg.id} className="flex justify-start">
                         <div className="group flex flex-col items-start max-w-[45%] min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <div className="bg-white border border-[#e5e7eb] rounded-2xl rounded-tl-sm px-4 py-2.5 min-w-0 overflow-hidden">
@@ -1413,7 +1575,7 @@ export default function MessagesPage() {
                                   <p className="text-[12px] text-[#9ca3af] truncate max-w-[200px]">{msg.replyTo.text}</p>
                                 </div>
                               )}
-                              <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{msg.text}</p>
+                              <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{highlightText(msg.text ?? "", chatSearchQuery, chatMatchIds[chatSearchIdx] === msg.id)}</p>
                             </div>
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
                               <button onClick={(e) => openEmojiPicker(e, msg.id, false)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors text-[14px]">😊</button>
@@ -1438,7 +1600,7 @@ export default function MessagesPage() {
 
                   /* Sent message */
                   return (
-                    <div key={msg.id} className="flex justify-end">
+                    <div key={msg.id} data-msg-id={msg.id} className="flex justify-end">
                       <div className="group flex flex-col items-end max-w-[45%] min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
@@ -1457,7 +1619,7 @@ export default function MessagesPage() {
                                   <p className="text-[12px] text-[#9ca3af] truncate max-w-[200px]">{msg.replyTo.text}</p>
                                 </div>
                               )}
-                              <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{msg.text}</p>
+                              <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{highlightText(msg.text ?? "", chatSearchQuery, chatMatchIds[chatSearchIdx] === msg.id)}</p>
                               {msg.edited && <span className="text-[10px] text-[#9ca3af] ml-1">(edited)</span>}
                             </div>
                           )}
@@ -1673,8 +1835,91 @@ export default function MessagesPage() {
                   </div>
                 </div>
               </div>
+              </div>{/* end flex-col chat column */}
+
+              {/* ── Chat Info sidebar ── */}
+              {showChatInfo && chatGroup && (
+              <div className="w-[340px] shrink-0 bg-white border-l border-[#e5e7eb] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="bg-white border-b border-[#f5f5f5] h-[64px] flex items-center gap-3 px-4 shrink-0">
+                  <button onClick={() => setShowChatInfo(false)} className="text-[#9ca3af] hover:text-[#374151] transition-colors p-1 shrink-0" aria-label="Close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                  <p className="font-bold text-[20px] text-[#141414]">Group Info</p>
+                </div>
+                {/* Profile */}
+                <div className="flex flex-col items-center px-5 pt-7 pb-5 border-b border-[#f5f5f5]">
+                  <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center font-bold text-[28px]" style={{ backgroundColor: chatGroup.avatarColor, color: "#fff" }}>
+                    {chatGroup.initials}
+                  </div>
+                  <p className="font-bold text-[16px] text-[#141414] mt-3 text-center leading-snug">{chatGroup.name}</p>
+                  <p className="text-[13px] text-[#9ca3af] mt-0.5">{chatGroup.members} Members</p>
+                </div>
+                {/* Actions — hidden when Add Members panel is open */}
+                {!showAddMembers && (<>
+                <div className="border-b border-[#f5f5f5]">
+                  <button onClick={() => { setShowAddMembers(true); setAddMemberSelected([]); setAddMemberSearch(""); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#fff6ed] transition-colors text-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f77f00] shrink-0"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/><circle cx="19" cy="8" r="3.5" fill="white"/><line x1="19" y1="6" x2="19" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="8" x2="21" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    <span className="text-[15px] text-[#ff9400]">Add Members</span>
+                  </button>
+                  <button onClick={() => setShowLeaveConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 00-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/></svg>
+                    <span className="text-[15px] text-[#f44649]">Leave</span>
+                  </button>
+                  <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+                    <span className="text-[15px] text-[#f44649] font-normal">Delete and Exit</span>
+                  </button>
+                </div>
+                {/* Members tabs */}
+                <div className="flex border-b border-[#e5e7eb] shrink-0">
+                  <button onClick={() => setGroupInfoTab("members")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "members" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>View Members</button>
+                  <button onClick={() => setGroupInfoTab("banned")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "banned" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>Banned Members</button>
+                </div>
+                {/* Members search */}
+                <div className="px-4 py-2.5 shrink-0">
+                  <div className="relative">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    <input type="search" value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="Search" className="w-full pl-8 pr-3 py-1.5 rounded-full bg-[#f5f5f5] text-[13px] text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors" />
+                  </div>
+                </div>
+                {/* Members list */}
+                <div className="flex-1 overflow-y-auto">
+                  {groupInfoTab === "members" ? (
+                    filteredChatMembers.length === 0 ? (
+                      <p className="text-center text-[13px] text-[#9ca3af] py-6">No members found</p>
+                    ) : filteredChatMembers.map(member => (
+                      <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#f5f5f5] hover:bg-[#fafafa] transition-colors">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-[13px] shrink-0" style={{ backgroundColor: member.avatarColor }}>{member.initials}</div>
+                        <p className="flex-1 font-medium text-[14px] text-[#141414] truncate">{member.name}</p>
+                        {member.role === "Owner" && <span className="shrink-0 bg-[#ff9400] text-white text-[11px] px-2.5 py-0.5 rounded-full">{member.role}</span>}
+                        {(member.role === "Admin" || member.role === "Moderator") && <span className="shrink-0 border border-[#ff9400] text-[#ff9400] text-[11px] px-2.5 py-0.5 rounded-full">{member.role}</span>}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-[13px] text-[#9ca3af] py-6">No banned members</p>
+                  )}
+                </div>
+                </>)}
+
+                {/* Add Members panel */}
+                {showAddMembers && (
+                  <AddMembersPanel
+                    contacts={ALL_CONTACTS}
+                    selected={addMemberSelected}
+                    search={addMemberSearch}
+                    onSearchChange={setAddMemberSearch}
+                    onToggle={toggleAddMember}
+                    onBack={() => setShowAddMembers(false)}
+                    onAdd={handleAddMembers}
+                  />
+                )}
+              </div>
+              )}
+
             </div>
-          )}
+            );
+          })()}
 
           {/* Calls: call detail */}
           {activeTab === "calls" && activeCall && (
@@ -1690,6 +1935,67 @@ export default function MessagesPage() {
 
               {/* ── Chat column ── */}
               <div className="flex flex-col flex-1 min-w-0">
+
+                {/* Group chat header */}
+                <div className="bg-white border-b border-[#e5e7eb] px-5 py-3.5 flex items-center gap-3 shrink-0">
+                  <Avatar initials={activeGroup.initials} color={activeGroup.avatarColor} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => setShowGroupInfo((v) => !v)}
+                      className="font-bold text-[15px] text-[#18191c] hover:text-[#f77f00] transition-colors text-left truncate max-w-full"
+                    >
+                      {activeGroup.name}
+                    </button>
+                    <p className="text-[12px] text-[#9ca3af]">{activeGroup.members} Members</p>
+                  </div>
+                  <div className="flex items-center gap-3 text-[#9ca3af]">
+                    <button onClick={() => setCallOverlay({ name: activeGroup.name, initials: activeGroup.initials, avatarColor: activeGroup.avatarColor, isVideo: true })} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Video call">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><rect x="1" y="5" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" /></svg>
+                    </button>
+                    <button onClick={() => setCallOverlay({ name: activeGroup.name, initials: activeGroup.initials, avatarColor: activeGroup.avatarColor })} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Voice call">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 01.02 2.18 2 2 0 012 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                    </button>
+                    <button onClick={() => { setShowGroupSearch(v => !v); setGroupSearchQuery(""); }} className={`transition-colors p-1 ${showGroupSearch ? "text-[#f77f00]" : "hover:text-[#f77f00]"}`} aria-label="Search">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    </button>
+                    <button className="hover:text-[#f77f00] transition-colors p-1" aria-label="More">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Group search bar */}
+                {showGroupSearch && (
+                  <div className="bg-white border-b border-[#e5e7eb] px-4 py-2 flex items-center gap-2 shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#9ca3af] shrink-0"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={groupSearchQuery}
+                      onChange={e => setGroupSearchQuery(e.target.value)}
+                      placeholder="Search in conversation…"
+                      className="flex-1 text-[14px] text-[#18191c] placeholder:text-[#9ca3af] bg-transparent focus:outline-none"
+                    />
+                    {groupSearchQuery && (
+                      <span className="text-[12px] text-[#9ca3af] shrink-0">
+                        {groupMatchIds.length > 0 ? `${groupMatchIds.length - groupSearchIdx} of ${groupMatchIds.length}` : "0 found"}
+                      </span>
+                    )}
+                    {groupSearchQuery && groupMatchIds.length > 0 && (
+                      <>
+                        <button onClick={groupSearchPrev} className="text-[#9ca3af] hover:text-[#f77f00] transition-colors shrink-0 p-0.5" title="Previous match">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+                        </button>
+                        <button onClick={groupSearchNext} className="text-[#9ca3af] hover:text-[#f77f00] transition-colors shrink-0 p-0.5" title="Next match">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                        </button>
+                      </>
+                    )}
+                    <button onClick={() => { setShowGroupSearch(false); setGroupSearchQuery(""); }} className="text-[#9ca3af] hover:text-[#374151] transition-colors shrink-0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                )}
 
                 {/* Messages area */}
                 <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-2">
@@ -1708,12 +2014,12 @@ export default function MessagesPage() {
                       );
                     }
                     return (
-                      <div key={msg.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"}`}>
+                      <div key={msg.id} data-grp-msg-id={msg.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"}`}>
                         {!isSent && msg.senderName && (
                           <p className="text-[11px] font-medium text-[#9ca3af] mb-0.5 px-1">{msg.senderName}</p>
                         )}
                         <div className={`max-w-[45%] min-w-0 px-4 py-2.5 rounded-2xl ${isSent ? "bg-[#ffeacc] rounded-tr-sm" : "bg-white border border-[#e5e7eb] rounded-tl-sm"}`}>
-                          <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{msg.text}</p>
+                          <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{highlightText(msg.text ?? "", groupSearchQuery, groupMatchIds[groupSearchIdx] === msg.id)}</p>
                           <p className={`text-[11px] mt-0.5 ${isSent ? "text-right" : ""} text-[#9ca3af]`}>{msg.time}</p>
                         </div>
                       </div>
@@ -1784,7 +2090,16 @@ export default function MessagesPage() {
               </div>
 
               {/* ── Info sidebar ── */}
-              <div className="w-[300px] shrink-0 bg-white border-l border-[#e5e7eb] flex flex-col overflow-hidden">
+              {showGroupInfo && (
+              <div className="w-[340px] shrink-0 bg-white border-l border-[#e5e7eb] flex flex-col overflow-hidden">
+
+                {/* Header */}
+                <div className="bg-white border-b border-[#f5f5f5] h-[64px] flex items-center gap-3 px-4 shrink-0">
+                  <button onClick={() => setShowGroupInfo(false)} className="text-[#9ca3af] hover:text-[#374151] transition-colors p-1 shrink-0" aria-label="Close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                  <p className="font-bold text-[20px] text-[#141414]">Group Info</p>
+                </div>
 
                 {/* Profile */}
                 <div className="flex flex-col items-center px-5 pt-7 pb-5 border-b border-[#f5f5f5]">
@@ -1795,17 +2110,18 @@ export default function MessagesPage() {
                   <p className="text-[13px] text-[#9ca3af] mt-0.5">{activeGroup.members} Members</p>
                 </div>
 
-                {/* Actions */}
+                {/* Actions — hidden when Add Members panel is open */}
+                {!showAddMembers && (<>
                 <div className="border-b border-[#f5f5f5]">
-                  <button className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#fff6ed] transition-colors text-left">
+                  <button onClick={() => { setShowAddMembers(true); setAddMemberSelected([]); setAddMemberSearch(""); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#fff6ed] transition-colors text-left">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f77f00] shrink-0"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/><circle cx="19" cy="8" r="3.5" fill="white"/><line x1="19" y1="6" x2="19" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="8" x2="21" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                     <span className="text-[15px] text-[#ff9400] font-normal">Add Members</span>
                   </button>
-                  <button className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
+                  <button onClick={() => setShowLeaveConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 00-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/></svg>
                     <span className="text-[15px] text-[#f44649] font-normal">Leave</span>
                   </button>
-                  <button className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
+                  <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
                     <span className="text-[15px] text-[#f44649] font-normal">Delete and Exit</span>
                   </button>
@@ -1848,7 +2164,22 @@ export default function MessagesPage() {
                     <p className="text-center text-[13px] text-[#9ca3af] py-6">No banned members</p>
                   )}
                 </div>
+                </>)}
+
+                {/* Add Members panel */}
+                {showAddMembers && (
+                  <AddMembersPanel
+                    contacts={ALL_CONTACTS}
+                    selected={addMemberSelected}
+                    search={addMemberSearch}
+                    onSearchChange={setAddMemberSearch}
+                    onToggle={toggleAddMember}
+                    onBack={() => setShowAddMembers(false)}
+                    onAdd={handleAddMembers}
+                  />
+                )}
               </div>
+              )}
 
             </div>
             );
@@ -1922,6 +2253,152 @@ export default function MessagesPage() {
                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Calling overlay */}
+      {callOverlay && (
+        <div className="fixed inset-0 bg-black/20 z-[400] flex items-center justify-center">
+          <div className="bg-white rounded-[20px] w-[360px] flex flex-col items-center justify-between py-5 shadow-[0px_12px_16px_-4px_rgba(16,24,40,0.08),0px_4px_6px_-2px_rgba(16,24,40,0.03)] border border-[#e8e8e8]" style={{ height: 540 }}>
+            {/* Name + status */}
+            <div className="flex flex-col items-center gap-2 px-4 text-center">
+              <p className="text-[32px] font-medium text-[#141414] leading-[1.2] whitespace-nowrap">{callOverlay.name}</p>
+              <p className="text-[16px] text-[#727272] leading-[1.2]">{callOverlay.isVideo ? "Video Calling" : "Calling"}</p>
+            </div>
+
+            {/* Avatar */}
+            <div
+              className="w-[160px] h-[160px] rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+              style={{ backgroundColor: callOverlay.avatarImg ? undefined : callOverlay.avatarColor }}
+            >
+              {callOverlay.avatarImg ? (
+                <img src={callOverlay.avatarImg} alt={callOverlay.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-[64px] font-bold text-white leading-none">{callOverlay.initials}</span>
+              )}
+            </div>
+
+            {/* Call action buttons */}
+            <div className="flex items-center justify-center gap-8 py-3">
+              {/* Mute */}
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={() => setCallMuted(v => !v)}
+                  className={`w-[56px] h-[56px] rounded-full flex items-center justify-center transition-colors ${callMuted ? "bg-[#f77f00] text-white" : "bg-[#f5f5f5] text-[#374151] hover:bg-[#e5e7eb]"}`}
+                  aria-label="Mute"
+                >
+                  {callMuted ? (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" fill="currentColor"/>
+                      <path d="M19 10v2a7 7 0 01-14 0v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  ) : (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" fill="currentColor"/>
+                      <path d="M19 10v2a7 7 0 01-14 0v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                </button>
+                <span className="text-[12px] text-[#727272]">{callMuted ? "Unmute" : "Mute"}</span>
+              </div>
+
+              {/* End call */}
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={() => { setCallOverlay(null); setCallMuted(false); setCallHeld(false); }}
+                  className="w-[56px] h-[56px] rounded-full bg-[#f44649] flex items-center justify-center hover:bg-[#d93d40] transition-colors shadow-md"
+                  aria-label="End call"
+                >
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+                    <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.27 11.36 11.36 0 003.54.56 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1 11.36 11.36 0 00.56 3.54 1 1 0 01-.27 1.11z" transform="rotate(135 12 12)"/>
+                  </svg>
+                </button>
+                <span className="text-[12px] text-[#727272]">End</span>
+              </div>
+
+              {/* Hold */}
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={() => setCallHeld(v => !v)}
+                  className={`w-[56px] h-[56px] rounded-full flex items-center justify-center transition-colors ${callHeld ? "bg-[#f77f00] text-white" : "bg-[#f5f5f5] text-[#374151] hover:bg-[#e5e7eb]"}`}
+                  aria-label="Hold"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="5" width="4" height="14" rx="1.5"/>
+                    <rect x="14" y="5" width="4" height="14" rx="1.5"/>
+                  </svg>
+                </button>
+                <span className="text-[12px] text-[#727272]">{callHeld ? "Resume" : "Hold"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete & Exit confirm modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-[300] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-[400px] p-8 flex flex-col items-center shadow-2xl">
+            {/* Icon */}
+            <div className="w-[80px] h-[80px] rounded-full bg-[#fafafa] flex items-center justify-center mb-5 shrink-0">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#f44649]">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/>
+              </svg>
+            </div>
+            <h2 className="text-[20px] font-semibold text-[#141414] mb-2 text-center">Delete and Exit?</h2>
+            <p className="text-[14px] text-[#727272] text-center mb-8 leading-relaxed">
+              Are you sure you want to delete this chat and exit the group? This action cannot be undone.
+            </p>
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-10 rounded-lg border border-[#dcdcdc] text-[14px] font-medium text-[#141414] hover:bg-[#f5f5f5] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteGroup}
+                className="flex-1 h-10 rounded-lg bg-[#f44649] text-white text-[14px] font-medium hover:bg-[#d93d40] transition-colors"
+              >
+                Delete &amp; Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Group confirm modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-[300] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-[400px] p-8 flex flex-col items-center shadow-2xl">
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-5">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[#f44649]">
+                <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 00-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/>
+              </svg>
+            </div>
+            <h2 className="text-[20px] font-bold text-[#18191c] mb-2 text-center">Leave this group?</h2>
+            <p className="text-[14px] text-[#6b7280] text-center mb-8 leading-relaxed">
+              You won't be able to receive messages from this group anymore.
+            </p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                className="flex-1 py-3 rounded-full border border-[#e5e7eb] text-[15px] font-semibold text-[#374151] hover:bg-[#f5f5f5] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLeaveGroup}
+                className="flex-1 py-3 rounded-full bg-[#f44649] text-white text-[15px] font-semibold hover:bg-[#d93d40] transition-colors"
+              >
+                Leave
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2503,6 +2980,112 @@ function CallDetailView({ call }: { call: CallLog }) {
         {detailTab === "History" && (
           <p className="text-[14px] text-[#9ca3af] text-center py-8">No history available</p>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Add Members Panel ────────────────────────────────────────────────────────
+
+function AddMembersPanel({
+  contacts,
+  selected,
+  search,
+  onSearchChange,
+  onToggle,
+  onBack,
+  onAdd,
+}: {
+  contacts: Contact[];
+  selected: string[];
+  search: string;
+  onSearchChange: (v: string) => void;
+  onToggle: (id: string) => void;
+  onBack: () => void;
+  onAdd: () => void;
+}) {
+  const filtered = contacts.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#f5f5f5] shrink-0">
+        <button
+          onClick={onBack}
+          className="text-[#9ca3af] hover:text-[#374151] transition-colors p-1 shrink-0"
+          aria-label="Back"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <p className="font-bold text-[17px] text-[#141414]">Add Members</p>
+      </div>
+
+      {/* Search */}
+      <div className="px-4 py-3 shrink-0">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search contacts"
+            className="w-full pl-8 pr-3 py-2 rounded-full bg-[#f5f5f5] text-[13px] text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors"
+          />
+        </div>
+      </div>
+
+      {/* Contact list */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <p className="text-center text-[13px] text-[#9ca3af] py-6">No contacts found</p>
+        ) : filtered.map((contact) => {
+          const isSelected = selected.includes(contact.id);
+          return (
+            <button
+              key={contact.id}
+              onClick={() => onToggle(contact.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#fafafa] transition-colors text-left"
+            >
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-[13px] shrink-0"
+                style={{ backgroundColor: contact.avatarColor }}
+              >
+                {contact.initials}
+              </div>
+              <p className="flex-1 font-medium text-[14px] text-[#141414] truncate">{contact.name}</p>
+              {/* Orange checkbox */}
+              <div
+                className={`w-5 h-5 rounded-[4px] shrink-0 border-2 flex items-center justify-center transition-colors ${
+                  isSelected ? "bg-[#f77f00] border-[#f77f00]" : "border-[#d1d5db] bg-white"
+                }`}
+              >
+                {isSelected && (
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Add button */}
+      <div className="px-4 py-3 border-t border-[#f5f5f5] shrink-0">
+        <button
+          onClick={onAdd}
+          disabled={selected.length === 0}
+          className="w-full py-3 bg-[#f77f00] text-white font-bold rounded-full text-[15px] hover:bg-[#e06c00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {selected.length === 0 ? "Add Members" : `Add ${selected.length} Member${selected.length > 1 ? "s" : ""}`}
+        </button>
       </div>
     </div>
   );

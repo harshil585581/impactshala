@@ -1,5 +1,16 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
+/** Prepend API_URL to relative paths so images load correctly in the browser. */
+function absUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  return `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
+function normalizeItem(item: DiscoverItem): DiscoverItem {
+  return { ...item, imageUrl: absUrl(item.imageUrl), avatarUrl: absUrl(item.avatarUrl) };
+}
+
 function getToken(): string {
   try {
     const user = JSON.parse(localStorage.getItem("user") ?? "{}");
@@ -86,7 +97,8 @@ export async function fetchDiscoverFeed(
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`${res.status}`);
-  return res.json();
+  const page: DiscoverFeedPage = await res.json();
+  return { ...page, items: page.items.map(normalizeItem) };
 }
 
 export async function fetchDiscoverSearch(q: string): Promise<DiscoverItem[]> {
@@ -95,7 +107,8 @@ export async function fetchDiscoverSearch(q: string): Promise<DiscoverItem[]> {
     { headers: authHeaders() }
   );
   if (!res.ok) throw new Error(`${res.status}`);
-  return res.json();
+  const items: DiscoverItem[] = await res.json();
+  return items.map(normalizeItem);
 }
 
 export async function fetchTrending(): Promise<DiscoverItem[]> {
@@ -103,7 +116,8 @@ export async function fetchTrending(): Promise<DiscoverItem[]> {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`${res.status}`);
-  return res.json();
+  const items: DiscoverItem[] = await res.json();
+  return items.map(normalizeItem);
 }
 
 export async function trackImpression(postId: string): Promise<void> {

@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import logoImg from "../../assets/images/logo/logo.png";
+import signupBg from "../../assets/images/loginsignup/l1.png";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -308,7 +309,8 @@ export default function SignupFormPage() {
       </div>
 
       {/* ── Right orange photo panel (desktop only) ── */}
-      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-gradient-to-br from-[#ff9400] to-[#003049]">
+      <div className="hidden lg:flex relative lg:w-[45%] xl:w-5/12 shrink-0 overflow-hidden flex-col bg-cover bg-center" style={{ backgroundImage: `url(${signupBg})` }}>
+        <div className="absolute inset-0" style={{ background: 'rgba(255, 148, 0, 0.50)' }} />
         <div className="relative z-10 flex flex-col h-full px-10 py-8">
           <div className="flex items-center gap-2 self-start">
             <img src={logoImg} alt="Impactshaala" className="h-8 w-auto object-contain" />
@@ -319,9 +321,9 @@ export default function SignupFormPage() {
                 "
               </span>
               <h2 className="text-[#e5e7eb] text-3xl xl:text-4xl font-semibold leading-[1.5] -mt-4">
-                Inspiring Education,
+                Where Growth,
                 <br />
-                Aspiring Opportunities!
+                Meets Purpose!
               </h2>
             </div>
           </div>

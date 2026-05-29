@@ -21,6 +21,7 @@ supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 app = FastAPI(title="Impactshaala API")
 
 
+# Parse allowed origins
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
@@ -55,8 +56,9 @@ class IndividualSignup(BaseModel):
 class OrgSignup(BaseModel):
     org_name: str
     org_type: str
+    year_of_founding: Optional[str] = None
     website: Optional[str] = None
-    contact_name: str
+    contact_name: Optional[str] = None
     email: str
     phone: Optional[str] = None
     password: str
@@ -562,6 +564,7 @@ async def signup_organization(data: OrgSignup):
         "email": data.email,
         "org_name": data.org_name,
         "org_type": data.org_type,
+        "year_of_founding": data.year_of_founding,
         "website": data.website,
         "contact_name": data.contact_name,
         "phone": data.phone,

@@ -17,15 +17,16 @@ CREATE TABLE IF NOT EXISTS users (
   interests     TEXT,
 
   -- Organization-only fields
-  org_name      TEXT,
-  org_type      TEXT        CHECK (org_type IN (
-                  'educational','forprofit','nonprofit','health',
-                  'utilities','welfare','fieldtrip','startup',
-                  'talent','safety','international','others'
-                )),
-  website       TEXT,
-  contact_name  TEXT,
-  phone         TEXT,
+  org_name          TEXT,
+  org_type          TEXT        CHECK (org_type IN (
+                      'educational','forprofit','nonprofit','health',
+                      'utilities','welfare','fieldtrip','startup',
+                      'talent','safety','international','others'
+                    )),
+  year_of_founding  TEXT,
+  website           TEXT,
+  contact_name      TEXT,
+  phone             TEXT,
 
   -- Shared profile fields
   bio           TEXT,
@@ -89,7 +90,8 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS edu_levels_offered TEXT[]    DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS applicable_industries TEXT[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS services         TEXT[]      DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS industries       JSONB       DEFAULT '[]';
+  ADD COLUMN IF NOT EXISTS industries       JSONB       DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS year_of_founding TEXT;
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -448,9 +450,10 @@ CREATE POLICY "Public discover posts readable by all"
   ON discover_posts FOR SELECT
   USING (visibility = 'public' OR auth.uid() = user_id);
 
-CREATE POLICY "Users insert own discover posts"
+-- Allow any role to insert discover posts (backend handles authorization)
+CREATE POLICY "allow_insert_discover_posts"
   ON discover_posts FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (true);
 
 CREATE POLICY "Users update own discover posts"
   ON discover_posts FOR UPDATE
@@ -622,3 +625,39 @@ ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
 
 -- Allow full row replica identity so UPDATE payloads carry the full new row
 ALTER TABLE direct_messages REPLICA IDENTITY FULL;
+-- Saved Posts tables
+-- ============================================================
+
+-- Saves from the home feed (community posts)
+CREATE TABLE IF NOT EXISTS saved_community_posts (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    UUID        NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  saved_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, post_id)
+);
+
+ALTER TABLE saved_community_posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own saved_community_posts"
+  ON saved_community_posts FOR ALL
+  USING     (auth.uid() = user_id)
+  WITH CHECK(auth.uid() = user_id);
+
+-- Saves from the Discover feed
+-- (stores a JSON snapshot because Discover items come from an external REST API)
+CREATE TABLE IF NOT EXISTS saved_discover_items (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_id    TEXT        NOT NULL,
+  item_data  JSONB       NOT NULL,
+  saved_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, item_id)
+);
+
+ALTER TABLE saved_discover_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own saved_discover_items"
+  ON saved_discover_items FOR ALL
+  USING     (auth.uid() = user_id)
+  WITH CHECK(auth.uid() = user_id);

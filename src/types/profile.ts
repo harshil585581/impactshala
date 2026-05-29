@@ -73,6 +73,15 @@ export interface EditProfileForm {
   services?: string[];
   socialLinks: SocialLink[];
   reachFor: string[];
+  // Individual role-specific fields
+  educationLevel?: string;
+  instituteName?: string;
+  workSector?: string;
+  workIndustry?: string;
+  experience?: string;
+  entrepreneurType?: 'established' | 'aspiring';
+  describeAs?: string;
+  teachSubject?: string;
 }
 
 export type ToastType = 'success' | 'error' | 'info';

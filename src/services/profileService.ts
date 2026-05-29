@@ -115,6 +115,14 @@ export async function updateProfile(data: Partial<EditProfileForm>): Promise<voi
   if (data.services !== undefined) payload.services = data.services;
   if (data.socialLinks !== undefined) payload.social_links = data.socialLinks;
   if (data.reachFor !== undefined) payload.reach_for = data.reachFor;
+  if (data.educationLevel !== undefined) payload.education_level = data.educationLevel;
+  if (data.instituteName !== undefined) payload.institute_name = data.instituteName;
+  if (data.workSector !== undefined) payload.work_sector = data.workSector;
+  if (data.workIndustry !== undefined) payload.work_industry = data.workIndustry;
+  if (data.experience !== undefined) payload.experience_years = data.experience;
+  if (data.entrepreneurType !== undefined) payload.entrepreneur_type = data.entrepreneurType;
+  if (data.describeAs !== undefined) payload.describe_as = data.describeAs;
+  if (data.teachSubject !== undefined) payload.teach_subject = data.teachSubject;
 
   const res = await fetch(`${API_URL}/api/profile`, {
     method: 'PATCH',

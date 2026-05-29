@@ -107,7 +107,7 @@ function UploadArea({
   }
   if (preview) {
     return (
-      <label className="relative rounded-lg overflow-hidden cursor-pointer block w-full h-[120px]">
+      <label className="relative rounded-lg overflow-hidden cursor-pointer block w-full flex-1 min-h-[140px]">
         <img
           src={preview}
           alt="Preview"
@@ -131,7 +131,7 @@ function UploadArea({
     );
   }
   return (
-    <label className="flex flex-col items-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full">
+    <label className="flex flex-col items-center justify-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full flex-1 min-h-[140px]">
       <input
         type="file"
         accept={accept}
@@ -341,7 +341,6 @@ export default function ProfessionalAccountUpdatePage() {
   const [workIndustry, setWorkIndustry] = useState("");
   const [showIndustryDrop, setShowIndustryDrop] = useState(false);
   const [jobTitle, setJobTitle] = useState("");
-  const [company, setCompany] = useState("");
   const [bio, setBio] = useState("");
 
   // More Info
@@ -369,7 +368,6 @@ export default function ProfessionalAccountUpdatePage() {
     if (profile.work_sector) setWorkSector(profile.work_sector);
     if (profile.work_industry) setWorkIndustry(profile.work_industry);
     if (profile.title) setJobTitle(profile.title);
-    if (profile.company) setCompany(profile.company);
     if (profile.bio) setBio(profile.bio);
     if (profile.skills?.length) setSkills(profile.skills);
     if (profile.website) setWebsite(profile.website);
@@ -425,7 +423,6 @@ export default function ProfessionalAccountUpdatePage() {
         work_sector: workSector,
         work_industry: workIndustry,
         title: jobTitle,
-        company,
         bio,
       });
       if (ok) setTab("more");
@@ -598,7 +595,7 @@ export default function ProfessionalAccountUpdatePage() {
             {tab === "profile" && (
               <div className="flex flex-col gap-5 sm:gap-6">
                 {/* Photo uploads */}
-                <div className="flex flex-col sm:flex-row gap-5 sm:gap-6">
+                <div className="flex flex-col sm:flex-row items-stretch gap-5 sm:gap-6">
                   <div className="flex flex-col gap-2 w-full sm:w-[260px] shrink-0">
                     <p className="text-[#18191c] text-sm">Profile Photo</p>
                     <UploadArea
@@ -655,28 +652,14 @@ export default function ProfessionalAccountUpdatePage() {
                   }}
                 />
 
-                {/* Job Title */}
+                {/* Profession */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-[#18191c] text-sm">Job Title</label>
+                  <label className="text-[#18191c] text-sm">Enter your Profession</label>
                   <input
                     type="text"
-                    placeholder="e.g. Senior Software Engineer"
+                    placeholder="e.g. Doctor, Engineer, Consultant"
                     value={jobTitle}
                     onChange={(e) => setJobTitle(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-
-                {/* Company */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[#18191c] text-sm">
-                    Company / Organisation
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Infosys, TCS, Startup Name"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
                     className={inputCls}
                   />
                 </div>
