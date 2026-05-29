@@ -1,120 +1,163 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
-import pr1 from "../assets/images/profile/pr1.png";
-import pr2 from "../assets/images/profile/pr2.png";
+import {
+  fetchPendingRequests,
+  fetchSuggestions,
+  fetchConnections,
+  acceptRequest,
+  rejectOrCancelRequest,
+  sendConnectionRequest,
+  type PendingRequest,
+  type CommunityUser,
+} from "../services/communityService";
 
-const PROFILE_IMGS = [pr1, pr2];
+// ─── Avatar ───────────────────────────────────────────────────────────────────
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+function Avatar({ url, name, size = 64 }: { url?: string | null; name: string; size?: number }) {
+  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  if (url) {
+    return (
+      <img src={url} alt={name} style={{ width: size, height: size }}
+        className="rounded-full object-cover shrink-0 border-2 border-white" />
+    );
+  }
+  return (
+    <div style={{ width: size, height: size, fontSize: size * 0.35 }}
+      className="rounded-full bg-gradient-to-br from-[#84081F] to-[#A95BFD] flex items-center justify-center text-white font-bold shrink-0 border-2 border-white">
+      {initials || "?"}
+    </div>
+  );
+}
 
-type Person = {
-  id: number;
-  name: string;
-  role: string;
-  company: string;
-  extra?: string;
-  time?: string;
-  endorsements: number;
-  reviews: number;
-  achievement: number;
-  requested: boolean;
-};
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse bg-[#f2f2f3] rounded ${className}`} />;
+}
 
-const PENDING: Person[] = [
-  { id: 1, name: "Eleanor Pena", role: "President of Sales", company: "Accenture", time: "Today", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 2, name: "Robin Menon", role: "President of Sales", company: "Accenture", extra: "Marketing Coordinator", time: "Yesterday", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-];
+// ─── Person card ──────────────────────────────────────────────────────────────
 
-const KNOW: Person[] = [
-  { id: 10, name: "Arun Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: true },
-  { id: 11, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 12, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 13, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 14, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 15, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 16, name: "Arun Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: true },
-  { id: 17, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-];
+type CardState = "idle" | "loading" | "sent";
 
-const SUGGESTIONS: Person[] = [
-  { id: 20, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: true },
-  { id: 21, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 22, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 23, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 24, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 25, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 26, name: "Robin Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: false },
-  { id: 27, name: "Arun Menon", role: "UI/UX Designer", company: "Accenture", endorsements: 183, reviews: 60, achievement: 15, requested: true },
-];
+function PersonCard({
+  person,
+  onSend,
+  onViewProfile,
+}: {
+  person: CommunityUser;
+  onSend: (id: string) => Promise<void>;
+  onViewProfile: (id: string) => void;
+}) {
+  const [state, setState] = useState<CardState>("idle");
 
-// ─── Person card (grid) ───────────────────────────────────────────────────────
+  async function handleAdd() {
+    if (state !== "idle") return;
+    setState("loading");
+    try {
+      await onSend(person.id);
+      setState("sent");
+    } catch {
+      setState("idle");
+    }
+  }
 
-function PersonCard({ person, onToggle }: { person: Person; onToggle: (id: number) => void }) {
-  const avatar = PROFILE_IMGS[person.id % 2];
+  const subtitle = [person.title, person.company].filter(Boolean).join(" • ");
 
   return (
-    <div className="bg-white rounded-2xl border border-[#f2f2f3] overflow-visible flex flex-col" style={{ height: "294px" }}>
-      {/* Gradient banner */}
-      <div
-        className="h-[75px] rounded-t-2xl relative shrink-0"
-        style={{ background: "linear-gradient(90deg, #84081F -5.96%, #A95BFD 106.81%)" }}
-      />
+    <div className="bg-white rounded-2xl border border-[#f0f0f0] flex flex-col overflow-hidden shadow-sm">
+      {/* Cover banner */}
+      <button
+        onClick={() => onViewProfile(person.id)}
+        className="h-[80px] shrink-0 overflow-hidden focus:outline-none"
+      >
+        {person.cover_url ? (
+          <img src={person.cover_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div
+            className="w-full h-full"
+            style={{ background: "linear-gradient(135deg, #84081F 0%, #A95BFD 100%)" }}
+          />
+        )}
+      </button>
 
-      {/* Avatar — sits on top of banner via negative margin + z-index */}
-      <div className="flex justify-center -mt-10 mb-3 relative z-10">
-        <img
-          src={avatar}
-          alt={person.name}
-          className="w-[94px] h-[94px] rounded-full object-cover shadow-sm"
-        />
-      </div>
+      {/* Avatar overlapping banner */}
+      <button
+        onClick={() => onViewProfile(person.id)}
+        className="flex justify-center -mt-11 mb-2 relative z-10 focus:outline-none"
+      >
+        <Avatar url={person.avatar_url} name={person.name} size={88} />
+      </button>
 
       {/* Info */}
-      <div className="px-4 pb-5 flex flex-col items-center flex-1">
-        <p className="text-[#18191c] text-base font-bold text-center leading-tight">{person.name}</p>
-        <p className="text-[#9199a3] text-xs text-center mt-1">
-          {person.role} • {person.company}
-        </p>
+      <div className="px-4 pb-4 flex flex-col items-center flex-1">
+        {/* Fixed-height area keeps stats aligned across all cards in a row */}
+        <div className="w-full flex flex-col items-center min-h-[48px]">
+          <button
+            onClick={() => onViewProfile(person.id)}
+            className="text-[#18191c] text-base font-bold text-center leading-snug line-clamp-1 hover:text-[#f77f00] transition-colors"
+          >
+            {person.name}
+          </button>
+          {subtitle && (
+            <p className="text-[#9199a3] text-xs text-center mt-0.5 line-clamp-2 leading-snug">{subtitle}</p>
+          )}
+        </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-0 mt-4 w-full justify-center">
-          <div className="flex flex-col items-center flex-1">
-            <span className="text-[#f77f00] text-sm font-bold">{person.endorsements}</span>
-            <span className="text-[#9199a3] text-[10px] text-center leading-tight">Endorsements</span>
+        {/* Stats row — only rendered when at least one stat is non-zero */}
+        {((person.endorsement_count ?? 0) + (person.review_count ?? 0) + (person.achievement_count ?? 0) > 0) && (
+        <div className="flex w-full border-t border-[#e5e7eb] mt-3 pt-3 pb-1">
+          <div className="flex-1 flex flex-col items-center gap-1">
+            <span className="text-[#f77f00] text-sm font-bold leading-none">
+              {person.endorsement_count ?? 0}
+            </span>
+            <span className="text-[#9199a3] text-[10px] text-center leading-none">Endorsements</span>
           </div>
-          <div className="w-px h-7 bg-[#f2f2f3]" />
-          <div className="flex flex-col items-center flex-1">
-            <span className="text-[#f77f00] text-sm font-bold">{person.reviews}</span>
-            <span className="text-[#9199a3] text-[10px] text-center leading-tight">Reviews</span>
+          <div className="w-px bg-[#e5e7eb] self-stretch" />
+          <div className="flex-1 flex flex-col items-center gap-1">
+            <span className="text-[#f77f00] text-sm font-bold leading-none">
+              {person.review_count ?? 0}
+            </span>
+            <span className="text-[#9199a3] text-[10px] text-center leading-none">Reviews</span>
           </div>
-          <div className="w-px h-7 bg-[#f2f2f3]" />
-          <div className="flex flex-col items-center flex-1">
-            <span className="text-[#f77f00] text-sm font-bold">{person.achievement}</span>
-            <span className="text-[#9199a3] text-[10px] text-center leading-tight">Achievement</span>
+          <div className="w-px bg-[#e5e7eb] self-stretch" />
+          <div className="flex-1 flex flex-col items-center gap-1">
+            <span className="text-[#f77f00] text-sm font-bold leading-none">
+              {person.achievement_count ?? 0}
+            </span>
+            <span className="text-[#9199a3] text-[10px] text-center leading-none">Achievement</span>
           </div>
         </div>
+        )}
 
         {/* Action button */}
         <button
-          onClick={() => onToggle(person.id)}
-          className={`mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-semibold border transition-colors ${person.requested
-            ? "border-[#d1d5db] text-[#9199a3] hover:border-[#f77f00] hover:text-[#f77f00]"
-            : "border-[#f77f00] text-[#f77f00] hover:bg-[#fff6ed]"
-            }`}
+          onClick={handleAdd}
+          disabled={state !== "idle"}
+          className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full text-sm font-semibold border transition-colors mt-3 ${
+            state === "sent"
+              ? "border-[#d1d5db] text-[#9199a3] cursor-default"
+              : state === "loading"
+              ? "border-[#f77f00] text-[#f77f00] opacity-60 cursor-wait"
+              : "border-[#f77f00] text-[#f77f00] hover:bg-[#fff6ed]"
+          }`}
         >
-          {!person.requested && (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <line x1="19" y1="8" x2="19" y2="14" />
-              <line x1="22" y1="11" x2="16" y2="11" />
-            </svg>
+          {state === "loading" ? (
+            "Sending…"
+          ) : state === "sent" ? (
+            "Request sent"
+          ) : (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="19" y1="8" x2="19" y2="14" />
+                <line x1="22" y1="11" x2="16" y2="11" />
+              </svg>
+              Add to community
+            </>
           )}
-          {person.requested ? "Request sent" : "Add to community"}
         </button>
       </div>
     </div>
@@ -123,23 +166,52 @@ function PersonCard({ person, onToggle }: { person: Person; onToggle: (id: numbe
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
-function Section({ title, count, onAction, children }: { title: string; count?: number; onAction?: () => void; children: React.ReactNode }) {
-  const label = title.startsWith("People") || title.startsWith("More") ? "Show all" : "Manage";
+function Section({
+  title,
+  actionLabel = "Manage",
+  onAction,
+  children,
+}: {
+  title: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <div className="bg-white rounded-2xl border border-[#f2f2f3] overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4">
-        <h2 className="text-[#18191c] text-[20px] font-normal">
-          {title}{count !== undefined ? ` (${count})` : ""}
-        </h2>
-        <button
-          onClick={onAction}
-          className="text-[#f77f00] text-sm font-semibold px-4 py-1.5 rounded-full border border-[#f77f00] hover:bg-[#fff6ed] transition-colors"
-        >
-          {label}
-        </button>
+        <h2 className="text-[#18191c] text-[20px] font-normal">{title}</h2>
+        {onAction && (
+          <button
+            onClick={onAction}
+            className="text-[#f77f00] text-sm font-semibold px-4 py-1.5 rounded-full border border-[#f77f00] hover:bg-[#fff6ed] transition-colors"
+          >
+            {actionLabel}
+          </button>
+        )}
       </div>
       <div className="h-px bg-[#f2f2f3]" />
       {children}
+    </div>
+  );
+}
+
+// ─── Suggestion grid ──────────────────────────────────────────────────────────
+
+function SuggestionGrid({
+  people,
+  onSend,
+  onViewProfile,
+}: {
+  people: CommunityUser[];
+  onSend: (id: string) => Promise<void>;
+  onViewProfile: (id: string) => void;
+}) {
+  return (
+    <div className="px-4 pb-5 pt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      {people.map((p) => (
+        <PersonCard key={p.id} person={p} onSend={onSend} onViewProfile={onViewProfile} />
+      ))}
     </div>
   );
 }
@@ -149,21 +221,67 @@ function Section({ title, count, onAction, children }: { title: string; count?: 
 export default function MyCommunityPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pending, setPending] = useState<Person[]>(PENDING);
-  const [know, setKnow] = useState<Person[]>(KNOW);
-  const [suggestions, setSuggestions] = useState<Person[]>(SUGGESTIONS);
 
-  function dismissPending(id: number) {
-    setPending((prev) => prev.filter((p) => p.id !== id));
+  const [totalConnections, setTotalConnections] = useState(0);
+  const [pending, setPending] = useState<PendingRequest[]>([]);
+  const [suggestions, setSuggestions] = useState<CommunityUser[]>([]);
+
+  const [loadingTotal, setLoadingTotal] = useState(true);
+  const [loadingPending, setLoadingPending] = useState(true);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+
+  useEffect(() => {
+    fetchConnections()
+      .then((r) => setTotalConnections(r.total))
+      .catch(() => {})
+      .finally(() => setLoadingTotal(false));
+
+    fetchPendingRequests()
+      .then((r) => setPending(r.requests))
+      .catch(() => {})
+      .finally(() => setLoadingPending(false));
+
+    fetchSuggestions()
+      .then((r) => setSuggestions(r.suggestions))
+      .catch(() => {})
+      .finally(() => setLoadingSuggestions(false));
+  }, []);
+
+  function formatTime(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86_400_000);
+    if (days === 0) return "Today";
+    if (days === 1) return "Yesterday";
+    return `${days} days ago`;
   }
 
-  function toggleKnow(id: number) {
-    setKnow((prev) => prev.map((p) => (p.id === id ? { ...p, requested: !p.requested } : p)));
+  async function handleAccept(req: PendingRequest) {
+    try {
+      await acceptRequest(req.request_id);
+      setPending((prev) => prev.filter((r) => r.request_id !== req.request_id));
+      setTotalConnections((n) => n + 1);
+      setSuggestions((prev) => prev.filter((s) => s.id !== req.id));
+    } catch { /* keep UI */ }
   }
 
-  function toggleSuggestion(id: number) {
-    setSuggestions((prev) => prev.map((p) => (p.id === id ? { ...p, requested: !p.requested } : p)));
+  async function handleCancel(req: PendingRequest) {
+    try {
+      await rejectOrCancelRequest(req.request_id);
+      setPending((prev) => prev.filter((r) => r.request_id !== req.request_id));
+    } catch { /* keep UI */ }
   }
+
+  async function handleSendRequest(userId: string) {
+    await sendConnectionRequest(userId);
+  }
+
+  function viewProfile(userId: string) {
+    navigate(`/profile/${userId}`);
+  }
+
+  // Split suggestions into two groups for the two sections
+  const primarySuggestions = suggestions.slice(0, 8);
+  const moreSuggestions = suggestions.slice(8);
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -173,43 +291,77 @@ export default function MyCommunityPage() {
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 flex flex-col gap-5">
 
-          {/* Page title */}
           <h1 className="text-[#18191c] text-[24px] font-normal">Manage my community</h1>
 
           {/* My Community count */}
-          <Section title="My Community" count={265} onAction={() => navigate("/community/manage")}>
-            <div />
+          <Section
+            title={`My Community${loadingTotal ? "" : ` (${totalConnections})`}`}
+            actionLabel="Manage"
+            onAction={() => navigate("/community/manage")}
+          >
+            <div className="px-5 py-4 text-sm text-[#9199a3]">
+              {loadingTotal ? (
+                <Skeleton className="h-4 w-32" />
+              ) : totalConnections === 0 ? (
+                "You have no connections yet. Start adding people below."
+              ) : (
+                <>
+                  You have {totalConnections} connection{totalConnections !== 1 ? "s" : ""}.{" "}
+                  <button onClick={() => navigate("/community/manage")} className="text-[#f77f00] font-medium hover:underline">
+                    View all
+                  </button>
+                </>
+              )}
+            </div>
           </Section>
 
-          {/* Pending requests */}
-          {pending.length > 0 && (
-            <Section title={`${pending.length} Pending Request`} onAction={() => navigate("/community/requests")}>
+          {/* Pending requests section */}
+          {loadingPending && (
+            <div className="bg-white rounded-2xl border border-[#f2f2f3] px-5 py-5 flex flex-col gap-4">
+              {[0, 1].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="w-14 h-14 rounded-full" />
+                  <div className="flex-1 flex flex-col gap-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loadingPending && pending.length > 0 && (
+            <Section
+              title={`${pending.length} pending request${pending.length > 1 ? "s" : ""}`}
+              actionLabel="Manage"
+              onAction={() => navigate("/community/requests")}
+            >
               <div className="divide-y divide-[#f2f2f3]">
-                {pending.map((p, i) => (
-                  <div key={p.id} className="flex items-center gap-4 px-5 py-5">
-                    {/* Avatar */}
-                    <img
-                      src={PROFILE_IMGS[i % 2]}
-                      alt={p.name}
-                      className="w-16 h-16 rounded-full object-cover shrink-0"
-                    />
-                    {/* Info */}
+                {pending.map((req) => (
+                  <div key={req.request_id} className="flex items-center gap-4 px-5 py-4">
+                    <button onClick={() => viewProfile(req.id)} className="shrink-0 focus:outline-none">
+                      <Avatar url={req.avatar_url} name={req.name} size={56} />
+                    </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#18191c] text-lg font-semibold">{p.name}</p>
-                      <p className="text-[#9199a3] text-sm">{p.role}</p>
-                      {p.extra && <p className="text-[#9199a3] text-sm">{p.extra}</p>}
-                      <p className="text-[#18191c] text-sm font-semibold mt-0.5">{p.time}</p>
+                      <button
+                        onClick={() => viewProfile(req.id)}
+                        className="text-[#18191c] text-base font-semibold hover:text-[#f77f00] transition-colors text-left"
+                      >
+                        {req.name}
+                      </button>
+                      {req.title && <p className="text-[#9199a3] text-sm leading-tight">{req.title}</p>}
+                      {req.company && <p className="text-[#9199a3] text-sm leading-tight">{req.company}</p>}
+                      <p className="text-[#18191c] text-sm font-semibold mt-0.5">{formatTime(req.requested_at)}</p>
                     </div>
-                    {/* Actions */}
                     <div className="flex items-center gap-3 shrink-0">
                       <button
-                        onClick={() => dismissPending(p.id)}
+                        onClick={() => handleCancel(req)}
                         className="text-[#9199a3] text-sm font-medium hover:text-[#474d57] transition-colors"
                       >
                         Cancel
                       </button>
                       <button
-                        onClick={() => dismissPending(p.id)}
+                        onClick={() => handleAccept(req)}
                         className="px-5 py-1.5 rounded-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold hover:bg-[#fff6ed] transition-colors"
                       >
                         Add
@@ -222,26 +374,45 @@ export default function MyCommunityPage() {
           )}
 
           {/* People you may know */}
-          <Section title="People you may know">
-            <div className="px-4 pb-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {know.map((p) => (
-                  <PersonCard key={p.id} person={p} onToggle={toggleKnow} />
+          <Section
+            title="People you may know"
+            actionLabel="Show all"
+            onAction={() => navigate("/community/requests")}
+          >
+            {loadingSuggestions ? (
+              <div className="px-4 pb-5 pt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-[220px] rounded-2xl" />
                 ))}
               </div>
-            </div>
+            ) : primarySuggestions.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-[#9199a3]">
+                No suggestions right now. Invite more people to join.
+              </p>
+            ) : (
+              <SuggestionGrid
+                people={primarySuggestions}
+                onSend={handleSendRequest}
+                onViewProfile={viewProfile}
+              />
+            )}
           </Section>
 
-          {/* More Suggestions */}
-          <Section title="More Suggestion for you">
-            <div className="px-4 pb-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {suggestions.map((p) => (
-                  <PersonCard key={p.id} person={p} onToggle={toggleSuggestion} />
-                ))}
-              </div>
-            </div>
-          </Section>
+          {/* More suggestions for you */}
+          {!loadingSuggestions && moreSuggestions.length > 0 && (
+            <Section
+              title="More Suggestion for you"
+              actionLabel="Show all"
+              onAction={() => navigate("/community/requests")}
+            >
+              <SuggestionGrid
+                people={moreSuggestions}
+                onSend={handleSendRequest}
+                onViewProfile={viewProfile}
+              />
+            </Section>
+          )}
+
         </div>
       </div>
     </div>

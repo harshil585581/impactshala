@@ -512,6 +512,119 @@ CREATE POLICY "Anyone can submit application"
   WITH CHECK (true);
 
 -- ============================================================
+-- Community Connections table
+-- Tracks connection requests and accepted friendships between users
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS community_connections (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  addressee_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status        TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (requester_id, addressee_id)
+);
+
+ALTER TABLE community_connections ENABLE ROW LEVEL SECURITY;
+
+-- Users can see connections where they are either requester or addressee
+CREATE POLICY "Users can view their own connections"
+  ON community_connections FOR SELECT
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+
+-- Users can send connection requests (insert as requester)
+CREATE POLICY "Users can send connection requests"
+  ON community_connections FOR INSERT
+  WITH CHECK (auth.uid() = requester_id);
+
+-- Addressee can accept/reject; requester can cancel their own pending request
+CREATE POLICY "Users can update their connections"
+  ON community_connections FOR UPDATE
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+
+-- Either party can remove a connection
+CREATE POLICY "Users can remove their connections"
+  ON community_connections FOR DELETE
+  USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+
+-- ============================================================
+-- Direct Messaging: conversations + messages
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  participant_1 UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  participant_2 UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  last_message  TEXT,
+  last_message_at TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Ensure one conversation per pair regardless of order
+CREATE UNIQUE INDEX IF NOT EXISTS conversations_pair_unique
+  ON conversations (LEAST(participant_1::text, participant_2::text), GREATEST(participant_1::text, participant_2::text));
+
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Participants can view their conversations"
+  ON conversations FOR SELECT
+  USING (auth.uid() = participant_1 OR auth.uid() = participant_2);
+
+CREATE POLICY "Authenticated users can create conversations"
+  ON conversations FOR INSERT
+  WITH CHECK (auth.uid() = participant_1 OR auth.uid() = participant_2);
+
+CREATE POLICY "Participants can update their conversations"
+  ON conversations FOR UPDATE
+  USING (auth.uid() = participant_1 OR auth.uid() = participant_2);
+
+
+CREATE TABLE IF NOT EXISTS direct_messages (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID        NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id       UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content         TEXT,
+  message_type    TEXT        NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'audio')),
+  file_url        TEXT,
+  file_name       TEXT,
+  reply_to_id     UUID        REFERENCES direct_messages(id) ON DELETE SET NULL,
+  is_edited       BOOLEAN     NOT NULL DEFAULT false,
+  is_deleted      BOOLEAN     NOT NULL DEFAULT false,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Conversation participants can read messages"
+  ON direct_messages FOR SELECT
+  USING (
+    conversation_id IN (
+      SELECT id FROM conversations
+      WHERE participant_1 = auth.uid() OR participant_2 = auth.uid()
+    )
+  );
+
+CREATE POLICY "Sender can insert messages"
+  ON direct_messages FOR INSERT
+  WITH CHECK (
+    auth.uid() = sender_id
+    AND conversation_id IN (
+      SELECT id FROM conversations
+      WHERE participant_1 = auth.uid() OR participant_2 = auth.uid()
+    )
+  );
+
+CREATE POLICY "Sender can update own messages"
+  ON direct_messages FOR UPDATE
+  USING (auth.uid() = sender_id);
+
+-- Enable Realtime on direct_messages (INSERT + UPDATE) so the frontend can subscribe
+ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
+
+-- Allow full row replica identity so UPDATE payloads carry the full new row
+ALTER TABLE direct_messages REPLICA IDENTITY FULL;
 -- Saved Posts tables
 -- ============================================================
 

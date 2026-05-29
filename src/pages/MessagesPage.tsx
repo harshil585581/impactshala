@@ -1,5 +1,19 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
+import { useLocation } from "react-router-dom";
 import TopBar from "../components/TopBar";
+import { supabase } from "../lib/supabase";
+import {
+  listConversations,
+  getOrCreateConversation,
+  fetchMessages,
+  sendMessage as apiSendMessage,
+  editMessage as apiEditMessage,
+  deleteMessage as apiDeleteMessage,
+  uploadFile,
+  getCurrentUserId,
+  type DirectMessage,
+} from "../services/messageService";
+import { fetchConnections, type Connection } from "../services/communityService";
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
@@ -17,16 +31,6 @@ type ChatItem = {
   hasMention?: boolean;
 };
 
-const MOCK_CHATS: ChatItem[] = [
-  { id: "c1", name: "George Alan", initials: "GA", avatarColor: "#4f46e5", lastMessage: "Document", lastMessageType: "document", time: "4:30 PM" },
-  { id: "c2", name: "Uber Cars", avatarImg: "https://upload.wikimedia.org/wikipedia/commons/c/cc/Uber_logo_2018.png", lastMessage: "Allen: Your ride is 2 minutes away. Please confirm...", lastMessageType: "text", time: "4:30 PM" },
-  { id: "c3", name: "Safiya Fareena", initials: "SF", avatarColor: "#ec4899", lastMessage: "Video", lastMessageType: "video", time: "4:30 PM", unreadDot: true },
-  { id: "c4", name: "Robert Allen", initials: "RA", avatarColor: "#0ea5e9", lastMessage: "Thanks for the update. Let me know if there's...", lastMessageType: "text", time: "4:30 PM" },
-  { id: "c5", name: "Epic Game", initials: "EG", avatarColor: "#8b5cf6", lastMessage: "John Paul: @Robert Your team scored a new...", lastMessageType: "text", time: "4:30 PM", unread: 24, hasMention: true },
-  { id: "c6", name: "Scott Franklin", initials: "SF", avatarColor: "#f77f00", lastMessage: "Audio", lastMessageType: "audio", time: "4:30 PM" },
-  { id: "c7", name: "Muhammed", initials: "MU", avatarColor: "#10b981", lastMessage: "Congratulations on your promotion", lastMessageType: "text", time: "4:30 PM" },
-  { id: "c8", name: "Innovative Online Shopping", initials: "IO", avatarColor: "#f59e0b", lastMessage: "Your order has been shipped and will arrive soo...", lastMessageType: "text", time: "4:30 PM" },
-];
 
 type Message = {
   id: string;
@@ -101,15 +105,6 @@ const MOCK_GROUP_CHAT_MESSAGES: Record<string, Message[]> = {
   ],
 };
 
-const INITIAL_MESSAGES: Message[] = [
-  { id: "m1", text: "Yes, it's available.", sender: "them", time: "4:56 pm" },
-  { id: "m2", text: "Awesome! Can I see a couple of pictures?", sender: "me", time: "4:56 pm" },
-  { id: "m3", text: "Sure! Sending them over now.", sender: "them", time: "4:56 pm" },
-  { id: "m4", type: "image", sender: "them", time: "4:56 pm", replies: 4 },
-  { id: "sep1", type: "separator", separator: "Today", sender: "them", time: "" },
-  { id: "m5", text: "Thanks! Looks good.", sender: "me", time: "4:56 pm" },
-  { id: "m6", text: "I'll take it. Can you ship it?", sender: "me", time: "4:56 pm" },
-];
 
 type CallLog = {
   id: string;
@@ -132,22 +127,6 @@ const MOCK_CALLS: CallLog[] = [
   { id: "cl8", name: "Scott Franklin", initials: "SF", avatarColor: "#f77f00", date: "8 August, 8:14 pm", type: "outgoing" },
 ];
 
-type UserContact = {
-  id: string;
-  name: string;
-  role: string;
-  initials: string;
-  avatarColor: string;
-};
-
-const MOCK_USERS: UserContact[] = [
-  { id: "u1", name: "John Paul", role: "Software Engineer", initials: "JP", avatarColor: "#4f46e5" },
-  { id: "u2", name: "Robert Allen", role: "Designer", initials: "RA", avatarColor: "#0ea5e9" },
-  { id: "u3", name: "Safiya Fareena", role: "Product Manager", initials: "SF", avatarColor: "#ec4899" },
-  { id: "u4", name: "Paul David", role: "Developer", initials: "PD", avatarColor: "#10b981" },
-  { id: "u5", name: "George Alan", role: "Marketing", initials: "GA", avatarColor: "#f59e0b" },
-  { id: "u6", name: "Scott Franklin", role: "Educator", initials: "SF", avatarColor: "#f77f00" },
-];
 
 type Group = {
   id: string;
@@ -315,11 +294,38 @@ const EMOJI_CATEGORIES = [
   },
 ];
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function generateWaveform(): number[] {
+  const count = 40;
+  return Array.from({ length: count }, (_, i) => {
+    const center = count / 2;
+    const envelope = 1 - Math.pow((i - center) / center, 2) * 0.55;
+    return Math.max(3, Math.round(22 * envelope * (Math.random() * 0.6 + 0.4)));
+  });
+}
+
+function nowTimeStr(): string {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${h >= 12 ? "pm" : "am"}`;
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 type Tab = "chats" | "calls" | "users" | "groups";
 
 export default function MessagesPage() {
+  const location = useLocation();
+  const navState = location.state as { userId?: string; userName?: string; userAvatar?: string } | null;
+
+  // ── Real conversation/message state ──────────────────────────────────────────
+  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [convLoading, setConvLoading] = useState(true);
+  const [msgLoading, setMsgLoading] = useState(false);
+  const currentUserId = getCurrentUserId();
+
   const [activeTab, setActiveTab] = useState<Tab>("chats");
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
@@ -343,8 +349,155 @@ export default function MessagesPage() {
   const [groupMessages, setGroupMessages] = useState<Record<string, Message[]>>(MOCK_GROUP_CHAT_MESSAGES);
   const [groupInfoTab, setGroupInfoTab] = useState<"members" | "banned">("members");
   const [memberSearch, setMemberSearch] = useState("");
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+
+  // ── Map API conversation → ChatItem ──────────────────────────────────────────
+  function convToChat(c: { id: string; peer_name: string; peer_avatar: string | null; last_message: string | null; last_message_at: string | null }): ChatItem {
+    const initials = c.peer_name
+      .split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
+    return {
+      id: c.id,
+      name: c.peer_name,
+      initials,
+      avatarColor: "#f77f00",
+      avatarImg: c.peer_avatar ?? undefined,
+      lastMessage: c.last_message ?? "Say hi!",
+      lastMessageType: "text",
+      time: c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+    };
+  }
+
+  // ── Map DB message → local Message type ──────────────────────────────────────
+  function dbMsgToLocal(m: DirectMessage): Message {
+    const isSent = m.sender_id === currentUserId;
+    const timeStr = new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (m.is_deleted) {
+      return { id: m.id, sender: isSent ? "me" : "them", time: timeStr, deleted: true } as Message & { deleted: boolean };
+    }
+    if (m.message_type === "audio") {
+      return { id: m.id, sender: isSent ? "me" : "them", time: timeStr, audioUrl: m.file_url ?? "", waveform: generateWaveform(), audioDuration: 0, edited: m.is_edited };
+    }
+    if (m.message_type === "image" || m.message_type === "file") {
+      return { id: m.id, type: "attachment", sender: isSent ? "me" : "them", time: timeStr, attachmentName: m.file_name ?? "file", attachmentUrl: m.file_url ?? "", attachmentMime: m.message_type === "image" ? "image/jpeg" : "application/octet-stream", edited: m.is_edited };
+    }
+    return { id: m.id, text: m.content ?? "", sender: isSent ? "me" : "them", time: timeStr, edited: m.is_edited };
+  }
+
+  // ── Load conversations on mount ───────────────────────────────────────────────
+  const loadConversations = useCallback(async () => {
+    setConvLoading(true);
+    try {
+      const convs = await listConversations();
+      setChats(convs.map(convToChat));
+    } catch {
+      // keep empty
+    } finally {
+      setConvLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  useEffect(() => {
+    fetchConnections().then((r) => setRealUsers(r.connections)).catch(() => {});
+  }, []);
+
+  // ── Load messages when active chat changes ────────────────────────────────────
+  useEffect(() => {
+    if (!activeChatId) return;
+    setMsgLoading(true);
+    setMessages([]);
+    fetchMessages(activeChatId)
+      .then((msgs) => setMessages(msgs.map(dbMsgToLocal)))
+      .catch(() => {})
+      .finally(() => setMsgLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId]);
+
+  // ── Supabase Realtime: new messages, edits, deletions ────────────────────────
+  useEffect(() => {
+    if (!activeChatId) return;
+
+    function updateSidebarPreview(preview: string, at: string) {
+      const timeStr = new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setChats((prev) => prev.map((c) =>
+        c.id === activeChatId ? { ...c, lastMessage: preview, time: timeStr } : c
+      ));
+    }
+
+    const channel = supabase
+      .channel(`messages:${activeChatId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "direct_messages", filter: `conversation_id=eq.${activeChatId}` },
+        (payload) => {
+          const incoming = payload.new as DirectMessage;
+          // Update sidebar preview for all received messages (sent ones already handled optimistically)
+          const preview = incoming.message_type !== "text" ? `[${incoming.message_type}]` : (incoming.content ?? "");
+          updateSidebarPreview(preview, incoming.created_at);
+          if (incoming.sender_id === currentUserId) return; // body already added optimistically
+          setMessages((prev) => [...prev, dbMsgToLocal(incoming)]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "direct_messages", filter: `conversation_id=eq.${activeChatId}` },
+        (payload) => {
+          const updated = payload.new as DirectMessage;
+          if (updated.is_deleted) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === updated.id
+                  ? { id: m.id, sender: updated.sender_id === currentUserId ? "me" : "them", time: m.time, deleted: true }
+                  : m
+              )
+            );
+          } else if (updated.is_edited && updated.content) {
+            // Propagate edits made by the other user
+            if (updated.sender_id !== currentUserId) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === updated.id ? { ...m, text: updated.content ?? "", edited: true } : m
+                )
+              );
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId]);
+
+  // ── Navigate from community page: auto-open or create conversation ────────────
+  useEffect(() => {
+    if (!navState?.userId) return;
+    (async () => {
+      try {
+        const convId = await getOrCreateConversation(navState.userId!);
+        await loadConversations();
+        setActiveChatId(convId);
+        setActiveTab("chats");
+      } catch { /* ignore */ }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navState?.userId]);
+
+  // ── Open or create conversation from Users tab ────────────────────────────────
+  async function openConversationWith(peerId: string) {
+    try {
+      const convId = await getOrCreateConversation(peerId);
+      await loadConversations();
+      setActiveChatId(convId);
+      setActiveTab("chats");
+    } catch { /* ignore */ }
+  }
+
+  // ── Real users for Users tab (loaded from connections) ───────────────────────
+  const [realUsers, setRealUsers] = useState<Connection[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
@@ -478,38 +631,52 @@ export default function MessagesPage() {
     setEmojiPickerMsgId(null);
   }
 
-  function saveEdit(msgId: string) {
+  async function saveEdit(msgId: string) {
     const text = editDraft.trim();
     if (!text) return;
+    // optimistic update
     setMessages((prev) =>
       prev.map((m) => m.id === msgId ? { ...m, text, edited: true } : m)
     );
     setEditingMsgId(null);
+    try {
+      await apiEditMessage(msgId, text);
+    } catch { /* UI already updated */ }
   }
 
-  function sendMessage() {
+  async function sendMessage() {
     if (recordedUrl) { sendVoiceMessage(); return; }
     const text = draft.trim();
-    if (!text) return;
-    const now = new Date();
-    const h = now.getHours();
-    const m = now.getMinutes();
-    const ampm = h >= 12 ? "pm" : "am";
-    const hh = h % 12 || 12;
-    const mm = m.toString().padStart(2, "0");
+    if (!text || !activeChatId) return;
+    const timeStr = nowTime();
+    const tempId = `temp-${Date.now()}`;
+    // optimistic
     setMessages((prev) => [
       ...prev,
       {
-        id: `msg-${Date.now()}`,
+        id: tempId,
         text,
-        sender: "me",
-        time: `${hh}:${mm} ${ampm}`,
+        sender: "me" as const,
+        time: timeStr,
         ...(replyToMsg ? { replyTo: { id: replyToMsg.id, text: replyToMsg.text ?? "", sender: replyToMsg.sender } } : {}),
       },
     ]);
     setDraft("");
     setReplyToMsg(null);
     if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
+    try {
+      const saved = await apiSendMessage(activeChatId, text, {
+        reply_to_id: replyToMsg?.id,
+      });
+      // replace temp id with real id and update conversation list
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: saved.id } : m));
+      setChats((prev) => prev.map((c) =>
+        c.id === activeChatId ? { ...c, lastMessage: text, time: timeStr } : c
+      ));
+    } catch {
+      // remove optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -636,65 +803,41 @@ export default function MessagesPage() {
   }
 
 
-  function nowTime() {
-    const now = new Date();
-    const h = now.getHours(); const m = now.getMinutes();
-    const ampm = h >= 12 ? "pm" : "am";
-    return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ampm}`;
-  }
+  const nowTime = nowTimeStr;
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const time = nowTime();
+    if (!files || files.length === 0 || !activeChatId) return;
 
     async function processFile(file: File) {
-      const url = URL.createObjectURL(file);
-      const msgId = `msg-${Date.now()}-${Math.random()}`;
+      const localUrl = URL.createObjectURL(file);
+      const tempId = `temp-${Date.now()}-${Math.random()}`;
+      const time = nowTime();
+      const isAudio = file.type.startsWith("audio/");
+      const msgType: "audio" | "image" | "file" = isAudio ? "audio"
+        : file.type.startsWith("image/") ? "image" : "file";
 
-      if (file.type.startsWith("audio/")) {
-        /* Clearly audio */
-        setMessages((prev) => [...prev, {
-          id: msgId, type: "attachment" as const, sender: "me" as const, time,
-          attachmentName: file.name, attachmentUrl: url, attachmentMime: file.type,
-          waveform: generateWaveform(), audioDuration: 0,
-        }]);
-        const a = new Audio(url);
-        a.onloadedmetadata = () => setMessages((prev) =>
-          prev.map((m) => m.id === msgId ? { ...m, audioDuration: Math.round(a.duration) } : m)
-        );
-      } else if (file.type.startsWith("video/")) {
-        /* Could be audio-only MPEG — show as video first, then probe */
-        setMessages((prev) => [...prev, {
-          id: msgId, type: "attachment" as const, sender: "me" as const, time,
-          attachmentName: file.name, attachmentUrl: url, attachmentMime: file.type,
-        }]);
-        const vid = document.createElement("video");
-        vid.preload = "metadata";
-        vid.src = url;
-        await new Promise<void>((res) => {
-          const t = setTimeout(res, 2500);
-          vid.onloadedmetadata = () => { clearTimeout(t); res(); };
-          vid.onerror = () => { clearTimeout(t); res(); };
+      // Optimistic: show with local URL
+      setMessages((prev) => [...prev, {
+        id: tempId, type: "attachment" as const, sender: "me" as const, time,
+        attachmentName: file.name, attachmentUrl: localUrl, attachmentMime: file.type,
+        ...(isAudio ? { waveform: generateWaveform(), audioDuration: 0 } : {}),
+      }]);
+
+      try {
+        const { url, name } = await uploadFile(file);
+        const saved = await apiSendMessage(activeChatId!, `[${msgType}]`, {
+          message_type: msgType,
+          file_url: url,
+          file_name: name,
         });
-        if (vid.videoWidth === 0 && vid.videoHeight === 0) {
-          /* No video track — treat as audio */
-          const wf = generateWaveform();
-          setMessages((prev) => prev.map((m) =>
-            m.id === msgId ? { ...m, attachmentMime: "audio/mpeg", waveform: wf, audioDuration: 0 } : m
-          ));
-          const a = new Audio(url);
-          a.onloadedmetadata = () => setMessages((prev) =>
-            prev.map((m) => m.id === msgId ? { ...m, audioDuration: Math.round(a.duration) } : m)
-          );
-        }
-        vid.src = "";
-      } else {
-        /* Document / unknown */
-        setMessages((prev) => [...prev, {
-          id: msgId, type: "attachment" as const, sender: "me" as const, time,
-          attachmentName: file.name, attachmentUrl: url, attachmentMime: file.type,
-        }]);
+        URL.revokeObjectURL(localUrl);
+        setMessages((prev) => prev.map((m) =>
+          m.id === tempId ? { ...m, id: saved.id, attachmentUrl: url } : m
+        ));
+      } catch {
+        URL.revokeObjectURL(localUrl);
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
       }
     }
 
@@ -716,16 +859,6 @@ export default function MessagesPage() {
   function appendEmoji(emoji: string) {
     setDraft((prev) => prev + emoji);
     setShowInputEmoji(false);
-  }
-
-  function generateWaveform(): number[] {
-    const count = 40;
-    return Array.from({ length: count }, (_, i) => {
-      const center = count / 2;
-      const envelope = 1 - Math.pow((i - center) / center, 2) * 0.55;
-      const noise = Math.random() * 0.6 + 0.4;
-      return Math.max(3, Math.round(22 * envelope * noise));
-    });
   }
 
   function formatDuration(secs: number): string {
@@ -805,22 +938,36 @@ export default function MessagesPage() {
     }
   }
 
-  function sendVoiceMessage() {
-    if (!recordedUrl) return;
+  async function sendVoiceMessage() {
+    if (!recordedUrl || !activeChatId) return;
     if (audioPreviewRef.current) { audioPreviewRef.current.pause(); audioPreviewRef.current.src = ""; }
+    const wf = previewWaveform;
+    const dur = recordedDuration;
+    const tempId = `temp-${Date.now()}`;
+    // Show optimistic message with local blob URL
     setMessages((prev) => [...prev, {
-      id: `msg-${Date.now()}`,
-      sender: "me",
+      id: tempId,
+      sender: "me" as const,
       time: nowTime(),
       audioUrl: recordedUrl,
-      audioDuration: recordedDuration,
-      waveform: previewWaveform,
+      audioDuration: dur,
+      waveform: wf,
     }]);
     setRecordedUrl(null);
     setRecordedDuration(0);
     setPreviewWaveform([]);
     setIsPreviewPlaying(false);
     setPreviewProgress(0);
+    try {
+      // Convert blob URL → File → upload
+      const blob = await fetch(recordedUrl!).then((r) => r.blob());
+      const file = new File([blob], `voice-${Date.now()}.webm`, { type: blob.type || "audio/webm" });
+      const { url } = await uploadFile(file);
+      const saved = await apiSendMessage(activeChatId, "[Audio]", { message_type: "audio", file_url: url, file_name: file.name });
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: saved.id, audioUrl: url } : m));
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
   }
 
   function toggleMsgPlay(msgId: string, audioUrl: string) {
@@ -852,48 +999,48 @@ export default function MessagesPage() {
   }
 
   function deleteForMe(msgId: string) {
+    // Remove from this user's view only — no DB change
+    setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    setDeleteConfirmMsg(null);
+    setMenuMsgId(null);
+  }
+
+  async function deleteForEveryone(msgId: string) {
+    // Show "This message was deleted" tombstone to all participants
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId
-          ? { id: m.id, sender: m.sender, time: m.time, deleted: true } as Message & { deleted: boolean }
+          ? { id: m.id, sender: m.sender, time: m.time, deleted: true }
           : m
       )
     );
     setDeleteConfirmMsg(null);
     setMenuMsgId(null);
+    if (msgId.startsWith("temp-")) return; // not saved to DB yet
+    try { await apiDeleteMessage(msgId); } catch { /* best-effort */ }
   }
 
-  function deleteForEveryone(msgId: string) {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? { id: m.id, sender: m.sender, time: m.time, text: undefined, type: undefined, deleted: true } as Message & { deleted: boolean }
-          : m
-      )
-    );
-    setDeleteConfirmMsg(null);
-    setMenuMsgId(null);
-  }
-
-  function sendSticker(emoji: string) {
-    setMessages((prev) => [...prev, {
-      id: `msg-${Date.now()}`,
-      text: emoji,
-      sender: "me",
-      time: nowTime(),
-      sticker: true,
-    }]);
+  async function sendSticker(emoji: string) {
+    if (!activeChatId) return;
+    const tempId = `temp-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: tempId, text: emoji, sender: "me" as const, time: nowTime(), sticker: true }]);
     setShowStickerPanel(false);
+    try {
+      const saved = await apiSendMessage(activeChatId, emoji);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: saved.id } : m));
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
   }
 
-  const activeChat = MOCK_CHATS.find((c) => c.id === activeChatId);
+  const activeChat = chats.find((c) => c.id === activeChatId);
   const activeCall = MOCK_CALLS.find((c) => c.id === activeCallId);
   const activeGroup = MOCK_GROUPS.find((g) => g.id === activeGroupId) ?? null;
   const currentGroupMessages = activeGroupId ? (groupMessages[activeGroupId] ?? []) : [];
   const filteredGroups = MOCK_GROUPS.filter((g) =>
     g.name.toLowerCase().includes(groupSearch.toLowerCase())
   );
-  const filteredUsers = MOCK_USERS.filter((u) =>
+  const filteredUsers = realUsers.filter((u) =>
     u.name.toLowerCase().includes(userSearch.toLowerCase())
   );
 
@@ -935,11 +1082,23 @@ export default function MessagesPage() {
           <div className="flex-1 overflow-y-auto">
             {/* CHATS */}
             {activeTab === "chats" && (
-              MOCK_CHATS.length === 0 ? (
+              convLoading ? (
+                <div className="flex flex-col gap-0">
+                  {[0,1,2,3,4].map((i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-10 h-10 rounded-full bg-[#f2f2f3] animate-pulse shrink-0" />
+                      <div className="flex-1 flex flex-col gap-2">
+                        <div className="h-3 w-28 bg-[#f2f2f3] animate-pulse rounded" />
+                        <div className="h-2.5 w-40 bg-[#f2f2f3] animate-pulse rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : chats.length === 0 ? (
                 <ChatsEmptyState />
               ) : (
                 <div>
-                  {MOCK_CHATS.map((chat) => (
+                  {chats.map((chat) => (
                     <button
                       key={chat.id}
                       onClick={() => { setActiveChatId(chat.id); setActiveCallId(null); }}
@@ -970,47 +1129,8 @@ export default function MessagesPage() {
               )
             )}
 
-            {/* CALLS */}
-            {activeTab === "calls" && (
-              MOCK_CALLS.length === 0 ? (
-                <CallsEmptyState />
-              ) : (
-                <div>
-                  {MOCK_CALLS.map((call) => (
-                    <button
-                      key={call.id}
-                      onClick={() => { setActiveCallId(call.id); setActiveChatId(null); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#f9fafb] transition-colors text-left ${activeCallId === call.id ? "bg-[#fff6ed]" : ""}`}
-                    >
-                      <Avatar initials={call.initials} color={call.avatarColor} size={42} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-semibold text-[14px] truncate ${call.type === "missed" ? "text-red-500" : "text-[#18191c]"}`}>
-                          {call.type === "missed" && call.missedCount ? `${call.name} (${call.missedCount})` : call.name}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {call.type === "outgoing" ? (
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                              <path d="M2 10L10 2M10 2H4M10 2v6" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          ) : (
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                              <path d="M10 2L2 10M2 10H8M2 10V4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                          <span className="text-[12px] text-[#9ca3af]">{call.date}</span>
-                        </div>
-                      </div>
-                      <button className="shrink-0 text-[#9ca3af] hover:text-[#f77f00] transition-colors p-1">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                          <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
-                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                    </button>
-                  ))}
-                </div>
-              )
-            )}
+            {/* CALLS — coming soon */}
+            {activeTab === "calls" && <ComingSoonPanel icon="calls" label="Calls" />}
 
             {/* USERS */}
             {activeTab === "users" && (
@@ -1030,68 +1150,58 @@ export default function MessagesPage() {
                     />
                   </div>
                 </div>
-                {filteredUsers.map((user) => (
-                  <div key={user.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors">
-                    <Avatar initials={user.initials} color={user.avatarColor} size={42} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-[14px] text-[#18191c] truncate">{user.name}</p>
-                      <p className="text-[12px] text-[#9ca3af]">{user.role}</p>
+                {filteredUsers.length === 0 && (
+                  <p className="px-4 py-6 text-sm text-[#9ca3af] text-center">
+                    {userSearch ? "No connections match your search." : "No connections yet. Add people from My Community."}
+                  </p>
+                )}
+                {filteredUsers.map((user) => {
+                  const initials = user.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+                  return (
+                    <div key={user.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors">
+                      <Avatar initials={initials} img={user.avatar_url ?? undefined} color="#f77f00" size={42} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[14px] text-[#18191c] truncate">{user.name}</p>
+                        <p className="text-[12px] text-[#9ca3af]">{user.title || user.company || "Community member"}</p>
+                      </div>
+                      <button
+                        onClick={() => openConversationWith(user.id)}
+                        className="shrink-0 px-3 py-1.5 border border-[#f77f00] text-[#f77f00] text-[12px] font-semibold rounded-full hover:bg-[#fff6ed] transition-colors"
+                      >
+                        Message
+                      </button>
                     </div>
-                    <button className="shrink-0 px-3 py-1.5 border border-[#f77f00] text-[#f77f00] text-[12px] font-semibold rounded-full hover:bg-[#fff6ed] transition-colors">
-                      Message
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
-            {/* GROUPS */}
-            {activeTab === "groups" && (
-              <div>
-                <div className="px-4 py-3">
-                  <div className="relative">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5" />
-                      <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                    <input
-                      type="search"
-                      value={groupSearch}
-                      onChange={(e) => setGroupSearch(e.target.value)}
-                      placeholder="Search"
-                      className="w-full pl-9 pr-4 py-2 rounded-full bg-[#f5f5f5] text-sm text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors"
-                    />
-                  </div>
-                </div>
-                {filteredGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    onClick={() => setActiveGroupId(group.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors text-left ${activeGroupId === group.id ? "bg-[#fff6ed]" : ""}`}
-                  >
-                    <Avatar initials={group.initials} color={group.avatarColor} size={42} online={group.online} />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[14px] text-[#18191c] truncate">{group.name}</p>
-                      <p className="text-[12px] text-[#9ca3af]">{group.members} Members</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* GROUPS — coming soon */}
+            {activeTab === "groups" && <ComingSoonPanel icon="groups" label="Groups" />}
           </div>
 
           {/* Bottom tab bar */}
           <div className="border-t border-[#e5e7eb] flex">
-            {(["chats", "calls", "users", "groups"] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setActiveChatId(null); setActiveCallId(null); setActiveGroupId(null); }}
-                className={`flex-1 flex flex-col items-center py-3 gap-1 transition-colors text-[11px] font-medium capitalize ${activeTab === tab ? "text-[#f77f00]" : "text-[#9ca3af] hover:text-[#f77f00]"}`}
-              >
-                <TabIcon tab={tab} active={activeTab === tab} />
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
+            {(["chats", "calls", "users", "groups"] as Tab[]).map((tab) => {
+              const comingSoon = tab === "calls" || tab === "groups";
+              return (
+                <button
+                  key={tab}
+                  onClick={() => { setActiveTab(tab); setActiveChatId(null); setActiveCallId(null); setActiveGroupId(null); }}
+                  className={`flex-1 flex flex-col items-center py-3 gap-1 transition-colors text-[11px] font-medium capitalize ${activeTab === tab ? "text-[#f77f00]" : "text-[#9ca3af] hover:text-[#f77f00]"}`}
+                >
+                  <div className="relative">
+                    <TabIcon tab={tab} active={activeTab === tab} />
+                    {comingSoon && (
+                      <span className="absolute -top-2 -right-4 bg-[#e5e7eb] text-[#9ca3af] text-[7px] font-bold px-1 rounded-full leading-tight">
+                        SOON
+                      </span>
+                    )}
+                  </div>
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1110,13 +1220,8 @@ export default function MessagesPage() {
               <div className="bg-white border-b border-[#e5e7eb] px-5 py-3.5 flex items-center gap-3 shrink-0">
                 <Avatar initials={activeChat.initials} color={activeChat.avatarColor} img={activeChat.avatarImg} size={40} />
                 <div className="flex-1 min-w-0">
-                  <button
-                    onClick={() => chatGroup && setShowChatInfo(v => !v)}
-                    className={`font-bold text-[15px] text-[#18191c] text-left truncate max-w-full ${chatGroup ? "hover:text-[#f77f00] cursor-pointer" : "cursor-default"} transition-colors`}
-                  >
-                    {activeChat.name}
-                  </button>
-                  <p className="text-[12px] text-[#22c55e]">Online</p>
+                  <p className="font-bold text-[15px] text-[#18191c]">{activeChat.name}</p>
+                  <p className="text-[12px] text-[#9ca3af]">{activeChat.time ? `Last seen ${activeChat.time}` : "Community member"}</p>
                 </div>
                 <div className="flex items-center gap-3 text-[#9ca3af]">
                   <button onClick={() => setCallOverlay({ name: activeChat.name, initials: activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), avatarColor: activeChat.avatarColor ?? "#f77f00", avatarImg: activeChat.avatarImg, isVideo: true })} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Video call">
@@ -1169,6 +1274,20 @@ export default function MessagesPage() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-2">
+                {msgLoading && (
+                  <div className="flex flex-col gap-3 w-full">
+                    {[0,1,2].map((i) => (
+                      <div key={i} className={`flex ${i % 2 === 0 ? "justify-start" : "justify-end"}`}>
+                        <div className={`h-9 rounded-2xl bg-[#f2f2f3] animate-pulse ${i % 2 === 0 ? "w-48" : "w-36"}`} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!msgLoading && messages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full text-[#9ca3af] text-sm">
+                    No messages yet. Say hi!
+                  </div>
+                )}
                 {messages.map((msg) => {
                   if (msg.type === "separator") {
                     return (
@@ -1204,19 +1323,29 @@ export default function MessagesPage() {
                   if (msg.audioUrl) {
                     const isSent = msg.sender === "me";
                     const isPlaying = playingMsgId === msg.id;
+                    const menuBtn = (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                        <button onClick={(e) => openMenu(e, msg.id, isSent)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+                        </button>
+                      </div>
+                    );
                     return (
                       <div key={msg.id} className={`flex ${isSent ? "justify-end" : "justify-start"}`}>
-                        <div className={`flex flex-col ${isSent ? "items-end" : "items-start"}`}>
-                          <AudioBubble
-                            msgId={msg.id}
-                            audioUrl={msg.audioUrl}
-                            waveform={msg.waveform ?? []}
-                            audioDuration={msg.audioDuration ?? 0}
-                            isSent={isSent}
-                            isPlaying={isPlaying}
-                            playProgress={isPlaying ? playProgress : 0}
-                            onToggle={toggleMsgPlay}
-                          />
+                        <div className={`group flex flex-col ${isSent ? "items-end" : "items-start"}`}>
+                          <div className={`flex items-center gap-1.5 ${isSent ? "flex-row" : "flex-row-reverse"}`}>
+                            {menuBtn}
+                            <AudioBubble
+                              msgId={msg.id}
+                              audioUrl={msg.audioUrl}
+                              waveform={msg.waveform ?? []}
+                              audioDuration={msg.audioDuration ?? 0}
+                              isSent={isSent}
+                              isPlaying={isPlaying}
+                              playProgress={isPlaying ? playProgress : 0}
+                              onToggle={toggleMsgPlay}
+                            />
+                          </div>
                           <p className={`text-[11px] text-[#9ca3af] mt-0.5 ${isSent ? "pr-1" : "pl-1"}`}>{msg.time}</p>
                         </div>
                       </div>
@@ -1231,53 +1360,83 @@ export default function MessagesPage() {
 
                     /* Audio file → render as waveform player (same as voice message) */
                     if (isAudio && msg.attachmentUrl) {
+                      const isSent = msg.sender === "me";
                       const isPlaying = playingMsgId === msg.id;
+                      const menuBtn = (
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                          <button onClick={(e) => openMenu(e, msg.id, isSent)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+                          </button>
+                        </div>
+                      );
                       return (
-                        <div key={msg.id} className="flex justify-end">
-                          <div className="flex flex-col items-end">
-                            <AudioBubble
-                              msgId={msg.id}
-                              audioUrl={msg.attachmentUrl}
-                              waveform={msg.waveform ?? []}
-                              audioDuration={msg.audioDuration ?? 0}
-                              isSent
-                              isPlaying={isPlaying}
-                              playProgress={isPlaying ? playProgress : 0}
-                              onToggle={toggleMsgPlay}
-                            />
-                            <p className="text-[11px] text-[#9ca3af] pr-1 mt-0.5">{msg.time}</p>
+                        <div key={msg.id} className={`flex ${isSent ? "justify-end" : "justify-start"}`}>
+                          <div className={`group flex flex-col ${isSent ? "items-end" : "items-start"}`}>
+                            <div className={`flex items-center gap-1.5 ${isSent ? "flex-row" : "flex-row-reverse"}`}>
+                              {menuBtn}
+                              <AudioBubble
+                                msgId={msg.id}
+                                audioUrl={msg.attachmentUrl}
+                                waveform={msg.waveform ?? []}
+                                audioDuration={msg.audioDuration ?? 0}
+                                isSent={isSent}
+                                isPlaying={isPlaying}
+                                playProgress={isPlaying ? playProgress : 0}
+                                onToggle={toggleMsgPlay}
+                              />
+                            </div>
+                            <p className={`text-[11px] text-[#9ca3af] mt-0.5 ${isSent ? "pr-1" : "pl-1"}`}>{msg.time}</p>
                           </div>
                         </div>
                       );
                     }
+                    const isSentAttachment = msg.sender === "me";
                     return (
-                      <div key={msg.id} className="flex justify-end">
-                        <div className="group flex flex-col items-end max-w-[60%]">
-                          <div className="flex items-center gap-1.5">
+                      <div key={msg.id} className={`flex ${isSentAttachment ? "justify-end" : "justify-start"}`}>
+                        <div className="group flex flex-col max-w-[60%]" style={{ alignItems: isSentAttachment ? "flex-end" : "flex-start" }}>
+                          <div className={`flex items-center gap-1.5 ${isSentAttachment ? "flex-row" : "flex-row-reverse"}`}>
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
-                              <button onClick={(e) => openMenu(e, msg.id, true)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors">
+                              <button onClick={(e) => openMenu(e, msg.id, isSentAttachment)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
                               </button>
                             </div>
                             {isImg && msg.attachmentUrl ? (
-                              <button
-                                onClick={() => setLightboxMsg(msg)}
-                                className="rounded-2xl overflow-hidden border border-[#e5e7eb] bg-white block focus:outline-none"
-                              >
-                                <img src={msg.attachmentUrl} alt={msg.attachmentName} className="max-w-[260px] max-h-[200px] object-cover block hover:opacity-95 transition-opacity" />
-                              </button>
+                              <div className="relative group/img">
+                                <button
+                                  onClick={() => setLightboxMsg(msg)}
+                                  className="rounded-2xl overflow-hidden border border-[#e5e7eb] bg-white block focus:outline-none"
+                                >
+                                  <img src={msg.attachmentUrl} alt={msg.attachmentName} className="max-w-[260px] max-h-[200px] object-cover block hover:opacity-95 transition-opacity" />
+                                </button>
+                                <button
+                                  onClick={() => downloadAttachment(msg.attachmentUrl!, msg.attachmentName || "image")}
+                                  className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity w-8 h-8 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white hover:bg-black/70"
+                                  title="Download"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                </button>
+                              </div>
                             ) : isVid && msg.attachmentUrl ? (
-                              <button
-                                onClick={() => setLightboxMsg(msg)}
-                                className="relative rounded-2xl overflow-hidden border border-[#e5e7eb] bg-black block focus:outline-none"
-                              >
-                                <video src={msg.attachmentUrl} className="max-w-[260px] max-h-[200px] block object-cover" preload="metadata" />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                  <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                              <div className="relative group/vid">
+                                <button
+                                  onClick={() => setLightboxMsg(msg)}
+                                  className="relative rounded-2xl overflow-hidden border border-[#e5e7eb] bg-black block focus:outline-none"
+                                >
+                                  <video src={msg.attachmentUrl} className="max-w-[260px] max-h-[200px] block object-cover" preload="metadata" />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                    </div>
                                   </div>
-                                </div>
-                              </button>
+                                </button>
+                                <button
+                                  onClick={() => downloadAttachment(msg.attachmentUrl!, msg.attachmentName || "video")}
+                                  className="absolute top-2 right-2 opacity-0 group-hover/vid:opacity-100 transition-opacity w-8 h-8 rounded-full bg-black/50 backdrop-blur flex items-center justify-center text-white hover:bg-black/70"
+                                  title="Download"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                </button>
+                              </div>
                             ) : (
                               <div className="bg-[#ffeacc] rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[200px]">
                                 <div className="w-9 h-9 rounded-xl bg-[#f77f00]/20 flex items-center justify-center shrink-0">
@@ -1288,20 +1447,18 @@ export default function MessagesPage() {
                                   <p className="text-[11px] text-[#9ca3af]">Document</p>
                                 </div>
                                 {msg.attachmentUrl && (
-                                  <a
-                                    href={msg.attachmentUrl}
-                                    download={msg.attachmentName}
-                                    onClick={(e) => e.stopPropagation()}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); downloadAttachment(msg.attachmentUrl!, msg.attachmentName || "file"); }}
                                     className="shrink-0 w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#f77f00] hover:bg-[#fff6ed] transition-colors border border-[#f77f00]/30"
                                     title="Download"
                                   >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                  </a>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                  </button>
                                 )}
                               </div>
                             )}
                           </div>
-                          <p className="text-[11px] text-[#9ca3af] pr-1 mt-0.5">{msg.time}</p>
+                          <p className={`text-[11px] text-[#9ca3af] mt-0.5 ${isSentAttachment ? "pr-1" : "pl-1"}`}>{msg.time}</p>
                         </div>
                       </div>
                     );
@@ -1438,7 +1595,16 @@ export default function MessagesPage() {
                     onClose={() => setMenuMsgId(null)}
                     onEdit={(msg) => { setEditingMsgId(msg.id); setEditDraft(msg.text ?? ""); setMenuMsgId(null); }}
                     onReply={(msg) => { setReplyToMsg(msg); setMenuMsgId(null); }}
-                    onDeleteRequest={(msg) => { setDeleteConfirmMsg(msg); setMenuMsgId(null); }}
+                    onDeleteRequest={(msg) => {
+                      // Temp messages (not yet saved to DB) — just remove locally, no confirmation needed
+                      if (msg.id.startsWith("temp-")) {
+                        setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                        setMenuMsgId(null);
+                        return;
+                      }
+                      setDeleteConfirmMsg(msg);
+                      setMenuMsgId(null);
+                    }}
                   />
                 </div>
               )}
@@ -1695,13 +1861,14 @@ export default function MessagesPage() {
             );
           })()}
 
-          {/* Calls: call detail */}
-          {activeTab === "calls" && activeCall && (
-            <CallDetailView call={activeCall} />
-          )}
+          {/* Calls: coming soon right panel */}
+          {activeTab === "calls" && <RightComingSoon icon="calls" label="Calls" description="Voice and video call history will appear here. This feature is coming soon." />}
 
-          {/* Groups: active group chat — chat area + info sidebar */}
-          {activeTab === "groups" && activeGroup && (() => {
+          {/* Groups: coming soon right panel */}
+          {activeTab === "groups" && <RightComingSoon icon="groups" label="Groups" description="Create and manage group conversations. This feature is coming soon." />}
+
+          {/* Groups: active group chat — chat area + info sidebar (disabled — coming soon) */}
+          {false && activeTab === "groups" && activeGroup && (() => {
             const members = MOCK_GROUP_MEMBERS[activeGroupId!] ?? MOCK_GROUP_MEMBERS.default;
             const filteredMembers = members.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
             return (
@@ -1959,11 +2126,8 @@ export default function MessagesPage() {
             );
           })()}
 
-          {/* Default empty states */}
-          {((activeTab === "chats" && !activeChat) ||
-            (activeTab === "calls" && !activeCall) ||
-            activeTab === "users" ||
-            (activeTab === "groups" && !activeGroup)) && (
+          {/* Default empty state — only for chats/users (calls+groups show their own coming-soon panel) */}
+          {((activeTab === "chats" && !activeChat) || activeTab === "users") && (
             <RightEmptyState tab={activeTab} />
           )}
         </div>
@@ -2357,14 +2521,32 @@ function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
   );
 }
 
-const MENU_ITEMS = [
-  { label: "Info", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-  { label: "Copy", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-  { label: "Edit", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+const BASE_MENU_ITEMS = [
+  { label: "Info",            icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+  { label: "Copy",            icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+  { label: "Download",        icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>, attachmentOnly: true },
+  { label: "Edit",            icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { label: "Reply in thread", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="9 17 4 12 9 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M20 18v-2a4 4 0 00-4-4H4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  { label: "Translate", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 8l6 6M4 6h7M2 6h2m14 10s-2-2-4-4m4 4s2-2 4-4m-4 4h.01M10 3l-1 2M3 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 21l-6-6m0 0a5 5 0 10-7.07-7.07A5 5 0 0015 15z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-  { label: "Delete", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>, danger: true },
-] as const;
+  { label: "Translate",       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 8l6 6M4 6h7M2 6h2m14 10s-2-2-4-4m4 4s2-2 4-4m-4 4h.01M10 3l-1 2M3 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 21l-6-6m0 0a5 5 0 10-7.07-7.07A5 5 0 0015 15z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+  { label: "Delete",          icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>, danger: true },
+];
+
+async function downloadAttachment(url: string, filename: string) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    window.open(url, "_blank", "noopener noreferrer");
+  }
+}
 
 function EditMessageModal({
   draft,
@@ -2460,8 +2642,21 @@ function MessageContextMenu({
   onReply?: (msg: Message) => void;
   onDeleteRequest?: (msg: Message) => void;
 }) {
-  function handleItem(label: string) {
-    if (label === "Copy" && msg.text) navigator.clipboard.writeText(msg.text).catch(() => {});
+  const hasAttachment = !!(msg.attachmentUrl || msg.audioUrl);
+
+  const items = BASE_MENU_ITEMS.filter((item) =>
+    !("attachmentOnly" in item && item.attachmentOnly) || hasAttachment
+  );
+
+  async function handleItem(label: string) {
+    if (label === "Copy" && msg.text) {
+      navigator.clipboard.writeText(msg.text).catch(() => {});
+    }
+    if (label === "Download") {
+      const url = msg.attachmentUrl || msg.audioUrl;
+      const name = msg.attachmentName || "audio.webm";
+      if (url) await downloadAttachment(url, name);
+    }
     if (label === "Edit") { onEdit?.(msg); return; }
     if (label === "Reply in thread") { onReply?.(msg); return; }
     if (label === "Delete") { onDeleteRequest?.(msg); return; }
@@ -2470,7 +2665,7 @@ function MessageContextMenu({
 
   return (
     <div className="bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.14)] border border-[#e5e7eb] py-1.5 min-w-[188px] overflow-hidden">
-      {MENU_ITEMS.map((item) => {
+      {items.map((item) => {
         const isEditDisabled = item.label === "Edit" && msg.sender !== "me";
         return (
           <button
@@ -2478,9 +2673,7 @@ function MessageContextMenu({
             onClick={() => handleItem(item.label)}
             disabled={isEditDisabled}
             className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left ${
-              isEditDisabled
-                ? "opacity-30 cursor-not-allowed"
-                : "hover:bg-[#f9fafb]"
+              isEditDisabled ? "opacity-30 cursor-not-allowed" : "hover:bg-[#f9fafb]"
             } ${"danger" in item && item.danger ? "text-red-500 hover:bg-red-50" : "text-[#374151]"}`}
           >
             <span className={"danger" in item && item.danger ? "text-red-400" : "text-[#9ca3af]"}>
@@ -2614,6 +2807,56 @@ function CallsEmptyState() {
       <p className="text-[13px] text-[#9ca3af] leading-relaxed max-w-[240px]">
         Make or receive calls to see your call history listed here
       </p>
+    </div>
+  );
+}
+
+// ─── Coming-soon panels ───────────────────────────────────────────────────────
+
+function ComingSoonPanel({ icon, label }: { icon: "calls" | "groups"; label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+      <div className="w-16 h-16 rounded-full bg-[#fff6ed] flex items-center justify-center">
+        {icon === "calls" ? (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        )}
+      </div>
+      <div>
+        <p className="font-bold text-[16px] text-[#18191c]">{label} — Coming Soon</p>
+        <p className="text-[13px] text-[#9ca3af] mt-1">This feature is being built and will be available soon.</p>
+      </div>
+    </div>
+  );
+}
+
+function RightComingSoon({ icon, label, description }: { icon: "calls" | "groups"; label: string; description: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-5 px-10 text-center">
+      <div className="w-20 h-20 rounded-full bg-[#fff6ed] flex items-center justify-center">
+        {icon === "calls" ? (
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        )}
+      </div>
+      <div>
+        <p className="font-bold text-[20px] text-[#18191c] mb-2">{label} — Coming Soon</p>
+        <p className="text-[14px] text-[#9ca3af] leading-relaxed max-w-[320px]">{description}</p>
+      </div>
     </div>
   );
 }
