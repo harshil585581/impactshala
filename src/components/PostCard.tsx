@@ -49,12 +49,26 @@ function UserAvatar({ name, url }: { name: string; url?: string | null }) {
   );
 }
 
-export default function PostCard({ post }: { post: FeedPost }) {
+export default function PostCard({
+  post,
+  isSaved = false,
+  onSaveToggle,
+}: {
+  post: FeedPost;
+  isSaved?: boolean;
+  onSaveToggle?: (postId: string, saved: boolean) => void;
+}) {
   const [voted, setVoted] = useState<number | null>(null);
   const [liked, setLiked] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(isSaved);
 
   const name = getDisplayName(post.user);
+
+  function toggleSave() {
+    const next = !saved;
+    setSaved(next);
+    onSaveToggle?.(post.id, next);
+  }
 
   return (
     <div className="bg-white border border-[#ececec] rounded-2xl shadow-[0px_1px_1px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -285,11 +299,11 @@ export default function PostCard({ post }: { post: FeedPost }) {
           Share
         </button>
         <button
-          onClick={() => setSaved(v => !v)}
+          onClick={toggleSave}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${saved ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'}><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          Save
+          {saved ? 'Saved' : 'Save'}
         </button>
       </div>
     </div>

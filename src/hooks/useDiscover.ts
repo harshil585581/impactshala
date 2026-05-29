@@ -6,6 +6,7 @@ import {
   type DiscoverItem,
   type DiscoverFeedParams,
 } from "../services/discoverService";
+import { saveDiscoverItem, unsaveDiscoverItem } from "../services/savedService";
 
 export type Tab = "providers" | "seekers";
 
@@ -104,6 +105,21 @@ export function useDiscover() {
     load();
   }, [load]);
 
+  // Listen for unsave events fired by SavedPostsPage so the bookmark icon
+  // updates immediately without requiring a page reload
+  useEffect(() => {
+    function handleUnsave(e: Event) {
+      const { itemId } = (e as CustomEvent<{ itemId: string }>).detail;
+      setBookmarkedIds(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+    window.addEventListener('impactshaala:discover-unsaved', handleUnsave);
+    return () => window.removeEventListener('impactshaala:discover-unsaved', handleUnsave);
+  }, []);
+
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
@@ -129,6 +145,32 @@ export function useDiscover() {
         else next.add(id);
         return next;
       });
+
+      // Persist to Supabase so SavedPostsPage can display it
+      const item = items.find(i => i.id === id);
+      if (!wasBookmarked && item) {
+        saveDiscoverItem({
+          id: item.id,
+          savedAt: new Date().toISOString(),
+          userName: item.name,
+          userRole: `${item.role} · ${item.company}`,
+          userAvatarUrl: item.avatarUrl || null,
+          time: item.postedAt,
+          title: item.title,
+          badge: item.badge,
+          tags: [item.categoryTag, ...item.subTags.split(' • ')].filter(Boolean),
+          mode: item.mode,
+          payment: item.payment,
+          audience: item.targetAudience,
+          lastDate: item.lastDate,
+          imageUrl: item.imageUrl,
+          reactions: item.reactions,
+          comments: item.comments,
+        }).catch(() => {});
+      } else if (wasBookmarked) {
+        unsaveDiscoverItem(id).catch(() => {});
+      }
+
       try {
         await toggleBookmark(id, !wasBookmarked);
       } catch {
@@ -141,7 +183,7 @@ export function useDiscover() {
         });
       }
     },
-    [bookmarkedIds]
+    [bookmarkedIds, items]
   );
 
   const switchTab = useCallback(
