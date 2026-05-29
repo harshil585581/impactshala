@@ -105,8 +105,7 @@ function PersonCard({
           )}
         </div>
 
-        {/* Stats row — only rendered when at least one stat is non-zero */}
-        {((person.endorsement_count ?? 0) + (person.review_count ?? 0) + (person.achievement_count ?? 0) > 0) && (
+        {/* Stats row */}
         <div className="flex w-full border-t border-[#e5e7eb] mt-3 pt-3 pb-1">
           <div className="flex-1 flex flex-col items-center gap-1">
             <span className="text-[#f77f00] text-sm font-bold leading-none">
@@ -129,7 +128,6 @@ function PersonCard({
             <span className="text-[#9199a3] text-[10px] text-center leading-none">Achievement</span>
           </div>
         </div>
-        )}
 
         {/* Action button */}
         <button

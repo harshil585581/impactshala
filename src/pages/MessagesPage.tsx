@@ -1129,8 +1129,47 @@ export default function MessagesPage() {
               )
             )}
 
-            {/* CALLS — coming soon */}
-            {activeTab === "calls" && <ComingSoonPanel icon="calls" label="Calls" />}
+            {/* CALLS */}
+            {activeTab === "calls" && (
+              MOCK_CALLS.length === 0 ? (
+                <CallsEmptyState />
+              ) : (
+                <div>
+                  {MOCK_CALLS.map((call) => (
+                    <button
+                      key={call.id}
+                      onClick={() => { setActiveCallId(call.id); setActiveChatId(null); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#f9fafb] transition-colors text-left ${activeCallId === call.id ? "bg-[#fff6ed]" : ""}`}
+                    >
+                      <Avatar initials={call.initials} color={call.avatarColor} size={42} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-semibold text-[14px] truncate ${call.type === "missed" ? "text-red-500" : "text-[#18191c]"}`}>
+                          {call.type === "missed" && call.missedCount ? `${call.name} (${call.missedCount})` : call.name}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {call.type === "outgoing" ? (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 10L10 2M10 2H4M10 2v6" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M10 2L2 10M2 10H8M2 10V4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                          <span className="text-[12px] text-[#9ca3af]">{call.date}</span>
+                        </div>
+                      </div>
+                      <button className="shrink-0 text-[#9ca3af] hover:text-[#f77f00] transition-colors p-1">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
 
             {/* USERS */}
             {activeTab === "users" && (
@@ -1176,32 +1215,53 @@ export default function MessagesPage() {
               </div>
             )}
 
-            {/* GROUPS — coming soon */}
-            {activeTab === "groups" && <ComingSoonPanel icon="groups" label="Groups" />}
+            {/* GROUPS */}
+            {activeTab === "groups" && (
+              <div>
+                <div className="px-4 py-3">
+                  <div className="relative">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                    <input
+                      type="search"
+                      value={groupSearch}
+                      onChange={(e) => setGroupSearch(e.target.value)}
+                      placeholder="Search"
+                      className="w-full pl-9 pr-4 py-2 rounded-full bg-[#f5f5f5] text-sm text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors"
+                    />
+                  </div>
+                </div>
+                {filteredGroups.map((group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => setActiveGroupId(group.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors text-left ${activeGroupId === group.id ? "bg-[#fff6ed]" : ""}`}
+                  >
+                    <Avatar initials={group.initials} color={group.avatarColor} size={42} online={group.online} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[14px] text-[#18191c] truncate">{group.name}</p>
+                      <p className="text-[12px] text-[#9ca3af]">{group.members} Members</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Bottom tab bar */}
           <div className="border-t border-[#e5e7eb] flex">
-            {(["chats", "calls", "users", "groups"] as Tab[]).map((tab) => {
-              const comingSoon = tab === "calls" || tab === "groups";
-              return (
-                <button
-                  key={tab}
-                  onClick={() => { setActiveTab(tab); setActiveChatId(null); setActiveCallId(null); setActiveGroupId(null); }}
-                  className={`flex-1 flex flex-col items-center py-3 gap-1 transition-colors text-[11px] font-medium capitalize ${activeTab === tab ? "text-[#f77f00]" : "text-[#9ca3af] hover:text-[#f77f00]"}`}
-                >
-                  <div className="relative">
-                    <TabIcon tab={tab} active={activeTab === tab} />
-                    {comingSoon && (
-                      <span className="absolute -top-2 -right-4 bg-[#e5e7eb] text-[#9ca3af] text-[7px] font-bold px-1 rounded-full leading-tight">
-                        SOON
-                      </span>
-                    )}
-                  </div>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              );
-            })}
+            {(["chats", "calls", "users", "groups"] as Tab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setActiveChatId(null); setActiveCallId(null); setActiveGroupId(null); }}
+                className={`flex-1 flex flex-col items-center py-3 gap-1 transition-colors text-[11px] font-medium capitalize ${activeTab === tab ? "text-[#f77f00]" : "text-[#9ca3af] hover:text-[#f77f00]"}`}
+              >
+                <TabIcon tab={tab} active={activeTab === tab} />
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1861,14 +1921,13 @@ export default function MessagesPage() {
             );
           })()}
 
-          {/* Calls: coming soon right panel */}
-          {activeTab === "calls" && <RightComingSoon icon="calls" label="Calls" description="Voice and video call history will appear here. This feature is coming soon." />}
+          {/* Calls: call detail */}
+          {activeTab === "calls" && activeCall && (
+            <CallDetailView call={activeCall} />
+          )}
 
-          {/* Groups: coming soon right panel */}
-          {activeTab === "groups" && <RightComingSoon icon="groups" label="Groups" description="Create and manage group conversations. This feature is coming soon." />}
-
-          {/* Groups: active group chat — chat area + info sidebar (disabled — coming soon) */}
-          {false && activeTab === "groups" && activeGroup && (() => {
+          {/* Groups: active group chat — chat area + info sidebar */}
+          {activeTab === "groups" && activeGroup && (() => {
             const members = MOCK_GROUP_MEMBERS[activeGroupId!] ?? MOCK_GROUP_MEMBERS.default;
             const filteredMembers = members.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
             return (
@@ -2126,8 +2185,11 @@ export default function MessagesPage() {
             );
           })()}
 
-          {/* Default empty state — only for chats/users (calls+groups show their own coming-soon panel) */}
-          {((activeTab === "chats" && !activeChat) || activeTab === "users") && (
+          {/* Default empty states */}
+          {((activeTab === "chats" && !activeChat) ||
+            (activeTab === "calls" && !activeCall) ||
+            activeTab === "users" ||
+            (activeTab === "groups" && !activeGroup)) && (
             <RightEmptyState tab={activeTab} />
           )}
         </div>
@@ -2807,56 +2869,6 @@ function CallsEmptyState() {
       <p className="text-[13px] text-[#9ca3af] leading-relaxed max-w-[240px]">
         Make or receive calls to see your call history listed here
       </p>
-    </div>
-  );
-}
-
-// ─── Coming-soon panels ───────────────────────────────────────────────────────
-
-function ComingSoonPanel({ icon, label }: { icon: "calls" | "groups"; label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
-      <div className="w-16 h-16 rounded-full bg-[#fff6ed] flex items-center justify-center">
-        {icon === "calls" ? (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
-            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        )}
-      </div>
-      <div>
-        <p className="font-bold text-[16px] text-[#18191c]">{label} — Coming Soon</p>
-        <p className="text-[13px] text-[#9ca3af] mt-1">This feature is being built and will be available soon.</p>
-      </div>
-    </div>
-  );
-}
-
-function RightComingSoon({ icon, label, description }: { icon: "calls" | "groups"; label: string; description: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-5 px-10 text-center">
-      <div className="w-20 h-20 rounded-full bg-[#fff6ed] flex items-center justify-center">
-        {icon === "calls" ? (
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-[#f77f00]">
-            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        )}
-      </div>
-      <div>
-        <p className="font-bold text-[20px] text-[#18191c] mb-2">{label} — Coming Soon</p>
-        <p className="text-[14px] text-[#9ca3af] leading-relaxed max-w-[320px]">{description}</p>
-      </div>
     </div>
   );
 }
