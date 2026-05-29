@@ -66,8 +66,9 @@ class IndividualSignup(BaseModel):
 class OrgSignup(BaseModel):
     org_name: str
     org_type: str
+    year_of_founding: Optional[str] = None
     website: Optional[str] = None
-    contact_name: str
+    contact_name: Optional[str] = None
     email: str
     phone: Optional[str] = None
     password: str
@@ -563,6 +564,7 @@ async def signup_organization(data: OrgSignup):
         "email": data.email,
         "org_name": data.org_name,
         "org_type": data.org_type,
+        "year_of_founding": data.year_of_founding,
         "website": data.website,
         "contact_name": data.contact_name,
         "phone": data.phone,

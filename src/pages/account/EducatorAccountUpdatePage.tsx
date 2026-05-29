@@ -68,7 +68,7 @@ function UploadArea({
   }
   if (preview) {
     return (
-      <label className="relative rounded-lg overflow-hidden cursor-pointer block w-full h-[120px]">
+      <label className="relative rounded-lg overflow-hidden cursor-pointer block w-full flex-1 min-h-[140px]">
         <img
           src={preview}
           alt="Preview"
@@ -92,7 +92,7 @@ function UploadArea({
     );
   }
   return (
-    <label className="flex flex-col items-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full">
+    <label className="flex flex-col items-center justify-center gap-3 border border-dashed border-[#767676] bg-[#f3f5f7] rounded-lg p-4 cursor-pointer hover:bg-[#eef0f2] transition-colors w-full flex-1 min-h-[140px]">
       <input
         type="file"
         accept={accept}
@@ -298,7 +298,6 @@ export default function EducatorAccountUpdatePage() {
   // Profile Info
   const [teachSubject, setTeachSubject] = useState("");
   const [showTeachDrop, setShowTeachDrop] = useState(false);
-  const [experienceYears, setExperienceYears] = useState("");
   const [bio, setBio] = useState("");
 
   // More Info
@@ -324,7 +323,6 @@ export default function EducatorAccountUpdatePage() {
     if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
     if (profile.cover_url) setCoverUrl(profile.cover_url);
     if (profile.teach_subject) setTeachSubject(profile.teach_subject);
-    if (profile.experience_years) setExperienceYears(profile.experience_years);
     if (profile.bio) setBio(profile.bio);
     if (profile.skills?.length) setSkills(profile.skills);
     if (profile.website) setWebsite(profile.website);
@@ -378,7 +376,6 @@ export default function EducatorAccountUpdatePage() {
     if (tab === "profile") {
       const ok = await save({
         teach_subject: teachSubject,
-        experience_years: experienceYears,
         bio,
       });
       if (ok) setTab("more");
@@ -551,7 +548,7 @@ export default function EducatorAccountUpdatePage() {
             {tab === "profile" && (
               <div className="flex flex-col gap-5 sm:gap-6">
                 {/* Photo uploads */}
-                <div className="flex flex-col sm:flex-row gap-5 sm:gap-6">
+                <div className="flex flex-col sm:flex-row items-stretch gap-5 sm:gap-6">
                   <div className="flex flex-col gap-2 w-full sm:w-[260px] shrink-0">
                     <p className="text-[#18191c] text-sm">Profile Photo</p>
                     <UploadArea
@@ -587,20 +584,6 @@ export default function EducatorAccountUpdatePage() {
                     setShowTeachDrop(false);
                   }}
                 />
-
-                {/* Years of experience */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-[#18191c] text-sm">
-                    Years of Experience
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 5 years"
-                    value={experienceYears}
-                    onChange={(e) => setExperienceYears(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
 
                 {/* Bio */}
                 <div className="flex flex-col gap-2">

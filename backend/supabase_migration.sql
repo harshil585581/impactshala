@@ -17,15 +17,16 @@ CREATE TABLE IF NOT EXISTS users (
   interests     TEXT,
 
   -- Organization-only fields
-  org_name      TEXT,
-  org_type      TEXT        CHECK (org_type IN (
-                  'educational','forprofit','nonprofit','health',
-                  'utilities','welfare','fieldtrip','startup',
-                  'talent','safety','international','others'
-                )),
-  website       TEXT,
-  contact_name  TEXT,
-  phone         TEXT,
+  org_name          TEXT,
+  org_type          TEXT        CHECK (org_type IN (
+                      'educational','forprofit','nonprofit','health',
+                      'utilities','welfare','fieldtrip','startup',
+                      'talent','safety','international','others'
+                    )),
+  year_of_founding  TEXT,
+  website           TEXT,
+  contact_name      TEXT,
+  phone             TEXT,
 
   -- Shared profile fields
   bio           TEXT,
@@ -89,7 +90,8 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS edu_levels_offered TEXT[]    DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS applicable_industries TEXT[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS services         TEXT[]      DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS industries       JSONB       DEFAULT '[]';
+  ADD COLUMN IF NOT EXISTS industries       JSONB       DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS year_of_founding TEXT;
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
