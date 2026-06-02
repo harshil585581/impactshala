@@ -661,3 +661,59 @@ CREATE POLICY "Users manage own saved_discover_items"
   ON saved_discover_items FOR ALL
   USING     (auth.uid() = user_id)
   WITH CHECK(auth.uid() = user_id);
+
+-- ============================================================
+-- Post Likes table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS post_likes (
+  post_id    UUID        NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (post_id, user_id)
+);
+
+ALTER TABLE post_likes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can see likes"
+  ON post_likes FOR SELECT USING (true);
+
+CREATE POLICY "Authenticated users can like"
+  ON post_likes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can unlike their own"
+  ON post_likes FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Post Comments table
+-- Handles comments for both home-feed posts (post_table='posts')
+-- and discover posts (post_table='discover_posts').
+-- post_id is a soft reference (no FK) so both tables can share it.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS post_comments (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id    UUID        NOT NULL,
+  post_table TEXT        NOT NULL DEFAULT 'posts' CHECK (post_table IN ('posts', 'discover_posts')),
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content    TEXT        NOT NULL CHECK (char_length(content) > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS post_comments_post_idx ON post_comments (post_id, post_table, created_at DESC);
+
+ALTER TABLE post_comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read comments on public posts"
+  ON post_comments FOR SELECT
+  USING (true);
+
+CREATE POLICY "Authenticated users can insert comments"
+  ON post_comments FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own comments"
+  ON post_comments FOR DELETE
+  USING (auth.uid() = user_id);

@@ -14,6 +14,63 @@ import {
   type DirectMessage,
 } from "../services/messageService";
 import { fetchConnections, type Connection } from "../services/communityService";
+import { parseSharedPost, type SharedPostPayload } from "../components/ShareModal";
+
+/* ── Shared Post Card (rendered inside message bubbles) ── */
+function SharedPostCard({ data, isSent }: { data: SharedPostPayload; isSent: boolean }) {
+  const shareUrl = data.postTable === 'discover_posts'
+    ? `${window.location.origin}/discover?post=${data.postId}`
+    : `${window.location.origin}/home?post=${data.postId}`;
+
+  const initials = (data.authorName || 'U')
+    .split(' ').map((w: string) => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase();
+
+  return (
+    <div className={`rounded-xl overflow-hidden border ${isSent ? 'border-[#f77f00]/30 bg-white' : 'border-[#e5e7eb] bg-white'} w-[260px]`}>
+      {/* Author row */}
+      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+        {data.authorAvatar ? (
+          <img src={data.authorAvatar} alt={data.authorName} className="w-8 h-8 rounded-full object-cover shrink-0" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-[#FF9400] flex items-center justify-center text-white text-xs font-bold shrink-0">
+            {initials}
+          </div>
+        )}
+        <span className="text-[13px] font-semibold text-[#18191c] truncate">{data.authorName || 'Unknown'}</span>
+      </div>
+
+      {/* Cover image */}
+      {data.imageUrl && (
+        <img
+          src={data.imageUrl}
+          alt=""
+          className="w-full h-[130px] object-cover"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+      )}
+
+      {/* Title + body */}
+      <div className="px-3 pt-2 pb-1">
+        {data.title && (
+          <p className="text-[13px] font-semibold text-[#18191c] leading-snug line-clamp-2">{data.title}</p>
+        )}
+        {data.body && (
+          <p className="text-[12px] text-[#6b7280] mt-0.5 line-clamp-2 leading-snug">{data.body}</p>
+        )}
+      </div>
+
+      {/* View post link */}
+      <div className="px-3 pb-3 pt-1 border-t border-[#f0f0f0] mt-1">
+        <a
+          href={shareUrl}
+          className="text-[12px] text-[#FF9400] font-semibold hover:underline"
+        >
+          View Post →
+        </a>
+      </div>
+    </div>
+  );
+}
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
@@ -249,6 +306,19 @@ function MessagePreview({ item }: { item: ChatItem }) {
       </span>
     );
   }
+  if (item.lastMessage.startsWith("__SHARED_POST__:")) {
+    return (
+      <span className="flex items-center gap-1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        Shared a post
+      </span>
+    );
+  }
   return <span>{item.lastMessage}</span>;
 }
 
@@ -362,7 +432,7 @@ export default function MessagesPage() {
       initials,
       avatarColor: "#f77f00",
       avatarImg: c.peer_avatar ?? undefined,
-      lastMessage: c.last_message ?? "Say hi!",
+      lastMessage: (c.last_message ?? "Say hi!").startsWith("__SHARED_POST__:") ? "Shared a post" : (c.last_message ?? "Say hi!"),
       lastMessageType: "text",
       time: c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
     };
@@ -435,7 +505,12 @@ export default function MessagesPage() {
         (payload) => {
           const incoming = payload.new as DirectMessage;
           // Update sidebar preview for all received messages (sent ones already handled optimistically)
-          const preview = incoming.message_type !== "text" ? `[${incoming.message_type}]` : (incoming.content ?? "");
+          const rawContent = incoming.content ?? "";
+          const preview = incoming.message_type !== "text"
+            ? `[${incoming.message_type}]`
+            : rawContent.startsWith("__SHARED_POST__:")
+              ? "Shared a post"
+              : rawContent;
           updateSidebarPreview(preview, incoming.created_at);
           if (incoming.sender_id === currentUserId) return; // body already added optimistically
           setMessages((prev) => [...prev, dbMsgToLocal(incoming)]);
@@ -671,7 +746,7 @@ export default function MessagesPage() {
       // replace temp id with real id and update conversation list
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: saved.id } : m));
       setChats((prev) => prev.map((c) =>
-        c.id === activeChatId ? { ...c, lastMessage: text, time: timeStr } : c
+        c.id === activeChatId ? { ...c, lastMessage: text.startsWith("__SHARED_POST__:") ? "Shared a post" : text, time: timeStr } : c
       ));
     } catch {
       // remove optimistic message on failure
@@ -1564,10 +1639,14 @@ export default function MessagesPage() {
 
                   /* Received message */
                   if (msg.sender === "them") {
+                    const sharedPost = msg.text ? parseSharedPost(msg.text) : null;
                     return (
                       <div key={msg.id} data-msg-id={msg.id} className="flex justify-start">
-                        <div className="group flex flex-col items-start max-w-[45%] min-w-0">
+                        <div className="group flex flex-col items-start max-w-[55%] min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
+                            {sharedPost ? (
+                              <SharedPostCard data={sharedPost} isSent={false} />
+                            ) : (
                             <div className="bg-white border border-[#e5e7eb] rounded-2xl rounded-tl-sm px-4 py-2.5 min-w-0 overflow-hidden">
                               {msg.replyTo && (
                                 <div className="border-l-2 border-[#f77f00] pl-2 mb-2 opacity-70">
@@ -1577,6 +1656,7 @@ export default function MessagesPage() {
                               )}
                               <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{highlightText(msg.text ?? "", chatSearchQuery, chatMatchIds[chatSearchIdx] === msg.id)}</p>
                             </div>
+                            )}
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
                               <button onClick={(e) => openEmojiPicker(e, msg.id, false)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors text-[14px]">😊</button>
                               <button onClick={(e) => openMenu(e, msg.id, false)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors">
@@ -1599,9 +1679,10 @@ export default function MessagesPage() {
                   }
 
                   /* Sent message */
+                  const sentSharedPost = msg.text ? parseSharedPost(msg.text) : null;
                   return (
                     <div key={msg.id} data-msg-id={msg.id} className="flex justify-end">
-                      <div className="group flex flex-col items-end max-w-[45%] min-w-0">
+                      <div className="group flex flex-col items-end max-w-[55%] min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
                             <button onClick={(e) => openMenu(e, msg.id, true)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors">
@@ -1609,7 +1690,9 @@ export default function MessagesPage() {
                             </button>
                             <button onClick={(e) => openEmojiPicker(e, msg.id, true)} className="w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors text-[14px]">😊</button>
                           </div>
-                          {msg.sticker ? (
+                          {sentSharedPost ? (
+                            <SharedPostCard data={sentSharedPost} isSent={true} />
+                          ) : msg.sticker ? (
                             <div className="text-[48px] leading-none select-none px-1 py-0.5">{msg.text}</div>
                           ) : (
                             <div className="bg-[#ffeacc] rounded-2xl rounded-tr-sm px-4 py-2.5 min-w-0 overflow-hidden">

@@ -108,7 +108,6 @@ function LoadingState() {
 // ─── Community Post Card ──────────────────────────────────────────────────────
 
 function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: string) => void }) {
-  const [liked, setLiked] = useState(false);
   const [voted, setVoted] = useState<number | null>(null);
 
   const name = getDisplayName(post.user);
@@ -129,18 +128,15 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
             <p className="text-[#9199a3] text-[13px] leading-tight">{time}</p>
           </div>
         </div>
-        {/* Right: add-person (orange) + 3-dot menu */}
+        {/* Right: unsave bookmark + 3-dot menu */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => onUnsave(post.id)}
             title="Remove from saved"
             className="text-[#f77f00] hover:opacity-75 transition-opacity"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <line x1="19" y1="8" x2="19" y2="14"/>
-              <line x1="22" y1="11" x2="16" y2="11"/>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
             </svg>
           </button>
           <button className="text-[#9199a3] hover:text-[#374151] transition-colors">
@@ -184,11 +180,11 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
 
       {/* Media image — no side padding, fills card width */}
       {hasMedia && !isPoll && (
-        <div className="bg-[#232246] rounded-xl overflow-hidden">
+        <div className="bg-[#232246] rounded-xl overflow-hidden mb-3">
           <img
             src={post.media_urls![0]}
             alt=""
-            className="w-full h-[200px] object-cover block"
+            className="w-full h-[280px] object-cover block"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
@@ -196,11 +192,11 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
 
       {/* Event cover */}
       {isEvent && post.cover_image_url && (
-        <div className="bg-[#232246] rounded-xl overflow-hidden">
+        <div className="bg-[#232246] rounded-xl overflow-hidden mb-3">
           <img
             src={post.cover_image_url}
             alt=""
-            className="w-full h-[200px] object-cover block"
+            className="w-full h-[280px] object-cover block"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
@@ -219,24 +215,6 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
         </div>
       )}
 
-      {/* Footer: Like + Comment */}
-      <div className="flex items-center gap-5 py-3 border-t border-[#f0f0f0] mt-auto">
-        <button
-          onClick={() => setLiked(v => !v)}
-          className={`flex items-center gap-1.5 text-[13px] font-medium transition-colors ${liked ? 'text-[#ff4757]' : 'text-[#9199a3] hover:text-[#ff4757]'}`}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#ff4757' : 'none'} stroke={liked ? '#ff4757' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round">
-            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-          </svg>
-          Like
-        </button>
-        <button className="flex items-center gap-1.5 text-[13px] font-medium text-[#9199a3] hover:text-[#f77f00] transition-colors">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-          </svg>
-          Comment
-        </button>
-      </div>
     </div>
   );
 }
@@ -292,7 +270,7 @@ function DiscoverMiniCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onU
 
       {post.imageUrl && (
         <div className="px-3 pb-3">
-          <div className="w-full h-[155px] rounded-lg overflow-hidden">
+          <div className="w-full h-[280px] rounded-lg overflow-hidden">
             <img src={post.imageUrl} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
         </div>
@@ -307,7 +285,7 @@ function DiscoverMiniCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onU
 function LearningMiniCard({ post }: { post: typeof LEARNING_POSTS[0] }) {
   return (
     <div className="rounded-[16px] bg-white border border-[#f0f0f0] shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col overflow-hidden">
-      <div className="px-3 pt-3 shrink-0"><div className="w-full h-[155px] overflow-hidden rounded-md"><img src={post.img} alt="" className="w-full h-full object-cover" /></div></div>
+      <div className="px-3 pt-3 shrink-0"><div className="w-full h-[280px] overflow-hidden rounded-md"><img src={post.img} alt="" className="w-full h-full object-cover" /></div></div>
       <div className="px-4 pt-3 pb-4 flex flex-col gap-2.5">
         <div className="flex gap-3 items-start">
           <div className="flex-1 min-w-0 flex flex-col gap-1.5">
@@ -337,31 +315,57 @@ function LearningMiniCard({ post }: { post: typeof LEARNING_POSTS[0] }) {
 
 function EmploymentMiniCard({ post }: { post: typeof EMPLOYMENT_POSTS[0] }) {
   return (
-    <div className="border border-[#e4e5e8] rounded-2xl p-4 bg-white hover:shadow-md transition-shadow cursor-pointer flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-2.5">
+    <div className="bg-white border border-[#c5c5c5] rounded-xl p-5 flex flex-col gap-4 hover:shadow-md transition-shadow cursor-pointer">
+
+      {/* Header: avatar + info + actions */}
+      <div className="flex items-center justify-between gap-3">
+        {/* Left: avatar + job info */}
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-full bg-[#18191c] shrink-0" />
           <div className="flex flex-col gap-0.5 min-w-0">
-            <p className="text-[#18191c] text-sm font-bold leading-tight">{post.role}</p>
-            <p className="text-[#5e6670] text-xs">{post.company}</p>
-            <p className="text-[#5e6670] text-xs">{post.location}</p>
+            <p className="text-[#18191c] text-sm font-semibold leading-tight truncate">{post.role}</p>
+            <p className="text-[#18191c] text-xs leading-tight">{post.company}</p>
+            <p className="text-[#18191c] text-xs leading-tight">{post.location}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button className="h-[30px] px-3 bg-[#ff9400] text-white text-xs font-bold rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">Get Started</button>
+
+        {/* Right: Get Started + bookmark */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button className="bg-[#f77f00] text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
+            Get Started
+          </button>
+          <button className="text-[#f77f00] hover:opacity-75 transition-opacity" aria-label="Save">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+            </svg>
+          </button>
         </div>
       </div>
-      <div className="h-px bg-[#f2f2f3]" />
+
+      {/* Exp · Salary · Type */}
       <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs">
-        <span><span className="text-[#ff9400] font-medium">Exp - </span><span className="text-[#18191c] font-semibold">{post.exp}</span></span>
-        <span className="text-[#d0d3d8]">|</span>
-        <span><span className="text-[#ff9400] font-medium">Salary - </span><span className="text-[#18191c] font-semibold">{post.salary}</span></span>
-        <span className="text-[#d0d3d8]">|</span>
-        <span><span className="text-[#ff9400] font-medium">Type - </span><span className="text-[#18191c] font-semibold">{post.type}</span></span>
+        <span className="text-[#f77f00] font-medium">Exp -</span>
+        <span className="text-[#18191c] font-semibold">{post.exp}</span>
+        <span className="text-[#e0dedd] font-medium text-sm">|</span>
+        <span className="text-[#f77f00] font-medium">Salary -</span>
+        <span className="text-[#18191c] font-semibold">{post.salary}</span>
+        <span className="text-[#e0dedd] font-medium text-sm">|</span>
+        <span className="text-[#f77f00] font-medium">Type -</span>
+        <span className="text-[#18191c] font-semibold">{post.type}</span>
       </div>
+
+      {/* Skills */}
       <div className="flex items-center flex-wrap gap-1.5">
-        <span className="text-[#ff9400] text-xs font-medium">Skills -</span>
-        {post.skills.map(s => <span key={s} className="text-xs border border-[#e4e5e8] rounded-full px-2.5 py-0.5 text-[#18191c]">{s}</span>)}
+        <span className="text-[#f77f00] text-xs font-medium">Skills -</span>
+        {post.skills.map(s => (
+          <span key={s} className="bg-[#f3f2f1] text-[#18191c] text-[11px] px-2 py-0.5 rounded-[3px]">{s}</span>
+        ))}
+      </div>
+
+      {/* Footer: posted time + show more */}
+      <div className="flex items-center justify-between pt-0.5 border-t border-[#f2f2f3]">
+        <span className="text-[#6e6e6e] text-xs">5 weeks Ago</span>
+        <button className="text-[#f77f00] text-xs font-medium hover:opacity-80 transition-opacity">Show more</button>
       </div>
     </div>
   );

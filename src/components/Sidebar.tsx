@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import employmentHubIcon from "../assets/images/Side Bar/ep_suitcase.svg";
 import communityIcon from "../assets/images/Side Bar/community.svg";
 import learningIcon from "../assets/images/Side Bar/learning.svg";
+import GetInTouchModal from "./GetInTouchModal";
 
 // Icons replaced with inline SVGs — no external dependencies
 
@@ -31,6 +32,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isOnHomeRoute = location.pathname === "/home";
   const isOnCommunityRoute = location.pathname === "/community";
   const [appExpanded, setAppExpanded] = useState(isOnAppsRoute);
+  const [showHelp, setShowHelp] = useState(false);
   const [activeSubItem, setActiveSubItem] = useState(
     ROUTE_TO_SUB_ITEM[location.pathname] ?? "Discover",
   );
@@ -346,11 +348,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </svg>
               }
               label="Help Center"
+              onClick={() => setShowHelp(true)}
             />
           </div>
         </div>
 
       </aside>
+
+      <GetInTouchModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </>
   );
 }

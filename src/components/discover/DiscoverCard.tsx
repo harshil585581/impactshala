@@ -1,5 +1,10 @@
 import React, { useState } from "react";
 import type { DiscoverItem } from "../../services/discoverService";
+import CommentSection from "../CommentSection";
+import ShareModal from "../ShareModal";
+import likeIcon from "../../assets/images/svg/like.svg";
+import heartIcon from "../../assets/images/svg/heart.svg";
+import congratulateIcon from "../../assets/images/svg/congratulate.svg";
 
 type Props = {
   item: DiscoverItem;
@@ -19,6 +24,10 @@ export default function DiscoverCard({
   isExpanded,
 }: Props) {
   const [showMore, setShowMore] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(item.comments);
+  const [showShare, setShowShare] = useState(false);
 
   return (
     <article className="bg-white rounded-2xl border border-border-default overflow-hidden">
@@ -160,24 +169,85 @@ export default function DiscoverCard({
         {/* Reactions */}
         <div className="flex items-center justify-between text-sm text-text-muted mb-3">
           <div className="flex items-center gap-1.5">
-            <div className="flex -space-x-1">
-              <span className="text-base">👍</span>
-              <span className="text-base">❤️</span>
-              <span className="text-base">🌟</span>
+            <div className="flex gap-0.5">
+              <img src={likeIcon} alt="like" className="w-5 h-5" />
+              <img src={heartIcon} alt="heart" className="w-5 h-5" />
+              <img src={congratulateIcon} alt="congratulate" className="w-5 h-5" />
             </div>
             <span>{item.reactions.toLocaleString()}</span>
           </div>
-          <span>{item.comments} comments</span>
+          <button
+            onClick={() => setShowComments((v) => !v)}
+            className="hover:underline hover:text-[#FF9400] transition-colors"
+          >
+            {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+          </button>
         </div>
 
         {/* Action bar */}
         <div className="flex items-center justify-around border-t border-border-light pt-3">
-          <ActionBtn icon="like" label="Like" />
-          <ActionBtn icon="comment" label="Comment" />
-          <ActionBtn icon="share" label="Share" />
+          <button
+            onClick={() => setLiked((v) => !v)}
+            className={`flex items-center gap-1.5 text-sm transition-colors py-1 px-2 min-h-[44px] ${liked ? 'text-primary' : 'text-text-muted hover:text-primary'}`}
+          >
+            {liked ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M1 21h4V9H1v12zm23-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L15.17 1 8.59 7.59C8.22 7.95 8 8.45 8 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91L24 10z" fill="#FF9400" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            )}
+            Like
+          </button>
+          <button
+            onClick={() => setShowComments((v) => !v)}
+            className={`flex items-center gap-1.5 text-sm hover:text-primary transition-colors py-1 px-2 min-h-[44px] ${showComments ? 'text-primary' : 'text-text-muted'}`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Comment
+          </button>
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex items-center gap-1.5 text-text-muted text-sm hover:text-primary transition-colors py-1 px-2 min-h-[44px]"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" />
+              <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+              <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            Share
+          </button>
           <ActionBtn icon="save" label="Save" />
         </div>
       </div>
+
+      {/* Comment section */}
+      {showComments && (
+        <CommentSection
+          postId={item.id}
+          postTable="discover_posts"
+          onCommentCountChange={setCommentCount}
+        />
+      )}
+
+      {/* Share modal */}
+      <ShareModal
+        isOpen={showShare}
+        onClose={() => setShowShare(false)}
+        postId={item.id}
+        postTable="discover_posts"
+        authorName={item.name}
+        authorAvatar={item.avatarUrl}
+        postTitle={item.title}
+        postBody={item.body?.slice(0, 200) || ''}
+        postImageUrl={item.imageUrl || null}
+      />
     </article>
   );
 }

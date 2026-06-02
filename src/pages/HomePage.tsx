@@ -6,7 +6,7 @@ import RightPanel from "../components/RightPanel";
 import PhotoUploadModal from "../components/PhotoUploadModal";
 import EventModal from "../components/EventModal";
 import PollModal from "../components/PollModal";
-import { fetchFeedPosts } from "../services/postService";
+import { fetchFeedPosts, fetchLikedPostIds, fetchLikesCounts, togglePostLike } from "../services/postService";
 import type { FeedPost, FeedFilter } from "../services/postService";
 import { fetchSavedPostIds, savePost, unsavePost } from "../services/savedService";
 import { useProfile } from "../hooks/useProfile";
@@ -57,6 +57,8 @@ export default function HomePage() {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
 
   const { profile: liveProfile } = useProfile("me");
   const storedUser = getStoredUser();
@@ -74,6 +76,31 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchSavedPostIds().then(setSavedPostIds).catch(() => {});
+    fetchLikedPostIds().then(setLikedPostIds).catch(() => {});
+  }, []);
+
+  const handleLikeToggle = useCallback((postId: string, willLike: boolean) => {
+    setLikedPostIds(prev => {
+      const next = new Set(prev);
+      if (willLike) next.add(postId); else next.delete(postId);
+      return next;
+    });
+    setLikesCounts(prev => ({
+      ...prev,
+      [postId]: Math.max(0, (prev[postId] ?? 0) + (willLike ? 1 : -1)),
+    }));
+    togglePostLike(postId, willLike).catch(() => {
+      // revert on error
+      setLikedPostIds(prev => {
+        const next = new Set(prev);
+        if (willLike) next.delete(postId); else next.add(postId);
+        return next;
+      });
+      setLikesCounts(prev => ({
+        ...prev,
+        [postId]: Math.max(0, (prev[postId] ?? 0) + (willLike ? -1 : 1)),
+      }));
+    });
   }, []);
 
   const handleSaveToggle = useCallback((postId: string, willSave: boolean) => {
@@ -91,7 +118,12 @@ export default function HomePage() {
     setLoadingPosts(true);
     setFeedError(null);
     fetchFeedPosts(activeFilter)
-      .then((data) => { if (!cancelled) setPosts(data); })
+      .then(async (data) => {
+        if (cancelled) return;
+        setPosts(data);
+        const counts = await fetchLikesCounts(data.map(p => p.id)).catch(() => ({}));
+        if (!cancelled) setLikesCounts(counts);
+      })
       .catch((err) => { if (!cancelled) setFeedError(err.message ?? "Failed to load posts."); })
       .finally(() => { if (!cancelled) setLoadingPosts(false); });
     return () => { cancelled = true; };
@@ -223,6 +255,9 @@ export default function HomePage() {
                   post={post}
                   isSaved={savedPostIds.has(post.id)}
                   onSaveToggle={handleSaveToggle}
+                  isLiked={likedPostIds.has(post.id)}
+                  likesCount={likesCounts[post.id] ?? 0}
+                  onLikeToggle={handleLikeToggle}
                 />
               ))}
             </div>
