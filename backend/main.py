@@ -615,7 +615,7 @@ def _row_to_item(row: dict, bookmarked_ids: set) -> dict:
     user_data = row.get("users") or {}
     name = (
         user_data.get("org_name")
-        or f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
+        or f"{user_data.get('first_name') or ''} {user_data.get('last_name') or ''}".strip()
         or "Unknown"
     )
     nature = row.get("nature") or ""
@@ -1219,8 +1219,8 @@ async def list_conversations(authorization: str = Header(None)):
         peer_id = row["participant_2"] if row["participant_1"] == user_id else row["participant_1"]
         peer = users_map.get(peer_id, {})
         peer_name = (
-            f"{peer.get('first_name', '')} {peer.get('last_name', '')}".strip()
-            or peer.get("org_name", "")
+            f"{peer.get('first_name') or ''} {peer.get('last_name') or ''}".strip()
+            or peer.get("org_name") or ""
             or "Unknown"
         )
         conversations.append({

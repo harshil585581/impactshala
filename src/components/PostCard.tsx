@@ -3,6 +3,8 @@ import type { FeedPost } from '../services/postService';
 import likeIcon        from '../assets/images/svg/like.svg';
 import heartIcon       from '../assets/images/svg/heart.svg';
 import congratulateIcon from '../assets/images/svg/congratulate.svg';
+import CommentSection from './CommentSection';
+import ShareModal from './ShareModal';
 function GlobeIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="opacity-40"><circle cx="12" cy="12" r="10" stroke="#9199a3" strokeWidth="1.5"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/></svg>;
 }
@@ -53,14 +55,24 @@ export default function PostCard({
   post,
   isSaved = false,
   onSaveToggle,
+  isLiked = false,
+  likesCount = 0,
+  onLikeToggle,
 }: {
   post: FeedPost;
   isSaved?: boolean;
   onSaveToggle?: (postId: string, saved: boolean) => void;
+  isLiked?: boolean;
+  likesCount?: number;
+  onLikeToggle?: (postId: string, liked: boolean) => void;
 }) {
   const [voted, setVoted] = useState<number | null>(null);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(isLiked);
+  const [localLikesCount, setLocalLikesCount] = useState(likesCount);
   const [saved, setSaved] = useState(isSaved);
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(0);
+  const [showShare, setShowShare] = useState(false);
 
   const name = getDisplayName(post.user);
 
@@ -276,25 +288,47 @@ export default function PostCard({
             <img src={heartIcon} alt="heart" className="w-5 h-5" />
             <img src={congratulateIcon} alt="congratulate" className="w-5 h-5" />
           </div>
-          <span className="text-[#646464] text-sm">{liked ? 1 : 0}</span>
+          <span className="text-[#646464] text-sm">{localLikesCount}</span>
         </div>
-        <span className="text-[#6f6f6f] text-sm">0 comments</span>
+        <button
+          onClick={() => setShowComments((v) => !v)}
+          className="text-[#6f6f6f] text-sm hover:underline hover:text-[#FF9400] transition-colors"
+        >
+          {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+        </button>
       </div>
 
       {/* Actions */}
       <div className="px-2 py-1 flex items-center justify-around border-t border-[#f2f2f3]">
         <button
-          onClick={() => setLiked(v => !v)}
+          onClick={() => {
+            const next = !liked;
+            setLiked(next);
+            setLocalLikesCount(c => next ? c + 1 : Math.max(0, c - 1));
+            onLikeToggle?.(post.id, next);
+          }}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${liked ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          {liked ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M1 21h4V9H1v12zm23-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L15.17 1 8.59 7.59C8.22 7.95 8 8.45 8 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91L24 10z" fill="#FF9400" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          )}
           Like
         </button>
-        <button className="flex items-center gap-1.5 text-[#575555] text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <button
+          onClick={() => setShowComments((v) => !v)}
+          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${showComments ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Comment
         </button>
-        <button className="flex items-center gap-1.5 text-[#575555] text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <button
+          onClick={() => setShowShare(true)}
+          className="flex items-center gap-1.5 text-[#575555] text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           Share
         </button>
@@ -306,6 +340,28 @@ export default function PostCard({
           {saved ? 'Saved' : 'Save'}
         </button>
       </div>
+
+      {/* Comment section */}
+      {showComments && (
+        <CommentSection
+          postId={post.id}
+          postTable="posts"
+          onCommentCountChange={setCommentCount}
+        />
+      )}
+
+      {/* Share modal */}
+      <ShareModal
+        isOpen={showShare}
+        onClose={() => setShowShare(false)}
+        postId={post.id}
+        postTable="posts"
+        authorName={name}
+        authorAvatar={post.user?.avatar_url}
+        postTitle={post.event_title || post.poll_question || post.question_text || post.content?.slice(0, 80) || ''}
+        postBody={post.content?.slice(0, 200) || post.event_description?.slice(0, 200) || ''}
+        postImageUrl={post.media_urls?.[0] || post.cover_image_url || null}
+      />
     </div>
   );
 }
