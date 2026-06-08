@@ -633,11 +633,13 @@ export default function PhotoUploadModal({
           <>
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <div className="flex items-center gap-3">
-                <img
-                  src={userAvatar}
-                  alt=""
-                  className="w-11 h-11 rounded-full object-cover shrink-0"
-                />
+                {userAvatar ? (
+                  <img src={userAvatar} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="w-11 h-11 rounded-full bg-[#FF9400] flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {userName.split(" ").map((w: string) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
+                  </div>
+                )}
                 <div>
                   <button className="flex items-center gap-1 font-semibold text-[#18191c] hover:underline text-[15px]">
                     {userName}

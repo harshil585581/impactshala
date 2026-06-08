@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
 import PostCard from "../components/PostCard";
+import PostCardSkeleton from "../components/PostCardSkeleton";
 import RightPanel from "../components/RightPanel";
 import PhotoUploadModal from "../components/PhotoUploadModal";
 import EventModal from "../components/EventModal";
 import PollModal from "../components/PollModal";
-import { fetchFeedPosts, fetchLikedPostIds, fetchLikesCounts, togglePostLike } from "../services/postService";
+import { fetchFeedPosts, fetchLikedPostIds, fetchLikesCounts, togglePostLike, FEED_PAGE_SIZE } from "../services/postService";
 import type { FeedPost, FeedFilter } from "../services/postService";
 import { fetchSavedPostIds, savePost, unsavePost } from "../services/savedService";
 import { useProfile } from "../hooks/useProfile";
@@ -54,8 +55,12 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<FeedFilter>("all");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
@@ -113,14 +118,20 @@ export default function HomePage() {
     else unsavePost(postId).catch(() => {});
   }, []);
 
+  // Initial load / filter change
   useEffect(() => {
     let cancelled = false;
     setLoadingPosts(true);
     setFeedError(null);
-    fetchFeedPosts(activeFilter)
+    setPosts([]);
+    setPage(0);
+    setHasMore(true);
+
+    fetchFeedPosts(activeFilter, 0)
       .then(async (data) => {
         if (cancelled) return;
         setPosts(data);
+        setHasMore(data.length === FEED_PAGE_SIZE);
         const counts = await fetchLikesCounts(data.map(p => p.id)).catch(() => ({}));
         if (!cancelled) setLikesCounts(counts);
       })
@@ -128,6 +139,37 @@ export default function HomePage() {
       .finally(() => { if (!cancelled) setLoadingPosts(false); });
     return () => { cancelled = true; };
   }, [activeFilter, refreshKey]);
+
+  // Load next page
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    try {
+      const data = await fetchFeedPosts(activeFilter, nextPage);
+      setPosts(prev => [...prev, ...data]);
+      setPage(nextPage);
+      setHasMore(data.length === FEED_PAGE_SIZE);
+      const counts = await fetchLikesCounts(data.map(p => p.id)).catch(() => ({}));
+      setLikesCounts(prev => ({ ...prev, ...counts }));
+    } catch {
+      // silently fail — user can scroll up and back down to retry
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [activeFilter, page, loadingMore, hasMore]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMore(); },
+      { rootMargin: '200px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   function closeAndRefresh(setter: (v: boolean) => void) {
     return () => {
@@ -141,24 +183,24 @@ export default function HomePage() {
       <PhotoUploadModal
         isOpen={photoModalOpen}
         onClose={closeAndRefresh(setPhotoModalOpen)}
-        userAvatar=""
+        userAvatar={userAvatarUrl || ""}
         mode="photo"
       />
       <PhotoUploadModal
         isOpen={videoModalOpen}
         onClose={closeAndRefresh(setVideoModalOpen)}
-        userAvatar=""
+        userAvatar={userAvatarUrl || ""}
         mode="video"
       />
       <EventModal
         isOpen={eventModalOpen}
         onClose={closeAndRefresh(setEventModalOpen)}
-        userAvatar=""
+        userAvatar={userAvatarUrl || ""}
       />
       <PollModal
         isOpen={pollModalOpen}
         onClose={closeAndRefresh(setPollModalOpen)}
-        userAvatar=""
+        userAvatar={userAvatarUrl || ""}
       />
 
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
@@ -231,25 +273,25 @@ export default function HomePage() {
 
             {/* Feed */}
             <div className="flex flex-col gap-5">
-              {loadingPosts && (
-                <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center text-[#9ca3af] text-sm">
-                  Loading posts…
-                </div>
-              )}
+              {/* Initial shimmer skeletons */}
+              {loadingPosts && [1, 2, 3].map(i => <PostCardSkeleton key={i} />)}
 
+              {/* Error */}
               {!loadingPosts && feedError && (
                 <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center text-red-400 text-sm">
                   {feedError}
                 </div>
               )}
 
+              {/* Empty */}
               {!loadingPosts && !feedError && posts.length === 0 && (
                 <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center text-[#9ca3af] text-sm">
                   No posts yet. Be the first to share something!
                 </div>
               )}
 
-              {!loadingPosts && posts.map((post) => (
+              {/* Posts */}
+              {posts.map((post) => (
                 <PostCard
                   key={post.id}
                   post={post}
@@ -260,6 +302,17 @@ export default function HomePage() {
                   onLikeToggle={handleLikeToggle}
                 />
               ))}
+
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} />
+
+              {/* Load-more shimmer */}
+              {loadingMore && [1, 2].map(i => <PostCardSkeleton key={`more-${i}`} />)}
+
+              {/* End of feed */}
+              {!loadingPosts && !hasMore && posts.length > 0 && (
+                <p className="text-center text-[#9199a3] text-sm py-4">You're all caught up!</p>
+              )}
             </div>
           </div>
 

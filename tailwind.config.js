@@ -6,6 +6,15 @@ export default {
       fontFamily: {
         "be-vietnam": ['"Be Vietnam Pro"', "sans-serif"],
       },
+      keyframes: {
+        shimmer: {
+          '0%': { backgroundPosition: '100% 0' },
+          '100%': { backgroundPosition: '-100% 0' },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 1.4s ease-in-out infinite',
+      },
       colors: {
         primary: "#f77f00",
         "primary-light": "#ffeacc",

@@ -9,6 +9,9 @@ export const CATEGORY_CHIPS = [
   "Meetups & Competitions",
 ];
 
+// "All" is represented by the empty string ""
+const ALL_CHIPS = ["All", ...CATEGORY_CHIPS];
+
 type Props = {
   chips?: string[];
   active: string;
@@ -16,10 +19,15 @@ type Props = {
 };
 
 export default function CategoryChips({
-  chips = CATEGORY_CHIPS,
+  chips = ALL_CHIPS,
   active,
   onChange,
 }: Props) {
+  // Normalise: "" maps to "All" display, "All" click maps back to ""
+  const activeDisplay = active === "" ? "All" : active;
+  function handleChange(chip: string) {
+    onChange(chip === "All" ? "" : chip);
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [thumbPct, setThumbPct] = useState(0);
@@ -115,7 +123,7 @@ export default function CategoryChips({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const idx = chips.indexOf(active);
+    const idx = chips.indexOf(activeDisplay);
     const btn = el.children[idx] as HTMLElement | undefined;
     if (btn) btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     setTimeout(updateThumb, 300);
@@ -133,10 +141,10 @@ export default function CategoryChips({
         {chips.map((chip) => (
           <button
             key={chip}
-            onClick={() => onChange(chip)}
-            aria-pressed={active === chip}
+            onClick={() => handleChange(chip)}
+            aria-pressed={activeDisplay === chip}
             className={`px-4 py-2 rounded-full border text-sm font-medium whitespace-nowrap shrink-0 transition-colors min-h-[44px] ${
-              active === chip
+              activeDisplay === chip
                 ? "bg-primary text-white border-primary"
                 : "bg-white text-primary border-primary hover:bg-primary-light"
             }`}

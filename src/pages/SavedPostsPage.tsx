@@ -2,22 +2,18 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
-import testImg from '../assets/images/test/tes.png';
 import {
   fetchSavedCommunityPosts,
   fetchSavedDiscoverItems,
+  fetchSavedLearningCourses,
   unsavePost,
   unsaveDiscoverItem,
+  unsaveLearningCourse,
   type SavedDiscoverSnapshot,
+  type SavedLearningSnapshot,
 } from '../services/savedService';
 import type { FeedPost } from '../services/postService';
 
-// ─── Static mock data (Learning & Employment have no save feature yet) ────────
-
-const LEARNING_POSTS = [
-  { id: '1', img: testImg, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-  { id: '2', img: testImg, university: 'University of Mumbai, Mumbai', title: 'Bachelor of Business Administration (BBA) Accountancy', level: 'High School (Grade 11 to 12)', mode: 'Onsite (Bangalore)', fee: '2 LPA', duration: '3 Months', deadline: '16/9/2025' },
-];
 
 const EMPLOYMENT_POSTS = [
   { id: '1', role: 'Product Manager', company: 'Accenture', location: 'Bangalore, Karnataka (Onsite)', exp: '0 – 2 Month', salary: '2 – 5 LPA', type: 'Full – Time', skills: ['Productivity', 'React', 'Management skill'], posted: '5 week Ago' },
@@ -135,7 +131,7 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
             title="Remove from saved"
             className="text-[#f77f00] hover:opacity-75 transition-opacity"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
             </svg>
           </button>
@@ -282,31 +278,88 @@ function DiscoverMiniCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onU
 
 // ─── Static mini cards ────────────────────────────────────────────────────────
 
-function LearningMiniCard({ post }: { post: typeof LEARNING_POSTS[0] }) {
+function LearningMiniCard({ post, onUnsave }: { post: SavedLearningSnapshot; onUnsave: (id: string) => void }) {
   return (
-    <div className="rounded-[16px] bg-white border border-[#f0f0f0] shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col overflow-hidden">
-      <div className="px-3 pt-3 shrink-0"><div className="w-full h-[280px] overflow-hidden rounded-md"><img src={post.img} alt="" className="w-full h-full object-cover" /></div></div>
-      <div className="px-4 pt-3 pb-4 flex flex-col gap-2.5">
-        <div className="flex gap-3 items-start">
-          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-            <div className="flex items-center gap-1 min-w-0">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="shrink-0"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#ff9400" strokeWidth="2"/><circle cx="12" cy="9" r="2.5" stroke="#ff9400" strokeWidth="2"/></svg>
-              <span className="text-[#5e6670] text-[12px] truncate">{post.university}</span>
+    <div className="bg-white border border-[#c5c5c5] rounded-xl overflow-hidden flex flex-col hover:shadow-md transition-shadow cursor-pointer">
+
+      {/* Cover image */}
+      <div className="w-full h-[200px] overflow-hidden shrink-0">
+        {post.image ? (
+          <img src={post.image} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-[#f3f2f1] flex items-center justify-center text-[#9ca3af] text-xs">No image</div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-4 flex flex-col gap-3">
+
+        {/* University + Title row */}
+        <div className="flex items-start justify-between gap-3">
+
+          {/* Left: location + title */}
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#f77f00" strokeWidth="2"/>
+                <circle cx="12" cy="9" r="2.5" stroke="#f77f00" strokeWidth="2"/>
+              </svg>
+              <span className="text-[#18191c] text-[11px] font-medium truncate">{post.university}</span>
             </div>
-            <p className="text-[#18191c] text-[15px] font-bold leading-snug">{post.title}</p>
+            <p className="text-[#18191c] text-sm font-bold leading-snug">{post.title}</p>
           </div>
-          <div className="flex flex-col gap-2 shrink-0 w-[150px]">
-            <div className="flex items-center gap-1.5">
-              <button className="flex-1 bg-[#ff9400] text-white text-[13px] font-bold py-2 rounded-full hover:bg-[#e68500] transition-colors">Get Started</button>
-              <button className="text-[#ff9400] shrink-0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg></button>
+
+          {/* Right: buttons + bookmark */}
+          <div className="flex items-start gap-2 shrink-0">
+            <div className="flex flex-col gap-1.5">
+              <button className="bg-[#f77f00] text-white text-xs font-semibold px-4 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
+                Get Started
+              </button>
+              {post.brochureUrl && (
+                <a href={post.brochureUrl} target="_blank" rel="noopener noreferrer"
+                  className="border border-[#b4b4b4] text-[#18191c] text-[11px] font-medium px-3 py-1.5 rounded-full hover:border-[#f77f00] hover:text-[#f77f00] transition-colors whitespace-nowrap text-center">
+                  Download Brochure
+                </a>
+              )}
             </div>
-            <button className="w-[calc(100%-28px)] border border-[#d0d0d0] text-[#5e6670] text-[10px] font-medium py-1.5 rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">Download Brochure</button>
+            <button
+              onClick={() => onUnsave(post.id)}
+              className="text-[#f77f00] hover:opacity-75 transition-opacity mt-0.5"
+              aria-label="Unsave"
+            >
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              </svg>
+            </button>
           </div>
         </div>
-        <div className="h-px bg-[#f2f2f2]" />
-        <div className="grid grid-cols-2 gap-x-4">
-          <div><p className="text-[#ff9400] text-[11px] font-semibold">Academic level</p><p className="text-[#18191c] text-[13px] mt-0.5">{post.level}</p></div>
-          <div><p className="text-[#ff9400] text-[11px] font-semibold">Mode</p><p className="text-[#18191c] text-[13px] mt-0.5">{post.mode}</p></div>
+
+        {/* Info grid row 1 */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[#f77f00] text-[11px]">Academic level</p>
+            <p className="text-[#18191c] text-xs font-medium">{post.level}</p>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[#f77f00] text-[11px]">Mode</p>
+            <p className="text-[#18191c] text-xs font-medium">{post.mode}</p>
+          </div>
+        </div>
+
+        {/* Info grid row 2 */}
+        <div className="grid grid-cols-3 gap-x-2 gap-y-2">
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[#f77f00] text-[11px]">Course Fee</p>
+            <p className="text-[#18191c] text-xs font-medium">{post.fee}</p>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[#f77f00] text-[11px]">Duration</p>
+            <p className="text-[#18191c] text-xs font-medium">{post.duration}</p>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[#f77f00] text-[11px]">Application Deadline</p>
+            <p className="text-[#18191c] text-xs font-medium">{post.deadline}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -315,7 +368,7 @@ function LearningMiniCard({ post }: { post: typeof LEARNING_POSTS[0] }) {
 
 function EmploymentMiniCard({ post }: { post: typeof EMPLOYMENT_POSTS[0] }) {
   return (
-    <div className="bg-white border border-[#c5c5c5] rounded-xl p-5 flex flex-col gap-4 hover:shadow-md transition-shadow cursor-pointer">
+    <div className="bg-white border border-[#c5c5c5] rounded-xl p-6 flex flex-col gap-5 hover:shadow-md transition-shadow cursor-pointer min-h-[200px]">
 
       {/* Header: avatar + info + actions */}
       <div className="flex items-center justify-between gap-3">
@@ -331,11 +384,11 @@ function EmploymentMiniCard({ post }: { post: typeof EMPLOYMENT_POSTS[0] }) {
 
         {/* Right: Get Started + bookmark */}
         <div className="flex items-center gap-2 shrink-0">
-          <button className="bg-[#f77f00] text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
+          <button className="bg-[#f77f00] text-white text-sm font-semibold px-6 py-2.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
             Get Started
           </button>
           <button className="text-[#f77f00] hover:opacity-75 transition-opacity" aria-label="Save">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
             </svg>
           </button>
@@ -379,8 +432,10 @@ export default function SavedPostsPage() {
 
   const [communityPosts, setCommunityPosts] = useState<FeedPost[]>([]);
   const [discoverPosts, setDiscoverPosts] = useState<SavedDiscoverSnapshot[]>([]);
+  const [learningCourses, setLearningCourses] = useState<SavedLearningSnapshot[]>([]);
   const [loadingCommunity, setLoadingCommunity] = useState(true);
   const [loadingDiscover, setLoadingDiscover] = useState(true);
+  const [loadingLearning, setLoadingLearning] = useState(true);
 
   useEffect(() => {
     setLoadingCommunity(true);
@@ -394,6 +449,12 @@ export default function SavedPostsPage() {
       .then(setDiscoverPosts)
       .catch(() => {})
       .finally(() => setLoadingDiscover(false));
+
+    setLoadingLearning(true);
+    fetchSavedLearningCourses()
+      .then(setLearningCourses)
+      .catch(() => {})
+      .finally(() => setLoadingLearning(false));
   }, []);
 
   function handleCommunityUnsave(postId: string) {
@@ -404,6 +465,11 @@ export default function SavedPostsPage() {
   function handleDiscoverUnsave(itemId: string) {
     unsaveDiscoverItem(itemId).catch(() => {});
     setDiscoverPosts(prev => prev.filter(p => p.id !== itemId));
+  }
+
+  function handleLearningUnsave(courseId: string) {
+    unsaveLearningCourse(courseId).catch(() => {});
+    setLearningCourses(prev => prev.filter(p => p.id !== courseId));
   }
 
   return (
@@ -462,10 +528,21 @@ export default function SavedPostsPage() {
 
           {/* Learning Directory */}
           <section>
-            <SectionHeader title="Learning Directory" count={0} onViewAll={() => navigate('/saved/learning')} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {LEARNING_POSTS.map(p => <LearningMiniCard key={p.id} post={p} />)}
-            </div>
+            <SectionHeader title="Learning Directory" count={learningCourses.length} onViewAll={() => navigate('/saved/learning')} />
+            {loadingLearning ? (
+              <LoadingState />
+            ) : learningCourses.length === 0 ? (
+              <EmptyState
+                message="No saved courses"
+                sub="Bookmark any course on the Learning Directory page and it will appear here."
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {learningCourses.map(p => (
+                  <LearningMiniCard key={p.id} post={p} onUnsave={handleLearningUnsave} />
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Employment Hub */}

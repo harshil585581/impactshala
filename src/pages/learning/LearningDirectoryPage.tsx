@@ -5,6 +5,11 @@ import CollegeSubCategoryPills, { type AcademicLevel } from "../../features/lear
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
 import { fetchCourses, applyToCourse, type CourseRecord } from "../../services/learningService";
+import {
+  saveLearningCourse,
+  unsaveLearningCourse,
+  fetchSavedLearningCourseIds,
+} from "../../services/savedService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -961,7 +966,11 @@ export default function LearningDirectoryPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>("professional");
   const [levelTab, setLevelTab] = useState<LevelTab>("beginner");
-  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetchSavedLearningCourseIds().then(setSavedIds).catch(() => {});
+  }, []);
   const [filters, setFilters] = useState<FilterState>({
     streams: [],
     modes: [],
@@ -1183,10 +1192,31 @@ export default function LearningDirectoryPage() {
                   <CourseCard
                     key={course.id}
                     course={course}
-                    saved={savedIds.includes(course.id)}
-                    onToggleSave={() =>
-                      setSavedIds((prev) => toggle(prev, course.id))
-                    }
+                    saved={savedIds.has(course.id)}
+                    onToggleSave={() => {
+                      const wasSaved = savedIds.has(course.id);
+                      setSavedIds(prev => {
+                        const next = new Set(prev);
+                        if (wasSaved) next.delete(course.id); else next.add(course.id);
+                        return next;
+                      });
+                      if (wasSaved) {
+                        unsaveLearningCourse(course.id).catch(() => {});
+                      } else {
+                        saveLearningCourse({
+                          id: course.id,
+                          image: course.image,
+                          university: course.university,
+                          title: course.title,
+                          level: course.academicLevel,
+                          mode: course.mode,
+                          fee: course.courseFee,
+                          duration: course.duration,
+                          deadline: course.applicationDeadline,
+                          brochureUrl: course.brochureUrl,
+                        }).catch(() => {});
+                      }
+                    }}
                     onGetStarted={() => openApplication(course)}
                   />
                 ))}
