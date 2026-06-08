@@ -24,9 +24,9 @@ export default function PollModal({ isOpen, onClose, userAvatar }: Props) {
   const userName = (() => {
     try {
       const u = JSON.parse(localStorage.getItem("user") ?? "{}");
-      return u?.name ?? u?.org_name ?? "Vishnu Kumar Agrawal";
+      return [u?.first_name, u?.last_name].filter(Boolean).join(" ") || u?.org_name || "You";
     } catch {
-      return "Vishnu Kumar Agrawal";
+      return "You";
     }
   })();
 
@@ -82,11 +82,13 @@ export default function PollModal({ isOpen, onClose, userAvatar }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[#f2f2f3]">
           <div className="flex items-center gap-3">
-            <img
-              src={userAvatar}
-              alt=""
-              className="w-12 h-12 rounded-full object-cover shrink-0"
-            />
+            {userAvatar ? (
+              <img src={userAvatar} alt="" className="w-12 h-12 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-[#FF9400] flex items-center justify-center text-white font-bold text-sm shrink-0">
+                {userName.split(" ").map((w: string) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-[#18191c] text-base">

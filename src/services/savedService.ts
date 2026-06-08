@@ -138,6 +138,66 @@ export async function unsaveDiscoverItem(itemId: string): Promise<void> {
   toggleBookmark(itemId, false).catch(() => {});
 }
 
+// ─── Learning courses ─────────────────────────────────────────────────────────
+
+export type SavedLearningSnapshot = {
+  id: string;
+  image: string;
+  university: string;
+  title: string;
+  level: string;
+  mode: string;
+  fee: string;
+  duration: string;
+  deadline: string;
+  brochureUrl: string;
+};
+
+export async function saveLearningCourse(snapshot: SavedLearningSnapshot): Promise<void> {
+  const userId = getUserId();
+  if (!userId) return;
+  const { error } = await getAuthClient()
+    .from('saved_learning_courses')
+    .upsert(
+      { user_id: userId, course_id: snapshot.id, course_data: snapshot },
+      { onConflict: 'user_id,course_id' },
+    );
+  if (error) throw new Error(error.message);
+}
+
+export async function unsaveLearningCourse(courseId: string): Promise<void> {
+  const userId = getUserId();
+  if (!userId) return;
+  const { error } = await getAuthClient()
+    .from('saved_learning_courses')
+    .delete()
+    .eq('user_id', userId)
+    .eq('course_id', courseId);
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchSavedLearningCourseIds(): Promise<Set<string>> {
+  const userId = getUserId();
+  if (!userId) return new Set();
+  const { data } = await getAuthClient()
+    .from('saved_learning_courses')
+    .select('course_id')
+    .eq('user_id', userId);
+  return new Set((data ?? []).map(r => r.course_id as string));
+}
+
+export async function fetchSavedLearningCourses(): Promise<SavedLearningSnapshot[]> {
+  const userId = getUserId();
+  if (!userId) return [];
+  const { data, error } = await getAuthClient()
+    .from('saved_learning_courses')
+    .select('course_data, saved_at')
+    .eq('user_id', userId)
+    .order('saved_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(r => r.course_data as SavedLearningSnapshot);
+}
+
 /** Fetch all Discover items saved by the logged-in user. */
 export async function fetchSavedDiscoverItems(): Promise<SavedDiscoverSnapshot[]> {
   const userId = getUserId();

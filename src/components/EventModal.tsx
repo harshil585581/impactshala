@@ -35,9 +35,9 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
   const userName = (() => {
     try {
       const u = JSON.parse(localStorage.getItem("user") ?? "{}");
-      return u?.name ?? "Vishnu Kumar Agrawal";
+      return [u?.first_name, u?.last_name].filter(Boolean).join(" ") || u?.org_name || "You";
     } catch {
-      return "Vishnu Kumar Agrawal";
+      return "You";
     }
   })();
 
@@ -162,11 +162,13 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
         {/* Sticky header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[#f2f2f3] shrink-0">
           <div className="flex items-center gap-3">
-            <img
-              src={userAvatar}
-              alt=""
-              className="w-12 h-12 rounded-full object-cover shrink-0"
-            />
+            {userAvatar ? (
+              <img src={userAvatar} alt="" className="w-12 h-12 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-[#FF9400] flex items-center justify-center text-white font-bold text-sm shrink-0">
+                {userName.split(" ").map((w: string) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-[#18191c] text-base">
@@ -201,7 +203,7 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
         </div>
 
         {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-5">
+        <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-5 min-h-0">
           {/* Cover image */}
           <input
             ref={coverInputRef}
@@ -213,13 +215,14 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
 
           {coverUrl ? (
             <div
-              className="relative rounded-xl overflow-hidden cursor-pointer group"
+              className="relative rounded-xl overflow-hidden cursor-pointer group shrink-0"
+              style={{ minHeight: '300px' }}
               onClick={() => coverInputRef.current?.click()}
             >
               <img
                 src={coverUrl}
                 alt="Cover"
-                className="w-full h-[200px] object-cover"
+                style={{ width: '100%', height: '300px', objectFit: 'cover', display: 'block' }}
               />
               <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <span className="text-white text-sm font-medium">

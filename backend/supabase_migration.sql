@@ -717,3 +717,55 @@ CREATE POLICY "Authenticated users can insert comments"
 CREATE POLICY "Users can delete own comments"
   ON post_comments FOR DELETE
   USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Poll Votes table
+-- One row per (post, user) — user can only vote once per poll.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS poll_votes (
+  post_id      UUID        NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  option_index INTEGER     NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (post_id, user_id)
+);
+
+ALTER TABLE poll_votes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read poll votes"
+  ON poll_votes FOR SELECT USING (true);
+
+CREATE POLICY "Authenticated users can vote"
+  ON poll_votes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own vote"
+  ON poll_votes FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own vote"
+  ON poll_votes FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Saved Learning Courses table
+-- Stores a JSON snapshot (same pattern as saved_discover_items)
+-- so courses can be displayed even if the API record changes.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS saved_learning_courses (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id  TEXT        NOT NULL,
+  course_data JSONB      NOT NULL,
+  saved_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, course_id)
+);
+
+ALTER TABLE saved_learning_courses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own saved_learning_courses"
+  ON saved_learning_courses FOR ALL
+  USING     (auth.uid() = user_id)
+  WITH CHECK(auth.uid() = user_id);

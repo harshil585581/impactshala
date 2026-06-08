@@ -194,12 +194,21 @@ export type FeedPost = {
   } | null;
 };
 
-export async function fetchFeedPosts(filter: FeedFilter = 'all'): Promise<FeedPost[]> {
+export const FEED_PAGE_SIZE = 10;
+
+export async function fetchFeedPosts(
+  filter: FeedFilter = 'all',
+  page = 0,
+): Promise<FeedPost[]> {
   const client = getAuthClient();
+  const from = page * FEED_PAGE_SIZE;
+  const to = from + FEED_PAGE_SIZE - 1;
+
   let query = client
     .from('posts')
-    .select('*, user:users!posts_user_id_fkey(first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
-    .order('created_at', { ascending: false });
+    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
   if (filter === 'media') query = query.in('post_type', ['photo', 'video']);
   else if (filter === 'polls') query = query.in('post_type', ['poll', 'question']);
@@ -238,6 +247,48 @@ export async function fetchLikesCounts(postIds: string[]): Promise<Record<string
     counts[r.post_id] = (counts[r.post_id] ?? 0) + 1;
   }
   return counts;
+}
+
+export async function fetchPollData(postId: string): Promise<{
+  voteCounts: Record<number, number>;
+  userVote: number | null;
+  totalVotes: number;
+}> {
+  const userId = getUserId();
+  const client = getAuthClient();
+  const { data } = await client
+    .from('poll_votes')
+    .select('option_index, user_id')
+    .eq('post_id', postId);
+  const rows = (data ?? []) as { option_index: number; user_id: string }[];
+  const voteCounts: Record<number, number> = {};
+  for (const r of rows) {
+    voteCounts[r.option_index] = (voteCounts[r.option_index] ?? 0) + 1;
+  }
+  const userVote = userId
+    ? (rows.find((r) => r.user_id === userId)?.option_index ?? null)
+    : null;
+  return { voteCounts, userVote, totalVotes: rows.length };
+}
+
+export async function voteOnPoll(postId: string, optionIndex: number): Promise<void> {
+  const userId = getUserId();
+  if (!userId) throw new Error('Not logged in');
+  const client = getAuthClient();
+  await client
+    .from('poll_votes')
+    .upsert({ post_id: postId, user_id: userId, option_index: optionIndex });
+}
+
+export async function unvoteOnPoll(postId: string): Promise<void> {
+  const userId = getUserId();
+  if (!userId) throw new Error('Not logged in');
+  const client = getAuthClient();
+  await client
+    .from('poll_votes')
+    .delete()
+    .eq('post_id', postId)
+    .eq('user_id', userId);
 }
 
 export async function fetchUserPosts(userId: string): Promise<FeedPost[]> {

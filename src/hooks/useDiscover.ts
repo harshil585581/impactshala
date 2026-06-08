@@ -31,7 +31,7 @@ export function useDiscover() {
     (searchParams.get("tab") as Tab) ?? "providers"
   );
   const [activeChip, setActiveChip] = useState(
-    searchParams.get("category") ?? "Job Ready Exposures"
+    searchParams.get("category") ?? ""
   );
   const [rawQuery, setRawQuery] = useState(searchParams.get("q") ?? "");
   const [pendingFilters, setPendingFilters] =
@@ -72,7 +72,7 @@ export function useDiscover() {
   const buildParams = useCallback(
     (cursor?: string): DiscoverFeedParams => ({
       tab,
-      category: activeChip,
+      category: activeChip || undefined,
       q: debouncedQuery || undefined,
       cursor,
       subCategory: appliedFilters.subCategory || undefined,

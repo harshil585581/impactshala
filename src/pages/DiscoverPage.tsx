@@ -177,6 +177,7 @@ export default function DiscoverPage() {
       {applyPostId && (
         <ApplyModal
           postId={applyPostId}
+          postTitle={items.find(i => i.id === applyPostId)?.title}
           onClose={() => setApplyPostId(null)}
         />
       )}

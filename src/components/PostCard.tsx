@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FeedPost } from '../services/postService';
+import { fetchPollData, voteOnPoll, unvoteOnPoll } from '../services/postService';
 import likeIcon        from '../assets/images/svg/like.svg';
 import heartIcon       from '../assets/images/svg/heart.svg';
 import congratulateIcon from '../assets/images/svg/congratulate.svg';
@@ -66,7 +67,81 @@ export default function PostCard({
   likesCount?: number;
   onLikeToggle?: (postId: string, liked: boolean) => void;
 }) {
-  const [voted, setVoted] = useState<number | null>(null);
+  const [pollVoteCounts, setPollVoteCounts] = useState<Record<number, number>>({});
+  const [pollUserVote, setPollUserVote] = useState<number | null>(null);
+  const [pollTotalVotes, setPollTotalVotes] = useState(0);
+  const [pollHasVoted, setPollHasVoted] = useState(false);
+  const [pollLoading, setPollLoading] = useState(false);
+
+  useEffect(() => {
+    if (post.post_type !== 'poll') return;
+    fetchPollData(post.id).then(({ voteCounts, userVote, totalVotes }) => {
+      setPollVoteCounts(voteCounts);
+      setPollUserVote(userVote);
+      setPollTotalVotes(totalVotes);
+      setPollHasVoted(userVote !== null);
+    }).catch(() => {});
+  }, [post.id, post.post_type]);
+
+  async function handlePollVote(optionIndex: number) {
+    if (pollLoading) return;
+    setPollLoading(true);
+
+    const prevVote = pollUserVote;
+    const prevHasVoted = pollHasVoted;
+
+    if (pollHasVoted && pollUserVote === optionIndex) {
+      // Remove vote
+      setPollUserVote(null);
+      setPollHasVoted(false);
+      setPollVoteCounts(prev => ({ ...prev, [optionIndex]: Math.max(0, (prev[optionIndex] ?? 1) - 1) }));
+      setPollTotalVotes(prev => Math.max(0, prev - 1));
+      try {
+        await unvoteOnPoll(post.id);
+      } catch {
+        setPollUserVote(prevVote);
+        setPollHasVoted(prevHasVoted);
+        setPollVoteCounts(prev => ({ ...prev, [optionIndex]: (prev[optionIndex] ?? 0) + 1 }));
+        setPollTotalVotes(prev => prev + 1);
+      }
+    } else if (pollHasVoted && pollUserVote !== null) {
+      // Switch vote
+      const oldIdx = pollUserVote;
+      setPollUserVote(optionIndex);
+      setPollVoteCounts(prev => ({
+        ...prev,
+        [oldIdx]: Math.max(0, (prev[oldIdx] ?? 1) - 1),
+        [optionIndex]: (prev[optionIndex] ?? 0) + 1,
+      }));
+      try {
+        await voteOnPoll(post.id, optionIndex);
+      } catch {
+        setPollUserVote(prevVote);
+        setPollVoteCounts(prev => ({
+          ...prev,
+          [oldIdx]: (prev[oldIdx] ?? 0) + 1,
+          [optionIndex]: Math.max(0, (prev[optionIndex] ?? 1) - 1),
+        }));
+      }
+    } else {
+      // New vote
+      setPollUserVote(optionIndex);
+      setPollHasVoted(true);
+      setPollVoteCounts(prev => ({ ...prev, [optionIndex]: (prev[optionIndex] ?? 0) + 1 }));
+      setPollTotalVotes(prev => prev + 1);
+      try {
+        await voteOnPoll(post.id, optionIndex);
+      } catch {
+        setPollUserVote(null);
+        setPollHasVoted(false);
+        setPollVoteCounts(prev => ({ ...prev, [optionIndex]: Math.max(0, (prev[optionIndex] ?? 1) - 1) }));
+        setPollTotalVotes(prev => Math.max(0, prev - 1));
+      }
+    }
+
+    setPollLoading(false);
+  }
+
   const [liked, setLiked] = useState(isLiked);
   const [localLikesCount, setLocalLikesCount] = useState(likesCount);
   const [saved, setSaved] = useState(isSaved);
@@ -240,21 +315,54 @@ export default function PostCard({
           )}
           {post.poll_options && (
             <div className="flex flex-col gap-2">
-              {post.poll_options.map((opt, i) => (
-                <button
-                  key={i}
-                  onClick={() => setVoted(voted === i ? null : i)}
-                  className={`w-full text-left border rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-                    voted === i
-                      ? 'border-[#FF9400] bg-[#fff8ee] text-[#FF9400]'
-                      : 'border-[#e0e0e0] text-[#333] hover:border-[#FF9400] hover:bg-[#fff8ee]'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
+              {post.poll_options.map((opt, i) => {
+                const count = pollVoteCounts[i] ?? 0;
+                const pct = pollTotalVotes > 0 ? Math.round((count / pollTotalVotes) * 100) : 0;
+                const isVoted = pollUserVote === i;
+
+                if (pollHasVoted || pollUserVote !== null) {
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => handlePollVote(i)}
+                      disabled={pollLoading}
+                      className="relative w-full rounded-lg overflow-hidden text-left transition-opacity disabled:opacity-60"
+                      style={{ border: `1.5px solid ${isVoted ? '#FF9400' : '#e0e0e0'}` }}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 transition-all duration-700 ease-out"
+                        style={{ width: `${pct}%`, backgroundColor: isVoted ? '#fff8ee' : '#f5f5f5' }}
+                      />
+                      <div className="relative flex items-center justify-between px-4 py-2.5">
+                        <span className={`text-sm flex items-center gap-1.5 ${isVoted ? 'font-semibold text-[#FF9400]' : 'font-medium text-[#333]'}`}>
+                          {isVoted && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                              <path d="M20 6L9 17l-5-5" stroke="#FF9400" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                          {opt}
+                        </span>
+                        <span className={`text-sm font-bold ml-4 shrink-0 ${isVoted ? 'text-[#FF9400]' : 'text-[#888]'}`}>{pct}%</span>
+                      </div>
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePollVote(i)}
+                    disabled={pollLoading}
+                    className="w-full text-left border rounded-lg px-4 py-2.5 text-sm font-medium transition-all border-[#e0e0e0] text-[#333] hover:border-[#FF9400] hover:bg-[#fff8ee] disabled:opacity-50"
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
               <p className="text-[#888] text-xs mt-1">
-                {voted !== null ? 'You voted · ' : ''}{post.poll_options.length} options
+                {pollHasVoted
+                  ? `You voted · ${pollTotalVotes} vote${pollTotalVotes !== 1 ? 's' : ''}`
+                  : `${pollTotalVotes > 0 ? `${pollTotalVotes} vote${pollTotalVotes !== 1 ? 's' : ''} · ` : ''}${post.poll_options.length} options`}
               </p>
             </div>
           )}
