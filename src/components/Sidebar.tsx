@@ -31,6 +31,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isOnDiscoverRoute = location.pathname === "/discover";
   const isOnHomeRoute = location.pathname === "/home";
   const isOnCommunityRoute = location.pathname === "/community";
+  const isOnEmploymentRoute = location.pathname.startsWith("/employment-hub");
   const [appExpanded, setAppExpanded] = useState(isOnAppsRoute);
   const [showHelp, setShowHelp] = useState(false);
   const [activeSubItem, setActiveSubItem] = useState(
@@ -141,6 +142,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <NavItem
             icon={<img src={employmentHubIcon} alt="" className="w-5 h-5 shrink-0" />}
             label="Employment Hub"
+            active={isOnEmploymentRoute}
+            onClick={() => { navigate("/employment-hub"); onClose(); }}
           />
           <NavItem
             icon={<img src={communityIcon} alt="" className="w-5 h-5 shrink-0" />}

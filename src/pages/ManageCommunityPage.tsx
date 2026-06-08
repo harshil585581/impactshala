@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
+import ShareProfileModal, { type SharePerson } from "../components/ShareProfileModal";
 import {
   fetchConnections,
   removeConnection,
@@ -40,7 +41,7 @@ function Avatar({ url, name, size = 64 }: { url?: string | null; name: string; s
 
 // ─── Three-dot menu ───────────────────────────────────────────────────────────
 
-function ThreeDotMenu({ onRemove }: { onRemove: () => void }) {
+function ThreeDotMenu({ onRemove, onShare }: { onRemove: () => void; onShare: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -65,7 +66,17 @@ function ThreeDotMenu({ onRemove }: { onRemove: () => void }) {
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-10 bg-white border border-[#f2f2f3] rounded-xl shadow-lg z-20 min-w-[110px] overflow-hidden">
+        <div className="absolute right-0 top-10 bg-white border border-[#f2f2f3] rounded-xl shadow-lg z-20 min-w-[130px] overflow-hidden">
+          <button
+            onClick={() => { onShare(); setOpen(false); }}
+            className="w-full text-left px-4 py-2.5 text-sm text-[#474d57] hover:bg-[#f9fafb] transition-colors font-medium flex items-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            Share
+          </button>
+          <div className="h-px bg-[#f2f2f3]" />
           <button
             onClick={() => { onRemove(); setOpen(false); }}
             className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-[#fff5f5] transition-colors font-medium"
@@ -93,6 +104,7 @@ export default function ManageCommunityPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const [sharePerson, setSharePerson] = useState<SharePerson | null>(null);
   const load = useCallback(async (q: string) => {
     setLoading(true);
     try {
@@ -226,7 +238,7 @@ export default function ManageCommunityPage() {
                     >
                       Message
                     </button>
-                    <ThreeDotMenu onRemove={() => handleRemove(c)} />
+                    <ThreeDotMenu onRemove={() => handleRemove(c)} onShare={() => setSharePerson(c)} />
                   </div>
                 </div>
               ))}
@@ -235,6 +247,10 @@ export default function ManageCommunityPage() {
 
         </div>
       </div>
+
+      {sharePerson && (
+        <ShareProfileModal person={sharePerson} onClose={() => setSharePerson(null)} />
+      )}
     </div>
   );
 }
