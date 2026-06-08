@@ -300,24 +300,24 @@ function LearningMiniCard({ post, onUnsave }: { post: SavedLearningSnapshot; onU
           {/* Left: location + title */}
           <div className="flex flex-col gap-1 min-w-0 flex-1">
             <div className="flex items-center gap-1">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" className="shrink-0">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" className="shrink-0">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#f77f00" strokeWidth="2"/>
                 <circle cx="12" cy="9" r="2.5" stroke="#f77f00" strokeWidth="2"/>
               </svg>
-              <span className="text-[#18191c] text-[11px] font-medium truncate">{post.university}</span>
+              <span className="text-[#18191c] text-sm font-medium truncate">{post.university}</span>
             </div>
-            <p className="text-[#18191c] text-sm font-bold leading-snug">{post.title}</p>
+            <p className="text-[#18191c] text-base font-bold leading-snug">{post.title}</p>
           </div>
 
           {/* Right: buttons + bookmark */}
           <div className="flex items-start gap-2 shrink-0">
             <div className="flex flex-col gap-1.5">
-              <button className="bg-[#f77f00] text-white text-xs font-semibold px-4 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
+              <button className="bg-[#f77f00] text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
                 Get Started
               </button>
               {post.brochureUrl && (
                 <a href={post.brochureUrl} target="_blank" rel="noopener noreferrer"
-                  className="border border-[#b4b4b4] text-[#18191c] text-[11px] font-medium px-3 py-1.5 rounded-full hover:border-[#f77f00] hover:text-[#f77f00] transition-colors whitespace-nowrap text-center">
+                  className="border border-[#b4b4b4] text-[#18191c] text-xs font-medium px-3 py-1.5 rounded-full hover:border-[#f77f00] hover:text-[#f77f00] transition-colors whitespace-nowrap text-center">
                   Download Brochure
                 </a>
               )}
@@ -337,28 +337,28 @@ function LearningMiniCard({ post, onUnsave }: { post: SavedLearningSnapshot; onU
         {/* Info grid row 1 */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div className="flex flex-col gap-0.5">
-            <p className="text-[#f77f00] text-[11px]">Academic level</p>
-            <p className="text-[#18191c] text-xs font-medium">{post.level}</p>
+            <p className="text-[#f77f00] text-xs">Academic level</p>
+            <p className="text-[#18191c] text-sm font-medium">{post.level}</p>
           </div>
           <div className="flex flex-col gap-0.5">
-            <p className="text-[#f77f00] text-[11px]">Mode</p>
-            <p className="text-[#18191c] text-xs font-medium">{post.mode}</p>
+            <p className="text-[#f77f00] text-xs">Mode</p>
+            <p className="text-[#18191c] text-sm font-medium">{post.mode}</p>
           </div>
         </div>
 
         {/* Info grid row 2 */}
         <div className="grid grid-cols-3 gap-x-2 gap-y-2">
           <div className="flex flex-col gap-0.5">
-            <p className="text-[#f77f00] text-[11px]">Course Fee</p>
-            <p className="text-[#18191c] text-xs font-medium">{post.fee}</p>
+            <p className="text-[#f77f00] text-xs">Course Fee</p>
+            <p className="text-[#18191c] text-sm font-medium">{post.fee}</p>
           </div>
           <div className="flex flex-col gap-0.5">
-            <p className="text-[#f77f00] text-[11px]">Duration</p>
-            <p className="text-[#18191c] text-xs font-medium">{post.duration}</p>
+            <p className="text-[#f77f00] text-xs">Duration</p>
+            <p className="text-[#18191c] text-sm font-medium">{post.duration}</p>
           </div>
           <div className="flex flex-col gap-0.5">
-            <p className="text-[#f77f00] text-[11px]">Application Deadline</p>
-            <p className="text-[#18191c] text-xs font-medium">{post.deadline}</p>
+            <p className="text-[#f77f00] text-xs">Application Deadline</p>
+            <p className="text-[#18191c] text-sm font-medium">{post.deadline}</p>
           </div>
         </div>
       </div>
