@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logoImg from "../../assets/images/logo/logo.png";
 import loginBg from "../../assets/images/loginsignup/l1.png";
+import { supabase } from "../../lib/supabase";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -82,6 +83,10 @@ export default function LoginPage() {
           refresh_token: data.refresh_token,
         }),
       );
+      await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
       navigate("/home");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
