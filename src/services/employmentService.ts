@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -6,6 +7,23 @@ async function requireSession() {
   const session = await getAuthenticatedSession();
   if (!session) throw new Error('Not logged in');
   return session;
+}
+
+// Direct-auth client — injects Bearer token in headers (same pattern as savedService).
+// Avoids relying on the shared supabase singleton's session state for RLS.
+function getAuthClient() {
+  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
+  const token: string | undefined = stored?.access_token;
+  return createClient(
+    import.meta.env.VITE_SUPABASE_URL as string,
+    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
+  );
+}
+
+function getStoredUserId(): string {
+  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
+  return stored?.id ?? '';
 }
 
 async function uploadFile(bucket: string, folder: string, file: File): Promise<string> {
@@ -241,10 +259,10 @@ export async function createEmployerPosting(
 }
 
 export async function fetchMyEmployerPostings(): Promise<EmployerPosting[]> {
-  const session = await requireSession();
-  const userId = session.user.id;
+  const userId = getStoredUserId();
+  if (!userId) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await getAuthClient()
     .from('employment_hub_postings')
     .select('*')
     .eq('user_id', userId)
@@ -315,6 +333,108 @@ export async function deleteEmployerPosting(id: string): Promise<void> {
     .eq('user_id', userId);
 
   if (error) throw new Error(error.message);
+}
+
+export async function fetchEmployerPostingById(id: string): Promise<EmployerPosting | null> {
+  const { data, error } = await getAuthClient()
+    .from('employment_hub_postings')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) return null;
+  return data as EmployerPosting;
+}
+
+// ─── Applications ─────────────────────────────────────────────────────────────
+
+export type ApplicationStatus = 'applied' | 'not_a_fit' | 'maybe' | 'goodfit';
+
+export type EmploymentApplication = {
+  id: string;
+  posting_id: string;
+  applicant_id: string;
+  name: string;
+  email: string;
+  mobile: string | null;
+  message: string | null;
+  status: ApplicationStatus;
+  applied_at: string;
+};
+
+export type MyApplication = EmploymentApplication & { posting: EmployerPosting | null };
+
+export async function submitApplication(
+  postingId: string,
+  data: { name: string; email: string; mobile: string; message?: string },
+): Promise<void> {
+  const userId = getStoredUserId();
+  if (!userId) throw new Error('Not logged in');
+  const { error } = await getAuthClient()
+    .from('employment_applications')
+    .upsert(
+      {
+        posting_id: postingId,
+        applicant_id: userId,
+        name: data.name,
+        email: data.email,
+        mobile: data.mobile || null,
+        message: data.message || null,
+      },
+      { onConflict: 'posting_id,applicant_id' },
+    );
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchApplicationsForPosting(
+  postingId: string,
+): Promise<EmploymentApplication[]> {
+  const { data, error } = await getAuthClient()
+    .from('employment_applications')
+    .select('*')
+    .eq('posting_id', postingId)
+    .order('applied_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as EmploymentApplication[];
+}
+
+export async function updateApplicationStatus(
+  applicationId: string,
+  status: ApplicationStatus,
+): Promise<void> {
+  const { error } = await getAuthClient()
+    .from('employment_applications')
+    .update({ status })
+    .eq('id', applicationId);
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchMyApplicationsAsSeeker(): Promise<MyApplication[]> {
+  const userId = getStoredUserId();
+  if (!userId) return [];
+  const { data, error } = await getAuthClient()
+    .from('employment_applications')
+    .select('*, posting:employment_hub_postings (*)')
+    .eq('applicant_id', userId)
+    .order('applied_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as MyApplication[];
+}
+
+export async function fetchApplicationCountsForPostings(
+  postingIds: string[],
+): Promise<Map<string, number>> {
+  if (postingIds.length === 0) return new Map();
+  const { data, error } = await getAuthClient()
+    .from('employment_applications')
+    .select('posting_id')
+    .in('posting_id', postingIds);
+  if (error) return new Map();
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const id = row.posting_id as string;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return counts;
 }
 
 // ─── Job Seeker Profiles ──────────────────────────────────────────────────────

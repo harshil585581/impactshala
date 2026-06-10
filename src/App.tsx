@@ -45,6 +45,7 @@ import CreateSeekerDetailsPage from './pages/discover/CreateSeekerDetailsPage';
 import CreateSeekerPreviewPage from './pages/discover/CreateSeekerPreviewPage';
 
 import LearningDirectoryPage from './pages/learning/LearningDirectoryPage';
+import EmploymentHubDiscoveryPage from './pages/employment/EmploymentHubDiscoveryPage';
 import EmploymentHubPage from './pages/employment/EmploymentHubPage';
 import JobSeekerHubPage from './pages/employment/JobSeekerHubPage';
 
@@ -96,7 +97,8 @@ export default function App() {
         <Route path="/discover/create/seeker/preview" element={<CreateSeekerPreviewPage />} />
         <Route path="/applications" element={<MyApplicationsPage />} />
         <Route path="/applications/detail/:postingId" element={<ApplicantsDetailPage />} />
-        <Route path="/employment-hub" element={<EmploymentHubPage />} />
+        <Route path="/employment-hub" element={<EmploymentHubDiscoveryPage />} />
+        <Route path="/employment-hub/employer" element={<EmploymentHubPage />} />
         <Route path="/employment-hub/seeker" element={<JobSeekerHubPage />} />
         <Route path="/learning-directory" element={<LearningDirectoryPage />} />
         <Route path="/learning-directory/list-course" element={<ListCoursePage />} />

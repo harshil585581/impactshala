@@ -769,3 +769,83 @@ CREATE POLICY "Users manage own saved_learning_courses"
   ON saved_learning_courses FOR ALL
   USING     (auth.uid() = user_id)
   WITH CHECK(auth.uid() = user_id);
+
+-- ============================================================
+-- Saved Employment Postings table
+-- References employment_hub_postings so full data is fetched
+-- live rather than snapshotted.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS saved_employment_postings (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  posting_id  UUID        NOT NULL REFERENCES employment_hub_postings(id) ON DELETE CASCADE,
+  saved_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, posting_id)
+);
+
+ALTER TABLE saved_employment_postings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own saved_employment_postings"
+  ON saved_employment_postings FOR ALL
+  USING     (auth.uid() = user_id)
+  WITH CHECK(auth.uid() = user_id);
+
+-- ============================================================
+-- Employment Applications table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS employment_applications (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  posting_id    UUID        NOT NULL REFERENCES employment_hub_postings(id) ON DELETE CASCADE,
+  applicant_id  UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT        NOT NULL,
+  email         TEXT        NOT NULL,
+  mobile        TEXT,
+  message       TEXT,
+  status        TEXT        NOT NULL DEFAULT 'applied'
+                  CHECK (status IN ('applied', 'not_a_fit', 'maybe', 'goodfit')),
+  applied_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (posting_id, applicant_id)
+);
+
+ALTER TABLE employment_applications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Applicants can submit their own applications"
+  ON employment_applications FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = applicant_id);
+
+CREATE POLICY "Applicants can view their own applications"
+  ON employment_applications FOR SELECT
+  TO authenticated
+  USING (auth.uid() = applicant_id);
+
+CREATE POLICY "Posting owners can view all applications"
+  ON employment_applications FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM employment_hub_postings
+      WHERE id = posting_id AND user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Posting owners can update application status"
+  ON employment_applications FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM employment_hub_postings
+      WHERE id = posting_id AND user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM employment_hub_postings
+      WHERE id = posting_id AND user_id = auth.uid()
+    )
+  );
+
+CREATE INDEX IF NOT EXISTS idx_employment_applications_posting_id ON employment_applications(posting_id);
+CREATE INDEX IF NOT EXISTS idx_employment_applications_applicant_id ON employment_applications(applicant_id);
