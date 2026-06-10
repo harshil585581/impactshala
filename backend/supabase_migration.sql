@@ -678,13 +678,13 @@ ALTER TABLE post_likes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can see likes"
   ON post_likes FOR SELECT USING (true);
 
-CREATE POLICY "Allow like insert"
+CREATE POLICY "Authenticated users can like"
   ON post_likes FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Allow like delete"
+CREATE POLICY "Users can unlike their own"
   ON post_likes FOR DELETE
-  USING (true);
+  USING (auth.uid() = user_id);
 
 -- ============================================================
 -- Post Comments table
@@ -849,202 +849,135 @@ CREATE POLICY "Posting owners can update application status"
 
 CREATE INDEX IF NOT EXISTS idx_employment_applications_posting_id ON employment_applications(posting_id);
 CREATE INDEX IF NOT EXISTS idx_employment_applications_applicant_id ON employment_applications(applicant_id);
--- Notifications (real-time)
--- ============================================================
+
+-- ─── Notifications ────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS notifications (
-  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id         UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  actor_id        UUID        REFERENCES users(id) ON DELETE SET NULL,
-  type            TEXT        NOT NULL CHECK (type IN ('message','post','like','comment','connection')),
-  post_id         UUID        REFERENCES posts(id) ON DELETE CASCADE,
-  conversation_id UUID        REFERENCES conversations(id) ON DELETE CASCADE,
-  message         TEXT        NOT NULL,
-  is_read         BOOLEAN     NOT NULL DEFAULT false,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       TEXT        NOT NULL,
+  message     TEXT        NOT NULL,
+  type        TEXT        NOT NULL DEFAULT 'system'
+                CHECK (type IN ('message','job_alert','employment','application','payment','course','system')),
+  is_read     BOOLEAN     NOT NULL DEFAULT false,
+  action_url  TEXT,
+  metadata    JSONB,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Recipients can read their own notifications
-CREATE POLICY "Users read own notifications"
-  ON notifications FOR SELECT
-  USING (true);
+CREATE POLICY "Users manage own notifications"
+  ON notifications FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
--- Allow inserts from triggers (auth.uid() is null in triggers)
-CREATE POLICY "Allow insert notifications"
-  ON notifications FOR INSERT
-  WITH CHECK (true);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id        ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread    ON notifications(user_id, is_read) WHERE is_read = false;
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at     ON notifications(created_at DESC);
 
--- Only the recipient can update (mark read) their notifications
-CREATE POLICY "Users update own notifications"
-  ON notifications FOR UPDATE
-  USING (true)
-  WITH CHECK (true);
+-- ─── Notification Triggers ────────────────────────────────────────────────────
+-- SECURITY DEFINER so triggers can INSERT notifications for any user_id
+-- regardless of RLS (trigger runs as postgres superuser in Supabase).
 
--- Users can delete (dismiss) their own notifications
-CREATE POLICY "Users delete own notifications"
-  ON notifications FOR DELETE
-  USING (true);
-
--- Enable realtime for this table
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
-
--- ============================================================
--- Trigger: notify on new direct message
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_notify_on_message()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+-- Trigger 1: Notify employer when a new application is submitted
+CREATE OR REPLACE FUNCTION fn_notify_employer_on_application()
+RETURNS TRIGGER
+SECURITY DEFINER
+LANGUAGE plpgsql AS $$
 DECLARE
-  v_participant_1 UUID;
-  v_participant_2 UUID;
-  v_recipient_id  UUID;
-  v_actor_name    TEXT;
+  v_employer_id UUID;
+  v_job_title   TEXT;
 BEGIN
-  SELECT participant_1, participant_2
-    INTO v_participant_1, v_participant_2
-    FROM conversations
-   WHERE id = NEW.conversation_id;
+  SELECT user_id, job_title
+    INTO v_employer_id, v_job_title
+    FROM employment_hub_postings
+   WHERE id = NEW.posting_id;
 
-  IF v_participant_1 = NEW.sender_id THEN
-    v_recipient_id := v_participant_2;
-  ELSE
-    v_recipient_id := v_participant_1;
+  IF v_employer_id IS NOT NULL THEN
+    INSERT INTO notifications (user_id, title, message, type, action_url)
+    VALUES (
+      v_employer_id,
+      'New Application Received',
+      NEW.name || ' applied for "' || v_job_title || '"',
+      'application',
+      '/applications/detail/' || NEW.posting_id
+    );
   END IF;
-
-  SELECT COALESCE(
-           NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), ''),
-           org_name,
-           'Someone'
-         ) INTO v_actor_name
-    FROM users WHERE id = NEW.sender_id;
-
-  INSERT INTO notifications (user_id, actor_id, type, conversation_id, message)
-  VALUES (v_recipient_id, NEW.sender_id, 'message', NEW.conversation_id,
-          v_actor_name || ' sent you a message');
-
   RETURN NEW;
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_notify_on_message ON direct_messages;
-CREATE TRIGGER trg_notify_on_message
-  AFTER INSERT ON direct_messages
-  FOR EACH ROW EXECUTE FUNCTION fn_notify_on_message();
+DROP TRIGGER IF EXISTS trg_notify_employer_on_application ON employment_applications;
+CREATE TRIGGER trg_notify_employer_on_application
+  AFTER INSERT ON employment_applications
+  FOR EACH ROW EXECUTE FUNCTION fn_notify_employer_on_application();
 
--- ============================================================
--- Trigger: notify connections on new post
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_notify_on_new_post()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+-- Trigger 2: Notify applicant when their application status changes
+CREATE OR REPLACE FUNCTION fn_notify_applicant_on_status_change()
+RETURNS TRIGGER
+SECURITY DEFINER
+LANGUAGE plpgsql AS $$
 DECLARE
-  v_actor_name TEXT;
-  v_conn       RECORD;
+  v_job_title    TEXT;
+  v_status_label TEXT;
 BEGIN
-  SELECT COALESCE(
-           NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), ''),
-           org_name,
-           'Someone'
-         ) INTO v_actor_name
-    FROM users WHERE id = NEW.user_id;
-
-  FOR v_conn IN
-    SELECT
-      CASE WHEN requester_id = NEW.user_id THEN addressee_id ELSE requester_id END AS connection_id
-    FROM community_connections
-    WHERE (requester_id = NEW.user_id OR addressee_id = NEW.user_id)
-      AND status = 'accepted'
-  LOOP
-    INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-    VALUES (v_conn.connection_id, NEW.user_id, 'post', NEW.id,
-            v_actor_name || ' published a new post');
-  END LOOP;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_notify_on_new_post ON posts;
-CREATE TRIGGER trg_notify_on_new_post
-  AFTER INSERT ON posts
-  FOR EACH ROW EXECUTE FUNCTION fn_notify_on_new_post();
-
--- ============================================================
--- Trigger: notify post author on like
--- ============================================================
-
-CREATE OR REPLACE FUNCTION fn_notify_on_like()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE
-  v_post_author_id UUID;
-  v_actor_name     TEXT;
-BEGIN
-  SELECT user_id INTO v_post_author_id FROM posts WHERE id = NEW.post_id;
-
-  -- Don't notify if you like your own post
-  IF v_post_author_id IS NULL OR v_post_author_id = NEW.user_id THEN
+  IF OLD.status = NEW.status THEN
     RETURN NEW;
   END IF;
 
-  SELECT COALESCE(
-           NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), ''),
-           org_name,
-           'Someone'
-         ) INTO v_actor_name
-    FROM users WHERE id = NEW.user_id;
+  SELECT job_title INTO v_job_title
+    FROM employment_hub_postings
+   WHERE id = NEW.posting_id;
 
-  INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-  VALUES (v_post_author_id, NEW.user_id, 'like', NEW.post_id,
-          v_actor_name || ' liked your post');
+  v_status_label := CASE NEW.status
+    WHEN 'goodfit'   THEN 'accepted for'
+    WHEN 'not_a_fit' THEN 'not selected for'
+    WHEN 'maybe'     THEN 'placed on hold for'
+    ELSE 'updated for'
+  END;
 
+  INSERT INTO notifications (user_id, title, message, type, action_url)
+  VALUES (
+    NEW.applicant_id,
+    'Application Status Updated',
+    'Your application was ' || v_status_label || ' "' || v_job_title || '"',
+    'application',
+    '/applications'
+  );
   RETURN NEW;
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_notify_on_like ON post_likes;
-CREATE TRIGGER trg_notify_on_like
-  AFTER INSERT ON post_likes
-  FOR EACH ROW EXECUTE FUNCTION fn_notify_on_like();
+DROP TRIGGER IF EXISTS trg_notify_applicant_on_status_change ON employment_applications;
+CREATE TRIGGER trg_notify_applicant_on_status_change
+  AFTER UPDATE OF status ON employment_applications
+  FOR EACH ROW EXECUTE FUNCTION fn_notify_applicant_on_status_change();
 
--- ============================================================
--- Trigger: notify post author on comment
--- ============================================================
+-- ─── Help Center Inquiries ────────────────────────────────────────────────────
 
-CREATE OR REPLACE FUNCTION fn_notify_on_comment()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE
-  v_post_author_id UUID;
-  v_actor_name     TEXT;
-BEGIN
-  -- Only handle community posts
-  IF NEW.post_table IS DISTINCT FROM 'posts' THEN
-    RETURN NEW;
-  END IF;
+CREATE TABLE IF NOT EXISTS help_center_inquiries (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID        REFERENCES users(id) ON DELETE SET NULL,
+  category           TEXT        NOT NULL,
+  urgency            TEXT,
+  timeline           DATE,
+  requirements       TEXT,
+  budget             TEXT,
+  name               TEXT        NOT NULL,
+  email              TEXT        NOT NULL,
+  phone              TEXT,
+  best_time          TEXT,
+  contact_method     TEXT        NOT NULL DEFAULT 'email',
+  additional_details TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-  SELECT user_id INTO v_post_author_id FROM posts WHERE id = NEW.post_id;
+ALTER TABLE help_center_inquiries ENABLE ROW LEVEL SECURITY;
 
-  IF v_post_author_id IS NULL OR v_post_author_id = NEW.user_id THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT COALESCE(
-           NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), ''),
-           org_name,
-           'Someone'
-         ) INTO v_actor_name
-    FROM users WHERE id = NEW.user_id;
-
-  INSERT INTO notifications (user_id, actor_id, type, post_id, message)
-  VALUES (v_post_author_id, NEW.user_id, 'comment', NEW.post_id,
-          v_actor_name || ' commented on your post');
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_notify_on_comment ON post_comments;
-CREATE TRIGGER trg_notify_on_comment
-  AFTER INSERT ON post_comments
-  FOR EACH ROW EXECUTE FUNCTION fn_notify_on_comment();
+CREATE POLICY "Authenticated users can submit inquiries"
+  ON help_center_inquiries FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
