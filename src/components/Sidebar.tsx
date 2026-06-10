@@ -14,10 +14,12 @@ type SidebarProps = {
 
 const APP_SUB_ITEMS = [
   { label: "Discover", route: "/applications" },
+  { label: "Employment Hub", route: "/applications/my-postings" },
 ];
 
 const ROUTE_TO_SUB_ITEM: Record<string, string> = {
   "/applications": "Discover",
+  "/applications/my-postings": "Employment Hub",
 };
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {

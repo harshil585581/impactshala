@@ -1,3 +1,5 @@
+import { getFreshToken } from "../lib/authToken";
+
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 /** Prepend API_URL to relative paths so images load correctly in the browser. */
@@ -11,19 +13,11 @@ function normalizeItem(item: DiscoverItem): DiscoverItem {
   return { ...item, imageUrl: absUrl(item.imageUrl), avatarUrl: absUrl(item.avatarUrl) };
 }
 
-function getToken(): string {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
-    return user.access_token ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function authHeaders(): Record<string, string> {
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getFreshToken();
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${getToken()}`,
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -53,7 +47,8 @@ export type DiscoverItem = {
   description?: string;
   onsiteVenue?: string;
   onlineAccess?: string;
-  eligibilityCriteria?: string;
+  eligibilityCriteria?: string[];
+  documentsRequired?: string[];
   communicationLanguage?: string;
   levelOfParticipant?: string;
   educationalLevel?: string;
@@ -100,7 +95,7 @@ export async function fetchDiscoverFeed(
     query.set("levelOfParticipant", params.levelOfParticipant);
 
   const res = await fetch(`${API_URL}/api/discover/feed?${query}`, {
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`${res.status}`);
   const page: DiscoverFeedPage = await res.json();
@@ -110,7 +105,7 @@ export async function fetchDiscoverFeed(
 export async function fetchDiscoverSearch(q: string): Promise<DiscoverItem[]> {
   const res = await fetch(
     `${API_URL}/api/discover/search?q=${encodeURIComponent(q)}`,
-    { headers: authHeaders() }
+    { headers: await authHeaders() }
   );
   if (!res.ok) throw new Error(`${res.status}`);
   const items: DiscoverItem[] = await res.json();
@@ -119,7 +114,7 @@ export async function fetchDiscoverSearch(q: string): Promise<DiscoverItem[]> {
 
 export async function fetchTrending(): Promise<DiscoverItem[]> {
   const res = await fetch(`${API_URL}/api/discover/trending`, {
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`${res.status}`);
   const items: DiscoverItem[] = await res.json();
@@ -129,7 +124,7 @@ export async function fetchTrending(): Promise<DiscoverItem[]> {
 export async function trackImpression(postId: string): Promise<void> {
   await fetch(`${API_URL}/api/discover/track`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ postId }),
   });
 }
@@ -140,7 +135,7 @@ export async function toggleBookmark(
 ): Promise<void> {
   const res = await fetch(`${API_URL}/api/discover/bookmark`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ postId, bookmarked }),
   });
   if (!res.ok) throw new Error(`${res.status}`);
@@ -151,7 +146,9 @@ export type ApplicationPayload = {
   name: string;
   email: string;
   phone: string;
+  message?: string;
   documents: File[];
+  documentLabels?: string[];
 };
 
 export async function submitApplication(
@@ -162,11 +159,15 @@ export async function submitApplication(
   form.append("name", payload.name);
   form.append("email", payload.email);
   form.append("phone", payload.phone);
-  payload.documents.forEach((f) => form.append("documents", f));
+  if (payload.message) form.append("message", payload.message);
+  payload.documents.forEach((f, i) => {
+    form.append("documents", f);
+    form.append("document_labels", payload.documentLabels?.[i] ?? f.name);
+  });
 
   const res = await fetch(`${API_URL}/api/discover/apply`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: { Authorization: `Bearer ${await getFreshToken()}` },
     body: form,
   });
   if (!res.ok) throw new Error(`${res.status}`);
@@ -188,7 +189,8 @@ export type ProviderPostPayload = {
   address?: string;
   communicationLanguage?: string;
   levelOfParticipant?: string;
-  eligibilityCriteria?: string;
+  eligibilityCriteria?: string[];
+  documentsRequired?: string[];
   lastDateToApply?: string;
   fee?: string;
   onsiteVenue?: string;
@@ -204,10 +206,14 @@ export async function createProviderPost(
 ): Promise<{ id: string }> {
   const res = await fetch(`${API_URL}/api/discover/create/provider`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = body?.detail ? JSON.stringify(body.detail) : `${res.status}`;
+    throw new Error(detail);
+  }
   return res.json();
 }
 
@@ -229,11 +235,94 @@ export async function createSeekerPost(
 ): Promise<{ id: string }> {
   const res = await fetch(`${API_URL}/api/discover/create/seeker`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
+}
+
+export type DiscoverMyPost = {
+  id: string;
+  title: string;
+  domain: string;
+  nature: string;
+  deliveryMode: string;
+  address: string;
+  imageUrl: string;
+  eligibilityCriteria: string[];
+  documentsRequired: string[];
+  status: string;
+  createdAt: string;
+};
+
+export type DiscoverApplication = {
+  id: string;
+  post_id: string;
+  user_id: string | null;
+  name: string;
+  email: string;
+  phone: string;
+  message?: string;
+  status: "applied" | "not_a_fit" | "maybe" | "goodfit";
+  created_at: string;
+  document_data?: Array<{ name: string; url: string }>;
+  user_profile?: {
+    avatar_url: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    org_name: string | null;
+  };
+  seeker_profile?: {
+    career_goals: string | null;
+    work_drives_you: string | null;
+    current_location: string | null;
+    job_industry: string | null;
+    department: string | null;
+    technical_skills: string[] | null;
+    soft_skills: string[] | null;
+    resume_url: string | null;
+    institute_name: string | null;
+    education_level: string | null;
+  };
+};
+
+export type DiscoverApplicationStatus = "applied" | "not_a_fit" | "maybe" | "goodfit";
+
+export async function fetchMyDiscoverPosts(): Promise<DiscoverMyPost[]> {
+  const res = await fetch(`${API_URL}/api/discover/my-posts`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+export async function fetchDiscoverPostApplications(postId: string): Promise<DiscoverApplication[]> {
+  const res = await fetch(`${API_URL}/api/discover/posts/${postId}/applications`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+export async function deleteDiscoverApplication(appId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/discover/applications/${appId}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+}
+
+export async function updateDiscoverApplicationStatus(
+  appId: string,
+  status: DiscoverApplicationStatus,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/discover/applications/${appId}/status`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
 }
 
 export async function uploadCoverImage(file: File): Promise<string> {
@@ -241,7 +330,7 @@ export async function uploadCoverImage(file: File): Promise<string> {
   form.append("file", file);
   const res = await fetch(`${API_URL}/api/discover/upload-image`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: { Authorization: `Bearer ${await getFreshToken()}` },
     body: form,
   });
   if (!res.ok) throw new Error(`${res.status}`);

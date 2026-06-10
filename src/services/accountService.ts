@@ -1,14 +1,12 @@
+import { getFreshToken } from '../lib/authToken';
+
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-function getToken(): string {
-  const user = JSON.parse(localStorage.getItem('user') ?? '{}');
-  return user.access_token ?? '';
-}
-
-function authHeaders() {
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getFreshToken();
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${getToken()}`,
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -43,7 +41,7 @@ export interface ProfileData {
 }
 
 export async function fetchMyProfile(): Promise<ProfileData> {
-  const res = await fetch(`${API_URL}/api/profile`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/api/profile`, { headers: await authHeaders() });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`${res.status}: ${err.detail ?? 'Failed to fetch profile'}`);
@@ -57,7 +55,7 @@ export async function uploadProfileImage(file: File, imageType: 'avatar' | 'cove
   formData.append('image_type', imageType);
   const res = await fetch(`${API_URL}/api/upload/profile-image`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: { Authorization: `Bearer ${await getFreshToken()}` },
     body: formData,
   });
   if (!res.ok) {
@@ -73,7 +71,7 @@ export async function uploadDocument(file: File): Promise<string> {
   formData.append('file', file);
   const res = await fetch(`${API_URL}/api/upload/document`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: { Authorization: `Bearer ${await getFreshToken()}` },
     body: formData,
   });
   if (!res.ok) {
@@ -91,7 +89,7 @@ export async function saveProfile(data: Partial<ProfileData>): Promise<ProfileDa
   );
   const res = await fetch(`${API_URL}/api/profile`, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) {

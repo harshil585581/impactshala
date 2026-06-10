@@ -8,8 +8,15 @@ import {
   fetchAllEmployerPostings,
   fetchAllSeekerProfiles,
   submitApplication,
+  fetchApplicationsForPosting,
+  updateApplicationStatus,
 } from '../../services/employmentService';
-import type { EmployerPosting, SeekerProfile } from '../../services/employmentService';
+import type {
+  EmployerPosting,
+  SeekerProfile,
+  EmploymentApplication,
+  ApplicationStatus,
+} from '../../services/employmentService';
 import {
   fetchSavedEmploymentPostingIds,
   saveEmploymentPosting,
@@ -516,15 +523,20 @@ function EmployerJobCard({
   posting,
   onDetails,
   onApply,
+  onViewApplicants,
+  currentUserId,
   isSaved = false,
   onToggleSave,
 }: {
   posting: EmployerPosting;
   onDetails: (p: EmployerPosting) => void;
   onApply: (p: EmployerPosting) => void;
+  onViewApplicants?: (p: EmployerPosting) => void;
+  currentUserId?: string;
   isSaved?: boolean;
   onToggleSave?: (id: string) => void;
 }) {
+  const isOwner = !!currentUserId && posting.user_id === currentUserId;
   const [expanded, setExpanded] = useState(false);
   const initial = posting.org_name?.[0]?.toUpperCase() ?? 'J';
   const skills = posting.preferred_skillsets
@@ -549,10 +561,14 @@ function EmployerJobCard({
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => onDetails(posting)}
+            onClick={() =>
+              isOwner && onViewApplicants
+                ? onViewApplicants(posting)
+                : onDetails(posting)
+            }
             className="bg-[#f77f00] text-white text-sm font-semibold px-5 h-10 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
           >
-            Get Started
+            {isOwner ? 'View Applicants' : 'Get Started'}
           </button>
           <button
             type="button"
@@ -1564,6 +1580,457 @@ function ApplyModal({
   );
 }
 
+// ─── Applicants View ──────────────────────────────────────────────────────────
+
+const APPLICANTS_PAGE_SIZE = 5;
+
+function ApplicantsView({
+  posting,
+  applications,
+  profiles,
+  onBack,
+  addToast,
+}: {
+  posting: EmployerPosting;
+  applications: EmploymentApplication[];
+  profiles: SeekerProfile[];
+  onBack: () => void;
+  addToast: (type: 'success' | 'error' | 'info', msg: string) => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(applications[0]?.id ?? null);
+  const [localApps, setLocalApps] = useState<EmploymentApplication[]>(applications);
+  const [appPage, setAppPage] = useState(1);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    resume: false,
+    eligibility: false,
+    documents: false,
+  });
+
+  const initial = posting.org_name?.[0]?.toUpperCase() ?? 'J';
+  const totalAppPages = Math.max(1, Math.ceil(localApps.length / APPLICANTS_PAGE_SIZE));
+  const pagedApps = localApps.slice(
+    (appPage - 1) * APPLICANTS_PAGE_SIZE,
+    appPage * APPLICANTS_PAGE_SIZE,
+  );
+  const selectedApp = localApps.find((a) => a.id === selectedId) ?? null;
+  const seekerProfile = selectedApp
+    ? profiles.find((p) => p.user_id === selectedApp.applicant_id) ?? null
+    : null;
+
+  async function handleStatus(appId: string, status: ApplicationStatus) {
+    try {
+      await updateApplicationStatus(appId, status);
+      setLocalApps((prev) => prev.map((a) => (a.id === appId ? { ...a, status } : a)));
+      addToast('success', 'Status updated');
+    } catch {
+      addToast('error', 'Failed to update status');
+    }
+  }
+
+  const STATUS_LABELS: Record<ApplicationStatus, string> = {
+    applied: 'Applied',
+    not_a_fit: 'Not a fit',
+    maybe: 'Maybe',
+    goodfit: 'Goodfit',
+  };
+
+  return (
+    <div>
+      {/* Job posting header */}
+      <div className="bg-white border border-[#e5e5e5] px-5 py-4 mb-0">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={onBack}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#f5f5f5] transition-colors text-[#6b6b6b] shrink-0"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M19 12H5M12 5l-7 7 7 7"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            <div className="w-[63px] h-[63px] rounded-full bg-[#1a1a1a] flex items-center justify-center text-white font-bold text-xl shrink-0">
+              {initial}
+            </div>
+            <div>
+              <h2 className="text-2xl font-normal text-black leading-tight">
+                {posting.job_title || 'Untitled Role'}
+              </h2>
+              <p className="text-sm text-black">{posting.org_name}</p>
+              {posting.work_mode && (
+                <p className="text-sm text-black">({posting.work_mode})</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-3 text-sm font-semibold">
+              <span className="text-[#05a12c]">Active</span>
+              <span className="text-[#6e6e6e]">• Posted {timeAgo(posting.created_at)}</span>
+            </div>
+            <button
+              type="button"
+              className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors"
+            >
+              Manage Job
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-[#e5e5e5]" />
+
+      {/* Two-column content */}
+      <div className="flex gap-6 pt-5">
+        {/* Left: applicant list */}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-2xl font-normal text-black mb-4">
+            Applicants ({localApps.length})
+          </h3>
+          {localApps.length === 0 ? (
+            <div className="bg-white border border-[#e5e5e5] p-12 text-center text-[#6b6b6b] text-sm">
+              No applications yet.
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-4">
+                {pagedApps.map((app) => {
+                  const isSelected = app.id === selectedId;
+                  const appInitial = app.name?.[0]?.toUpperCase() ?? 'A';
+                  return (
+                    <button
+                      key={app.id}
+                      type="button"
+                      onClick={() => setSelectedId(app.id)}
+                      className={cn(
+                        'w-full text-left border border-[#e5e5e5] p-5 transition-colors',
+                        isSelected ? 'bg-white' : 'bg-[#f8e1cb]',
+                      )}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-[63px] h-[63px] rounded-full bg-[#1a1a1a] flex items-center justify-center text-white font-bold text-xl shrink-0">
+                          {appInitial}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-2xl font-normal text-black leading-tight">
+                            {app.name}
+                          </p>
+                          {app.email && (
+                            <p className="text-sm text-black">{app.email}</p>
+                          )}
+                          {app.mobile && (
+                            <p className="text-sm text-black">{app.mobile}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 p-2 rounded hover:bg-black/5 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <svg
+                            width="4"
+                            height="20"
+                            viewBox="0 0 4 20"
+                            fill="#6b6b6b"
+                          >
+                            <circle cx="2" cy="2" r="2" />
+                            <circle cx="2" cy="10" r="2" />
+                            <circle cx="2" cy="18" r="2" />
+                          </svg>
+                        </button>
+                      </div>
+                      <p className="text-[#6e6e6e] text-sm font-semibold mt-3 ml-[79px]">
+                        Applied {timeAgo(app.applied_at)}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              <Pagination
+                page={appPage}
+                totalPages={totalAppPages}
+                onPage={setAppPage}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Right: applicant detail */}
+        {selectedApp ? (
+          <div className="w-[533px] shrink-0 bg-white border border-[#e5e5e5] p-5 flex flex-col gap-6 self-start">
+            {/* Header + status buttons */}
+            <div className="flex items-start gap-2 flex-wrap">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-[46px] h-[46px] rounded-full bg-[#1a1a1a] flex items-center justify-center text-white font-bold text-base shrink-0">
+                  {selectedApp.name?.[0]?.toUpperCase() ?? 'A'}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-normal text-black leading-tight">
+                    {selectedApp.name}
+                  </p>
+                  {selectedApp.email && (
+                    <p className="text-xs text-black">{selectedApp.email}</p>
+                  )}
+                  {selectedApp.mobile && (
+                    <p className="text-xs text-black">{selectedApp.mobile}</p>
+                  )}
+                </div>
+              </div>
+              {(['not_a_fit', 'maybe', 'goodfit'] as ApplicationStatus[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => handleStatus(selectedApp.id, s)}
+                  className={cn(
+                    'h-[30px] px-3 rounded-full text-xs whitespace-nowrap transition-colors shrink-0',
+                    selectedApp.status === s
+                      ? 'bg-[#f77f00] text-white'
+                      : 'border border-[#f77f00] text-[#f77f00] hover:bg-[#fff8ee]',
+                  )}
+                >
+                  {STATUS_LABELS[s]}
+                </button>
+              ))}
+            </div>
+
+            <div className="h-px bg-[#e5e5e5]" />
+
+            {/* Profile overview */}
+            <div>
+              <h4 className="text-base font-medium text-black mb-3">Profile Overview</h4>
+
+              {selectedApp.message && (
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Message</p>
+                  <p className="text-xs text-black leading-relaxed">{selectedApp.message}</p>
+                </div>
+              )}
+
+              {seekerProfile ? (
+                <>
+                  {(seekerProfile.career_goals || seekerProfile.work_drives_you) && (
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Bio</p>
+                      <p className="text-xs text-black leading-relaxed">
+                        {seekerProfile.career_goals || seekerProfile.work_drives_you}
+                      </p>
+                    </div>
+                  )}
+                  {seekerProfile.looking_for_roles && (
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Looking For</p>
+                      <p className="text-xs text-black leading-relaxed">
+                        {seekerProfile.looking_for_roles}
+                      </p>
+                    </div>
+                  )}
+                  {(seekerProfile.current_location || seekerProfile.preferred_work_mode) && (
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Location / Mode</p>
+                      <p className="text-xs text-black leading-relaxed">
+                        {[seekerProfile.current_location, seekerProfile.preferred_work_mode]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                  )}
+                  {(seekerProfile.technical_skills?.length > 0 ||
+                    seekerProfile.soft_skills?.length > 0) && (
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Skills</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          ...(seekerProfile.technical_skills ?? []),
+                          ...(seekerProfile.soft_skills ?? []),
+                        ]
+                          .slice(0, 6)
+                          .map((sk, i) => (
+                            <span
+                              key={i}
+                              className="text-xs bg-[#fff3e0] text-[#f77f00] px-2 py-0.5 rounded-full"
+                            >
+                              {sk}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                !selectedApp.message && (
+                  <p className="text-xs text-[#9f9f9f] italic">
+                    No additional profile information available.
+                  </p>
+                )
+              )}
+            </div>
+
+            {/* View Profile */}
+            <button
+              type="button"
+              className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors w-full"
+            >
+              View Profile
+            </button>
+
+            {/* Collapsible: Resume */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setExpanded((p) => ({ ...p, resume: !p.resume }))}
+                className="w-full flex items-center justify-between h-[50px] border border-[#b4b4b4] rounded-sm px-4"
+              >
+                <span className="text-base font-medium text-black">Resume</span>
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className={cn('transition-transform', expanded.resume ? '' : 'rotate-180')}
+                >
+                  <path
+                    d="M18 15l-6-6-6 6"
+                    stroke="#6b6b6b"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              {expanded.resume && (
+                <div className="border border-[#b4b4b4] border-t-0 rounded-b-sm">
+                  {seekerProfile?.resume_url ? (
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <span className="text-xs text-[#0f172a]">Resume</span>
+                      <a
+                        href={seekerProfile.resume_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="border border-[#f77f00] text-[#f77f00] text-xs px-3 py-0.5 rounded-full hover:bg-[#fff8ee] transition-colors"
+                      >
+                        View
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="px-4 py-3 text-xs text-[#9f9f9f] italic">No resume uploaded</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Collapsible: Eligibility */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setExpanded((p) => ({ ...p, eligibility: !p.eligibility }))}
+                className="w-full flex items-center justify-between h-[50px] border border-[#b4b4b4] rounded-sm px-4"
+              >
+                <span className="text-base font-medium text-black">Eligibility</span>
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className={cn(
+                    'transition-transform',
+                    expanded.eligibility ? '' : 'rotate-180',
+                  )}
+                >
+                  <path
+                    d="M18 15l-6-6-6 6"
+                    stroke="#6b6b6b"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              {expanded.eligibility && (
+                <div className="border border-[#b4b4b4] border-t-0 rounded-b-sm">
+                  {(posting.eligibility_criteria ?? []).length === 0 ? (
+                    <p className="px-4 py-3 text-xs text-[#9f9f9f] italic">
+                      No eligibility criteria
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-[#f2f2f3]">
+                      {posting.eligibility_criteria.map((c, i) => (
+                        <p key={i} className="px-4 py-2 text-xs text-[#0f172a]">
+                          {c}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Collapsible: Documents */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setExpanded((p) => ({ ...p, documents: !p.documents }))}
+                className="w-full flex items-center justify-between h-[50px] border border-[#b4b4b4] rounded-sm px-4"
+              >
+                <span className="text-base font-medium text-black">Documents</span>
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className={cn(
+                    'transition-transform',
+                    expanded.documents ? '' : 'rotate-180',
+                  )}
+                >
+                  <path
+                    d="M18 15l-6-6-6 6"
+                    stroke="#6b6b6b"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              {expanded.documents && (
+                <div className="border border-[#b4b4b4] border-t-0 rounded-b-sm py-3">
+                  {(posting.required_documents ?? []).length === 0 ? (
+                    <p className="px-4 py-3 text-xs text-[#9f9f9f] italic">
+                      No documents required
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-[#f2f2f3]">
+                      {posting.required_documents.map((doc, i) => (
+                        <div key={i} className="flex items-center justify-between px-4 py-2">
+                          <span className="text-xs text-[#0f172a]">{doc}</span>
+                          <span className="border border-[#f77f00] text-[#f77f00] text-xs px-3 py-0.5 rounded-full">
+                            Pending
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          localApps.length > 0 && (
+            <div className="w-[533px] shrink-0 bg-white border border-[#e5e5e5] p-12 flex items-center justify-center text-[#6b6b6b] text-sm">
+              Select an applicant to view details
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function EmploymentHubDiscoveryPage() {
@@ -1592,6 +2059,28 @@ export default function EmploymentHubDiscoveryPage() {
   const [detailPosting, setDetailPosting] = useState<EmployerPosting | null>(null);
   const [detailProfile, setDetailProfile] = useState<SeekerProfile | null>(null);
   const [applyPosting, setApplyPosting] = useState<EmployerPosting | null>(null);
+
+  const [applicantsView, setApplicantsView] = useState<{
+    posting: EmployerPosting;
+    applications: EmploymentApplication[];
+  } | null>(null);
+
+  const currentUserId: string = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') ?? '{}')?.id ?? '';
+    } catch {
+      return '';
+    }
+  })();
+
+  async function handleViewApplicants(posting: EmployerPosting) {
+    try {
+      const apps = await fetchApplicationsForPosting(posting.id);
+      setApplicantsView({ posting, applications: apps });
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : 'Failed to load applicants');
+    }
+  }
 
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
@@ -1707,6 +2196,17 @@ export default function EmploymentHubDiscoveryPage() {
       />
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px]">
+        {applicantsView ? (
+          <div className="px-4 sm:px-6 py-6">
+            <ApplicantsView
+              posting={applicantsView.posting}
+              applications={applicantsView.applications}
+              profiles={profiles}
+              onBack={() => setApplicantsView(null)}
+              addToast={addToast}
+            />
+          </div>
+        ) : (
         <div className="px-4 sm:px-6 py-6">
           <div className="flex gap-5 items-start">
 
@@ -1807,6 +2307,8 @@ export default function EmploymentHubDiscoveryPage() {
                             posting={p}
                             onDetails={setDetailPosting}
                             onApply={setApplyPosting}
+                            onViewApplicants={handleViewApplicants}
+                            currentUserId={currentUserId}
                             isSaved={savedIds.has(p.id)}
                             onToggleSave={handleToggleSave}
                           />
@@ -1984,6 +2486,7 @@ export default function EmploymentHubDiscoveryPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Modals */}

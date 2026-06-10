@@ -22,7 +22,6 @@ export default function CreateProviderDetailsPage() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
 
   // Shared fields
   const [title, setTitle] = useState("");
@@ -30,16 +29,42 @@ export default function CreateProviderDetailsPage() {
   const [address, setAddress] = useState("");
   const [language, setLanguage] = useState("");
   const [level, setLevel] = useState("");
-  const [eligibility, setEligibility] = useState("");
+  const [eligibilities, setEligibilities] = useState<string[]>([]);
+  const [eligibilityInput, setEligibilityInput] = useState("");
   const [lastDate, setLastDate] = useState("");
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
   const [onsiteVenue, setOnsiteVenue] = useState("");
   const [onlineAccess, setOnlineAccess] = useState("");
-  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docTexts, setDocTexts] = useState<string[]>([]);
+  const [docInput, setDocInput] = useState("");
   const [fee, setFee] = useState("");
   const [visibleTo, setVisibleTo] = useState("Public");
+
+  function addEligibility() {
+    const trimmed = eligibilityInput.trim();
+    if (trimmed) {
+      setEligibilities((prev) => [...prev, trimmed]);
+      setEligibilityInput("");
+    }
+  }
+
+  function removeEligibility(i: number) {
+    setEligibilities((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  function addDoc() {
+    const trimmed = docInput.trim();
+    if (trimmed) {
+      setDocTexts((prev) => [...prev, trimmed]);
+      setDocInput("");
+    }
+  }
+
+  function removeDoc(i: number) {
+    setDocTexts((prev) => prev.filter((_, idx) => idx !== i));
+  }
 
   // One-day specific
   const [eventDate, setEventDate] = useState("");
@@ -83,13 +108,14 @@ export default function CreateProviderDetailsPage() {
         address,
         language,
         level,
-        eligibility,
+        eligibilities,
         lastDate,
         coverPreview,
         coverFile,
         description,
         onsiteVenue,
         onlineAccess,
+        docTexts,
         fee,
         eventDate,
         startTime: `${startTime} ${startPeriod}`,
@@ -291,64 +317,105 @@ export default function CreateProviderDetailsPage() {
               </div>
             )}
 
-            {/* Eligibility + Fee */}
+            {/* Fee */}
             {!isWeekly && (
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-semibold text-text-medium mb-1">
-                    Mention eligibility criteria (if applicable)
-                  </label>
-                  <textarea
-                    value={eligibility}
-                    onChange={(e) => setEligibility(e.target.value)}
-                    placeholder="Enter eligibility criteria"
-                    rows={2}
-                    className="w-full border border-border-default rounded-xl px-3 py-2 text-sm text-text-dark focus:outline-none focus:border-primary resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-text-medium mb-1">
-                    Fee (₹)
-                  </label>
-                  <input
-                    type="text"
-                    value={fee}
-                    onChange={(e) => setFee(e.target.value)}
-                    placeholder="e.g. 5,000 or Free"
-                    className="w-full border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark focus:outline-none focus:border-primary"
-                  />
-                </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-text-medium mb-1">
+                  Fee (₹)
+                </label>
+                <input
+                  type="text"
+                  value={fee}
+                  onChange={(e) => setFee(e.target.value)}
+                  placeholder="e.g. 5,000 or Free"
+                  className="w-full border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark focus:outline-none focus:border-primary"
+                />
               </div>
             )}
 
-            {/* Document upload */}
+            {/* Eligibility */}
+            {!isWeekly && (
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-text-medium mb-1">
+                  Mention eligibility criteria (if applicable)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={eligibilityInput}
+                    onChange={(e) => setEligibilityInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addEligibility()}
+                    placeholder="Enter eligibility criteria"
+                    className="flex-1 border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark focus:outline-none focus:border-primary"
+                  />
+                  <button
+                    onClick={addEligibility}
+                    className="px-4 py-2 border border-primary text-primary text-sm font-medium rounded-full hover:bg-primary-light transition-colors min-h-[44px]"
+                  >
+                    Add
+                  </button>
+                </div>
+                {eligibilities.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {eligibilities.map((item, i) => (
+                      <span
+                        key={i}
+                        className="flex items-center gap-1 bg-orange-50 border border-primary text-primary text-xs font-medium px-3 py-1 rounded-full"
+                      >
+                        {item}
+                        <button
+                          onClick={() => removeEligibility(i)}
+                          className="ml-1 text-primary hover:text-orange-700 leading-none"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Document to be shared */}
             {!isWeekly && (
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-text-medium mb-1">
                   Document to be shared by applicant
                 </label>
                 <div className="flex items-center gap-3">
-                  <div
-                    onClick={() => docInputRef.current?.click()}
-                    className="flex-1 border border-dashed border-border-default rounded-xl p-3 cursor-pointer hover:border-primary transition-colors text-center"
-                  >
-                    <span className="text-sm text-text-muted">
-                      {docFile ? docFile.name : "Click to upload document"}
-                    </span>
-                  </div>
                   <input
-                    ref={docInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                    type="text"
+                    value={docInput}
+                    onChange={(e) => setDocInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addDoc()}
+                    placeholder="Enter document name"
+                    className="flex-1 border border-border-default rounded-xl px-3 py-2.5 text-sm text-text-dark focus:outline-none focus:border-primary"
                   />
                   <button
-                    onClick={() => docInputRef.current?.click()}
+                    onClick={addDoc}
                     className="px-4 py-2 border border-primary text-primary text-sm font-medium rounded-full hover:bg-primary-light transition-colors min-h-[44px]"
                   >
                     Add
                   </button>
                 </div>
+                {docTexts.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {docTexts.map((item, i) => (
+                      <span
+                        key={i}
+                        className="flex items-center gap-1 bg-orange-50 border border-primary text-primary text-xs font-medium px-3 py-1 rounded-full"
+                      >
+                        {item}
+                        <button
+                          onClick={() => removeDoc(i)}
+                          className="ml-1 text-primary hover:text-orange-700 leading-none"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

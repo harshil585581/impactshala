@@ -29,12 +29,30 @@ export default function CreateProviderPreviewPage() {
   const location = useLocation();
   const state = location.state as Record<string, unknown> | null;
   const step1 = (state?.step1 ?? {}) as Record<string, string>;
-  const step2 = (state?.step2 ?? {}) as Record<string, string>;
+  const step2 = (state?.step2 ?? {}) as Record<string, unknown>;
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [visiblePopup, setVisiblePopup] = useState(false);
+
+  // Typed step2 accessors
+  const s2 = {
+    title: (step2.title as string) ?? "",
+    coverPreview: step2.coverPreview as string | undefined,
+    deliveryMode: step2.deliveryMode as string | undefined,
+    eventDate: step2.eventDate as string | undefined,
+    startTime: step2.startTime as string | undefined,
+    endTime: step2.endTime as string | undefined,
+    lastDate: step2.lastDate as string | undefined,
+    fee: step2.fee as string | undefined,
+    onsiteVenue: step2.onsiteVenue as string | undefined,
+    onlineAccess: step2.onlineAccess as string | undefined,
+    description: step2.description as string | undefined,
+    visibleTo: (step2.visibleTo as string) ?? "Public",
+    eligibilities: (step2.eligibilities as string[]) ?? [],
+    docTexts: (step2.docTexts as string[]) ?? [],
+  };
 
   const domain = step1.domain ?? "Education";
   const natureRaw = step1.nature ?? "";
@@ -48,11 +66,10 @@ export default function CreateProviderPreviewPage() {
     try {
       // Upload cover image to Supabase storage and get a permanent URL
       let coverImageUrl: string | undefined;
-      const rawStep2 = (state?.step2 ?? {}) as Record<string, unknown>;
-      if (rawStep2.coverFile instanceof File) {
-        coverImageUrl = await uploadCoverImage(rawStep2.coverFile);
+      if (step2.coverFile instanceof File) {
+        coverImageUrl = await uploadCoverImage(step2.coverFile);
       } else if (typeof step2.coverPreview === "string" && step2.coverPreview.startsWith("http")) {
-        coverImageUrl = step2.coverPreview;
+        coverImageUrl = step2.coverPreview as string;
       }
 
       await createProviderPost({
@@ -65,22 +82,23 @@ export default function CreateProviderPreviewPage() {
         eventOccurrence:
           (step1.eventOccurrence as "one_day" | "weekly" | "custom_multi_day") ??
           "one_day",
-        title: step2.title ?? "",
-        eventDate: step2.eventDate,
-        startTime: step2.startTime,
-        endTime: step2.endTime,
-        deliveryMode: step2.deliveryMode,
-        address: step2.address,
-        communicationLanguage: step2.language,
-        levelOfParticipant: step2.level,
-        eligibilityCriteria: step2.eligibility,
-        lastDateToApply: step2.lastDate,
-        fee: step2.fee,
-        onsiteVenue: step2.onsiteVenue,
-        onlineAccess: step2.onlineAccess,
-        description: step2.description,
+        title: (step2.title as string) ?? "",
+        eventDate: step2.eventDate as string | undefined,
+        startTime: step2.startTime as string | undefined,
+        endTime: step2.endTime as string | undefined,
+        deliveryMode: step2.deliveryMode as string | undefined,
+        address: step2.address as string | undefined,
+        communicationLanguage: step2.language as string | undefined,
+        levelOfParticipant: step2.level as string | undefined,
+        eligibilityCriteria: (step2.eligibilities as string[] | undefined) ?? [],
+        documentsRequired: (step2.docTexts as string[] | undefined) ?? [],
+        lastDateToApply: step2.lastDate as string | undefined,
+        fee: step2.fee as string | undefined,
+        onsiteVenue: step2.onsiteVenue as string | undefined,
+        onlineAccess: step2.onlineAccess as string | undefined,
+        description: step2.description as string | undefined,
         coverImageUrl,
-        visibleTo: (step2.visibleTo?.toLowerCase() as "public" | "community") ?? "public",
+        visibleTo: ((step2.visibleTo as string)?.toLowerCase() as "public" | "community") ?? "public",
       });
       navigate("/discover");
     } catch (err) {
@@ -106,9 +124,9 @@ export default function CreateProviderPreviewPage() {
               </h1>
 
               {/* Cover image */}
-              {step2.coverPreview ? (
+              {s2.coverPreview ? (
                 <img
-                  src={step2.coverPreview}
+                  src={s2.coverPreview}
                   alt="Cover"
                   className="w-full h-[220px] object-cover rounded-xl mb-4"
                 />
@@ -120,7 +138,7 @@ export default function CreateProviderPreviewPage() {
 
               {/* Title */}
               <h2 className="font-bold text-text-dark text-xl mb-2">
-                {step2.title || "Untitled Post"}
+                {s2.title || "Untitled Post"}
               </h2>
 
               {/* Author row */}
@@ -134,11 +152,11 @@ export default function CreateProviderPreviewPage() {
 
               {/* Chips */}
               <div className="flex flex-wrap gap-2 mb-5">
-                {step2.deliveryMode && (
-                  <Chip>{step2.deliveryMode}</Chip>
+                {s2.deliveryMode && (
+                  <Chip>{s2.deliveryMode}</Chip>
                 )}
-                {step2.eventDate && (
-                  <Chip>{new Date(step2.eventDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</Chip>
+                {s2.eventDate && (
+                  <Chip>{new Date(s2.eventDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</Chip>
                 )}
                 {step1.educationalLevel && (
                   <Chip>{step1.educationalLevel}</Chip>
@@ -166,54 +184,79 @@ export default function CreateProviderPreviewPage() {
                 <section>
                   <h3 className="font-bold text-text-dark text-base mb-3">Engagement Details</h3>
                   <div className="space-y-1.5 text-sm text-text-medium">
-                    {step2.lastDate && (
-                      <Row label="Last Date to Apply">{step2.lastDate}</Row>
+                    {s2.lastDate && (
+                      <Row label="Last Date to Apply">{s2.lastDate}</Row>
                     )}
-                    {step2.eventDate && (
+                    {s2.eventDate && (
                       <div className="flex items-center justify-between">
                         <span>
                           <span className="font-semibold">Start Date: </span>
-                          {step2.eventDate}
+                          {s2.eventDate}
                         </span>
-                        {step2.startTime && (
-                          <span><span className="font-semibold">Time: </span>{step2.startTime}</span>
+                        {s2.startTime && (
+                          <span><span className="font-semibold">Time: </span>{s2.startTime}</span>
                         )}
                       </div>
                     )}
-                    {step2.endTime && (
+                    {s2.endTime && (
                       <div className="flex items-center justify-between">
                         <span>
                           <span className="font-semibold">End Date: </span>
-                          {step2.eventDate}
+                          {s2.eventDate}
                         </span>
-                        <span><span className="font-semibold">Time: </span>{step2.endTime}</span>
+                        <span><span className="font-semibold">Time: </span>{s2.endTime}</span>
                       </div>
                     )}
-                    {step2.fee && <Row label="Fee">₹ {step2.fee}</Row>}
+                    {s2.fee && <Row label="Fee">₹ {s2.fee}</Row>}
                   </div>
                 </section>
 
+                {/* Eligibility & Documents */}
+                {(s2.eligibilities.length > 0 || s2.docTexts.length > 0) && (
+                  <section>
+                    <h3 className="font-bold text-text-dark text-base mb-3">Requirements</h3>
+                    <div className="space-y-1.5 text-sm text-text-medium">
+                      {s2.eligibilities.length > 0 && (
+                        <div>
+                          <span className="font-semibold">Eligibility Criteria: </span>
+                          <ul className="list-disc list-inside mt-1 space-y-0.5">
+                            {s2.eligibilities.map((e, i) => <li key={i}>{e}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {s2.docTexts.length > 0 && (
+                        <div>
+                          <span className="font-semibold">Documents Required: </span>
+                          <ul className="list-disc list-inside mt-1 space-y-0.5">
+                            {s2.docTexts.map((d, i) => <li key={i}>{d}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
                 {/* Access Details */}
-                {(step2.onsiteVenue || step2.onlineAccess) && (
+                {(s2.onsiteVenue || s2.onlineAccess) && (
                   <section>
                     <h3 className="font-bold text-text-dark text-base mb-3">Access Details</h3>
                     <div className="space-y-1.5 text-sm text-text-medium">
-                      {step2.onsiteVenue && (
-                        <Row label="Onsite Venue">{step2.onsiteVenue}</Row>
+                      {s2.onsiteVenue && (
+                        <Row label="Onsite Venue">{s2.onsiteVenue}</Row>
                       )}
-                      {step2.onlineAccess && (
-                        <Row label="Online Access">{step2.onlineAccess}</Row>
+                      {s2.onlineAccess && (
+                        <Row label="Online Access">{s2.onlineAccess}</Row>
                       )}
                     </div>
                   </section>
                 )}
 
                 {/* Description */}
-                {step2.description && (
+                {s2.description && (
                   <section>
                     <h3 className="font-bold text-text-dark text-base mb-3">Description</h3>
                     <p className="text-sm text-text-medium leading-relaxed whitespace-pre-wrap">
-                      {step2.description}
+                      {s2.description}
                     </p>
                   </section>
                 )}
@@ -234,7 +277,7 @@ export default function CreateProviderPreviewPage() {
                     onClick={() => setVisiblePopup((v) => !v)}
                     className="text-sm text-text-medium border border-border-default px-4 py-2 rounded-full hover:border-primary transition-colors min-h-[44px]"
                   >
-                    Visible to: {step2.visibleTo ?? "Public"} ▾
+                    Visible to: {s2.visibleTo} ▾
                   </button>
                   {visiblePopup && (
                     <div className="absolute bottom-full mb-2 right-28 bg-white border border-border-default rounded-xl shadow-lg overflow-hidden z-10 min-w-[140px]">

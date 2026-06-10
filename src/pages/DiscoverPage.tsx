@@ -178,6 +178,8 @@ export default function DiscoverPage() {
         <ApplyModal
           postId={applyPostId}
           postTitle={items.find(i => i.id === applyPostId)?.title}
+          eligibilityCriteria={items.find(i => i.id === applyPostId)?.eligibilityCriteria}
+          documentsRequired={items.find(i => i.id === applyPostId)?.documentsRequired}
           onClose={() => setApplyPostId(null)}
         />
       )}
