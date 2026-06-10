@@ -646,6 +646,12 @@ def _row_to_item(row: dict, bookmarked_ids: set) -> dict:
         "description": row.get("body") or "",
         "onsiteVenue": row.get("onsite_venue") or "",
         "onlineAccess": row.get("online_access") or "",
+        "eligibilityCriteria": row.get("eligibility_criteria") or "",
+        "communicationLanguage": row.get("communication_language") or "",
+        "levelOfParticipant": row.get("level_of_participant") or "",
+        "educationalLevel": row.get("educational_level") or "",
+        "eventOccurrence": row.get("event_occurrence") or "",
+        "address": row.get("address") or "",
     }
 
 

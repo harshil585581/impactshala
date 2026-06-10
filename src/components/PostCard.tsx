@@ -59,6 +59,9 @@ export default function PostCard({
   isLiked = false,
   likesCount = 0,
   onLikeToggle,
+  commentsCount = 0,
+  onCommentAdded,
+  inModal = false,
 }: {
   post: FeedPost;
   isSaved?: boolean;
@@ -66,6 +69,9 @@ export default function PostCard({
   isLiked?: boolean;
   likesCount?: number;
   onLikeToggle?: (postId: string, liked: boolean) => void;
+  commentsCount?: number;
+  onCommentAdded?: () => void;
+  inModal?: boolean;
 }) {
   const [pollVoteCounts, setPollVoteCounts] = useState<Record<number, number>>({});
   const [pollUserVote, setPollUserVote] = useState<number | null>(null);
@@ -143,10 +149,10 @@ export default function PostCard({
   }
 
   const [liked, setLiked] = useState(isLiked);
-  const [localLikesCount, setLocalLikesCount] = useState(likesCount);
   const [saved, setSaved] = useState(isSaved);
   const [showComments, setShowComments] = useState(false);
-  const [commentCount, setCommentCount] = useState(0);
+  const [commentCount, setCommentCount] = useState(commentsCount);
+  useEffect(() => { setCommentCount(commentsCount); }, [commentsCount]);
   const [showShare, setShowShare] = useState(false);
 
   const name = getDisplayName(post.user);
@@ -396,7 +402,7 @@ export default function PostCard({
             <img src={heartIcon} alt="heart" className="w-5 h-5" />
             <img src={congratulateIcon} alt="congratulate" className="w-5 h-5" />
           </div>
-          <span className="text-[#646464] text-sm">{localLikesCount}</span>
+          <span className="text-[#646464] text-sm">{likesCount}</span>
         </div>
         <button
           onClick={() => setShowComments((v) => !v)}
@@ -412,7 +418,6 @@ export default function PostCard({
           onClick={() => {
             const next = !liked;
             setLiked(next);
-            setLocalLikesCount(c => next ? c + 1 : Math.max(0, c - 1));
             onLikeToggle?.(post.id, next);
           }}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${liked ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}
@@ -451,11 +456,16 @@ export default function PostCard({
 
       {/* Comment section */}
       {showComments && (
-        <CommentSection
-          postId={post.id}
-          postTable="posts"
-          onCommentCountChange={setCommentCount}
-        />
+        <div className={inModal ? "max-h-[320px] overflow-y-auto" : undefined}>
+          <CommentSection
+            postId={post.id}
+            postTable="posts"
+            onCommentCountChange={(n) => {
+              if (n > commentCount) onCommentAdded?.();
+              setCommentCount(n);
+            }}
+          />
+        </div>
       )}
 
       {/* Share modal */}

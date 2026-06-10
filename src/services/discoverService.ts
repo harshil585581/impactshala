@@ -53,6 +53,12 @@ export type DiscoverItem = {
   description?: string;
   onsiteVenue?: string;
   onlineAccess?: string;
+  eligibilityCriteria?: string;
+  communicationLanguage?: string;
+  levelOfParticipant?: string;
+  educationalLevel?: string;
+  eventOccurrence?: string;
+  address?: string;
 };
 
 export type DiscoverFeedPage = {
