@@ -4,6 +4,7 @@ import TopBar from '../../components/TopBar';
 import Sidebar from '../../components/Sidebar';
 import { cn } from '@/lib/cn';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { getAuthenticatedSession } from '../../lib/supabase';
 import { createOrUpdateSeekerProfile, fetchMySeekerProfile } from '../../services/employmentService';
 import type { Toast } from '../../types/profile';
 import ToastContainer from '../../components/ui/Toast';
@@ -900,7 +901,7 @@ function RoleToggle() {
     <div className="flex items-center gap-2 mb-5 p-1 bg-[#f5f5f5] rounded-full w-fit">
       <button
         type="button"
-        onClick={() => navigate('/employment-hub')}
+        onClick={() => navigate('/employment-hub/employer')}
         className="px-5 h-9 rounded-full text-sm font-medium text-[#6b6b6b] hover:bg-white transition-colors"
       >
         Employer
@@ -921,7 +922,6 @@ export default function JobSeekerHubPage() {
   const [step, setStep] = useState(0); // 0–5: form steps; 6: preview
   const [form, setFormData] = useState<SeekerFormData>(initialForm);
   const [visibility, setVisibility] = useState<Visibility>('Public');
-  const [showHelpBox, setShowHelpBox] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [introVideoFile, setIntroVideoFile] = useState<File | null>(null);
   const [existingResumeUrl, setExistingResumeUrl] = useState<string | null>(null);
@@ -931,55 +931,66 @@ export default function JobSeekerHubPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Pre-fill name from stored session on mount
+  // Pre-fill name from auth session on mount
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-      const name = [stored.first_name, stored.last_name].filter(Boolean).join(' ');
+    let cancelled = false;
+    getAuthenticatedSession().then((session) => {
+      if (cancelled || !session) return;
+      const meta = session.user.user_metadata ?? {};
+      const name = [meta.first_name, meta.last_name]
+        .filter((s): s is string => !!s && s !== 'unknown')
+        .join(' ');
       if (name) setFormData((prev) => ({ ...prev, name }));
-    } catch { /* ignore */ }
+    });
+    return () => { cancelled = true; };
   }, []);
 
-  // Load existing profile if one exists — preserve local name if DB has none
+  // Load existing profile if one exists — cancelled flag prevents the stale
+  // second invocation in React Strict Mode from overwriting user's in-progress edits
   useEffect(() => {
-    fetchMySeekerProfile().then((profile) => {
-      if (!profile) return;
-      setExistingResumeUrl(profile.resume_url ?? null);
-      setExistingIntroVideoUrl(profile.intro_video_url ?? null);
-      setFormData((prev) => ({
-        name: profile.name || prev.name,
-        currentLocation: profile.current_location ?? '',
-        jobIndustry: profile.job_industry ?? '',
-        lookingForRoles: profile.looking_for_roles ?? '',
-        preferredWorkMode: profile.preferred_work_mode ?? '',
-        preferredBaseCity: profile.preferred_base_city ?? '',
-        currentStatus: profile.current_status ?? '',
-        jobType: profile.job_type ?? '',
-        specificJD: profile.specific_jd ?? '',
-        reportingComfort: profile.reporting_comfort ?? '',
-        trainingExpectation: profile.training_expectation ?? '',
-        workHoursFlexibility: profile.work_hours_flexibility ?? '',
-        leaveExpectation: profile.leave_expectation ?? '',
-        expectedSalary: profile.expected_salary ?? '',
-        openToNegotiation: profile.open_to_negotiation ?? '',
-        department: profile.department ?? '',
-        availableFrom: profile.available_from ?? '',
-        weeklyCommitment: profile.weekly_commitment ?? '',
-        technicalSkills: profile.technical_skills ?? [],
-        softSkills: profile.soft_skills ?? [],
-        certifications: profile.certifications ?? [],
-        toolsPlatforms: profile.tools_platforms ?? '',
-        portfolioLink: profile.portfolio_link ?? '',
-        profileLink: profile.profile_link ?? '',
-        preferredWorkCulture: profile.preferred_work_culture ?? '',
-        eligibilityCriteria: profile.eligibility_criteria ?? [],
-        documentsRequired: profile.documents_required ?? [],
-        workDrivesYou: profile.work_drives_you ?? '',
-        careerGoals: profile.career_goals ?? '',
-        specialNotes: profile.special_notes ?? '',
-        seekingEmployerWho: profile.seeking_employer_who ?? '',
-      }));
-    }).catch(() => { /* no profile yet */ }).finally(() => setProfileLoading(false));
+    let cancelled = false;
+    fetchMySeekerProfile()
+      .then((profile) => {
+        if (cancelled || !profile) return;
+        setExistingResumeUrl(profile.resume_url ?? null);
+        setExistingIntroVideoUrl(profile.intro_video_url ?? null);
+        setFormData((prev) => ({
+          name: profile.name || prev.name,
+          currentLocation: profile.current_location ?? '',
+          jobIndustry: profile.job_industry ?? '',
+          lookingForRoles: profile.looking_for_roles ?? '',
+          preferredWorkMode: profile.preferred_work_mode ?? '',
+          preferredBaseCity: profile.preferred_base_city ?? '',
+          currentStatus: profile.current_status ?? '',
+          jobType: profile.job_type ?? '',
+          specificJD: profile.specific_jd ?? '',
+          reportingComfort: profile.reporting_comfort ?? '',
+          trainingExpectation: profile.training_expectation ?? '',
+          workHoursFlexibility: profile.work_hours_flexibility ?? '',
+          leaveExpectation: profile.leave_expectation ?? '',
+          expectedSalary: profile.expected_salary ?? '',
+          openToNegotiation: profile.open_to_negotiation ?? '',
+          department: profile.department ?? '',
+          availableFrom: profile.available_from ?? '',
+          weeklyCommitment: profile.weekly_commitment ?? '',
+          technicalSkills: profile.technical_skills ?? [],
+          softSkills: profile.soft_skills ?? [],
+          certifications: profile.certifications ?? [],
+          toolsPlatforms: profile.tools_platforms ?? '',
+          portfolioLink: profile.portfolio_link ?? '',
+          profileLink: profile.profile_link ?? '',
+          preferredWorkCulture: profile.preferred_work_culture ?? '',
+          eligibilityCriteria: profile.eligibility_criteria ?? [],
+          documentsRequired: profile.documents_required ?? [],
+          workDrivesYou: profile.work_drives_you ?? '',
+          careerGoals: profile.career_goals ?? '',
+          specialNotes: profile.special_notes ?? '',
+          seekingEmployerWho: profile.seeking_employer_who ?? '',
+        }));
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setProfileLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   function addToast(type: Toast['type'], message: string) {
@@ -1075,7 +1086,7 @@ export default function JobSeekerHubPage() {
   const isPreview = step === 6;
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
+    <div className="min-h-screen bg-[#f5f5f5] overflow-x-hidden">
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <ToastContainer toasts={toasts} onRemove={(id) => setToasts((p) => p.filter((t) => t.id !== id))} />
@@ -1145,8 +1156,8 @@ export default function JobSeekerHubPage() {
             )}
           </div>
 
-          <div className="hidden lg:block w-[270px] shrink-0 sticky top-[90px] self-start">
-            <RightPanel showHelpBox={showHelpBox} onDismissHelp={() => setShowHelpBox(false)} />
+          <div className="hidden lg:block shrink-0 sticky top-[90px] self-start">
+            <RightPanel />
           </div>
 
         </div>

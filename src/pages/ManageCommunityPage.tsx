@@ -66,7 +66,7 @@ function ThreeDotMenu({ onRemove, onShare }: { onRemove: () => void; onShare: ()
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-10 bg-white border border-[#f2f2f3] rounded-xl shadow-lg z-20 min-w-[130px] overflow-hidden">
+        <div className="absolute right-0 top-10 bg-white border border-[#f2f2f3] rounded-xl shadow-lg z-50 min-w-[130px] overflow-hidden">
           <button
             onClick={() => { onShare(); setOpen(false); }}
             className="w-full text-left px-4 py-2.5 text-sm text-[#474d57] hover:bg-[#f9fafb] transition-colors font-medium flex items-center gap-2"
@@ -163,7 +163,7 @@ export default function ManageCommunityPage() {
           </div>
 
           {/* Connections card */}
-          <div className="bg-white rounded-2xl border border-[#f2f2f3] overflow-hidden">
+          <div className="bg-white rounded-2xl border border-[#f2f2f3]">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 gap-4 flex-wrap">
               <span className="text-[#18191c] text-[22px] font-normal">

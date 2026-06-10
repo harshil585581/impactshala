@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { FeedPost } from './postService';
 import { toggleBookmark } from './discoverService';
+import type { EmployerPosting } from './employmentService';
 
 // ─── Supabase helpers (same pattern as postService) ───────────────────────────
 
@@ -213,4 +214,61 @@ export async function fetchSavedDiscoverItems(): Promise<SavedDiscoverSnapshot[]
     ...(r.item_data as SavedDiscoverSnapshot),
     savedAt: r.saved_at as string,
   }));
+}
+
+// ─── Employment postings ──────────────────────────────────────────────────────
+
+export async function fetchSavedEmploymentPostingIds(): Promise<Set<string>> {
+  const userId = getUserId();
+  if (!userId) return new Set();
+  const { data } = await getAuthClient()
+    .from('saved_employment_postings')
+    .select('posting_id')
+    .eq('user_id', userId);
+  return new Set((data ?? []).map(r => r.posting_id as string));
+}
+
+export async function saveEmploymentPosting(postingId: string): Promise<void> {
+  const userId = getUserId();
+  if (!userId) return;
+  const { error } = await getAuthClient()
+    .from('saved_employment_postings')
+    .upsert({ user_id: userId, posting_id: postingId }, { onConflict: 'user_id,posting_id' });
+  if (error) throw new Error(error.message);
+}
+
+export async function unsaveEmploymentPosting(postingId: string): Promise<void> {
+  const userId = getUserId();
+  if (!userId) return;
+  const { error } = await getAuthClient()
+    .from('saved_employment_postings')
+    .delete()
+    .eq('user_id', userId)
+    .eq('posting_id', postingId);
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchSavedEmploymentPostings(): Promise<EmployerPosting[]> {
+  const userId = getUserId();
+  if (!userId) return [];
+
+  const { data: savedRows, error: savedError } = await getAuthClient()
+    .from('saved_employment_postings')
+    .select('posting_id, saved_at')
+    .eq('user_id', userId)
+    .order('saved_at', { ascending: false });
+  if (savedError) throw new Error(savedError.message);
+
+  const ids = (savedRows ?? []).map((r) => r.posting_id as string);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await getAuthClient()
+    .from('employment_hub_postings')
+    .select('*')
+    .in('id', ids);
+  if (error) throw new Error(error.message);
+
+  // Preserve saved_at order
+  const byId = new Map((data ?? []).map((p) => [p.id as string, p]));
+  return ids.map((id) => byId.get(id)).filter(Boolean) as EmployerPosting[];
 }

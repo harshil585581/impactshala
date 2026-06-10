@@ -4,6 +4,7 @@ import TopBar from '../../components/TopBar';
 import Sidebar from '../../components/Sidebar';
 import { cn } from '@/lib/cn';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { useProfile } from '../../hooks/useProfile';
 import { createEmployerPosting } from '../../services/employmentService';
 import type { Toast } from '../../types/profile';
 import ToastContainer from '../../components/ui/Toast';
@@ -51,9 +52,10 @@ const STEP_TITLES = [
   '5 of 7: Ideal Candidate Profile',
   '6 of 7: Commitment & Application Process',
   '7 of 7: Showcase & Build Trust (Optional but Valuable)',
+  'Preview your application',
 ];
 
-const STEP_PROGRESS = [0, 14, 29, 43, 57, 71, 86];
+const STEP_PROGRESS = [0, 14, 29, 43, 57, 71, 86, 100];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -530,20 +532,181 @@ function Step7({
   );
 }
 
+// ─── Preview step ─────────────────────────────────────────────────────────────
+
+function PreviewRow({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <p className="text-sm leading-relaxed">
+      <span className="font-semibold text-[#18191c]">{label} : </span>
+      <span className="text-[#6b6b6b]">{value}</span>
+    </p>
+  );
+}
+
+function PreviewSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="pt-6 border-t border-[#f2f2f3] mt-6">
+      <h3 className="text-[#18191c] font-bold text-[15px] mb-3">{title}</h3>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function PreviewStep({
+  form, videoFile, visibility, posterName, posterAvatar,
+}: {
+  form: FormData;
+  videoFile: File | null;
+  visibility: Visibility;
+  posterName: string;
+  posterAvatar: string;
+}) {
+  const initials = posterName ? posterName.charAt(0).toUpperCase() : 'U';
+  const endTime = form.endTimeHH && form.endTimeMM ? `${form.endTimeHH}:${form.endTimeMM} ${form.endTimeAMPM}` : '';
+  const eligibility = form.eligibilityCriteria.filter(Boolean).join(', ') || 'NA';
+  const documents = form.requiredDocuments.filter(Boolean);
+
+  function formatDate(d: string) {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    catch { return d; }
+  }
+
+  return (
+    <div>
+      {/* Card header */}
+      <h2 className="text-[#18191c] font-bold text-xl">{form.jobTitle || 'Untitled Posting'}</h2>
+
+      {/* Poster row */}
+      <div className="flex items-start gap-3 mt-4">
+        {posterAvatar ? (
+          <img src={posterAvatar} alt={posterName} className="w-10 h-10 rounded-full object-cover border border-[#e4e5e8] shrink-0" />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-[#f77f00] flex items-center justify-center text-white font-bold shrink-0">
+            {initials}
+          </div>
+        )}
+        <div>
+          <p className="text-sm font-semibold text-[#18191c]">{posterName || 'You'}</p>
+          {form.department && <p className="text-xs text-[#6b6b6b] mt-0.5">{form.department}</p>}
+          <div className="flex items-center gap-1 mt-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#6b6b6b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="9" cy="7" r="4" stroke="#6b6b6b" strokeWidth="1.5" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#6b6b6b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-xs text-[#6b6b6b] capitalize">{visibility}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div className="flex flex-wrap gap-2 mt-4">
+        {form.workMode && <span className="bg-[#f2f2f3] text-[#18191c] text-xs font-medium px-3 py-1.5 rounded-full">{form.workMode}</span>}
+        {form.lastDateToApply && <span className="bg-[#f2f2f3] text-[#18191c] text-xs font-medium px-3 py-1.5 rounded-full">{formatDate(form.lastDateToApply)}</span>}
+        {form.jobTitle && <span className="bg-[#f2f2f3] text-[#18191c] text-xs font-medium px-3 py-1.5 rounded-full">{form.jobTitle}</span>}
+      </div>
+
+      {/* Sections */}
+      <PreviewSection title="Basic Details">
+        <PreviewRow label="Job Title" value={form.jobTitle} />
+        <PreviewRow label="Organization Name" value={form.orgName} />
+        <PreviewRow label="Career Level" value={form.careerLevel} />
+        <div className="flex flex-wrap gap-8">
+          <PreviewRow label="Job Type" value={form.jobType} />
+          <PreviewRow label="Work Mode" value={form.workMode} />
+        </div>
+      </PreviewSection>
+
+      <PreviewSection title="Role Clarity & Working Environment">
+        <PreviewRow label="Is the role fixed or dynamic?" value={form.roleType} />
+        <PreviewRow label="Who will the candidate report to" value={form.reportingTo} />
+        <PreviewRow label="Training Support" value={form.trainingSupport} />
+        <PreviewRow label="Day-to-Day Sample Tasks" value={form.dailyTasks} />
+        <PreviewRow label="Employee Growth Potential" value={form.growthPotential} />
+      </PreviewSection>
+
+      <PreviewSection title="Work Culture & Flexibility">
+        <PreviewRow label="Working Hours Flexibility" value={form.workingHours} />
+        <PreviewRow label="Leave Flexibility & Policy" value={form.leavePolicy} />
+        <PreviewRow label="Company Culture Snapshot" value={form.companyCulture} />
+        <PreviewRow label="Diversity or Inclusion Practices" value={form.diversityPractices} />
+      </PreviewSection>
+
+      <PreviewSection title="Compensation & Benefits">
+        <div className="flex flex-wrap gap-8">
+          <PreviewRow label="Compensation" value={form.compensation} />
+          <PreviewRow label="Payment Frequency" value={form.paymentFrequency} />
+        </div>
+        <PreviewRow label="Any Additional Perks or Benefits" value={form.additionalPerks} />
+      </PreviewSection>
+
+      <PreviewSection title="Ideal Candidate Profile">
+        <PreviewRow label="Mandatory Attributes" value={form.mandatoryAttributes} />
+        <PreviewRow label="Preferred Educational Background or Skillsets" value={form.preferredSkillsets} />
+        <PreviewRow label="Eligibility Criteria (If any)" value={eligibility} />
+        {documents.length > 0 && <PreviewRow label="Required Documents" value={documents.join(', ')} />}
+      </PreviewSection>
+
+      <PreviewSection title="Commitment & Application Process">
+        <PreviewRow label="Expected Weekly Hours" value={form.weeklyHours} />
+        <div className="flex flex-wrap gap-8">
+          {form.lastDateToApply && <PreviewRow label="Application Deadline" value={formatDate(form.lastDateToApply)} />}
+          {endTime && <PreviewRow label="End Time" value={endTime} />}
+        </div>
+        <PreviewRow label="Selection Process" value={form.selectionProcess} />
+      </PreviewSection>
+
+      <PreviewSection title="Showcase & Build Trust (Optional but Valuable)">
+        {videoFile ? (
+          <div>
+            <p className="text-sm text-[#6b6b6b] mb-2">Intro Video / Culture Clip :</p>
+            <video
+              src={URL.createObjectURL(videoFile)}
+              className="w-full max-h-[240px] rounded-xl object-cover border border-[#e4e5e8]"
+              controls
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-[#6b6b6b]">Intro Video / Culture Clip : <span className="text-[#9f9f9f]">None</span></p>
+        )}
+
+        {form.faqs.length > 0 && (
+          <div className="mt-3 space-y-3">
+            <p className="text-sm font-semibold text-[#18191c]">FAQs :</p>
+            {form.faqs.map((faq, i) => (
+              <div key={i}>
+                {faq.q && <p className="text-sm font-medium text-[#18191c]">Q: {faq.q}</p>}
+                {faq.a && <p className="text-sm text-[#6b6b6b] ml-2">A: {faq.a}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </PreviewSection>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function EmploymentHubPage() {
   useRequireAuth();
   const navigate = useNavigate();
+  const { profile } = useProfile('me');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(initialForm);
   const [visibility, setVisibility] = useState<Visibility>('Public');
-  const [showHelpBox, setShowHelpBox] = useState(true);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const posterName = profile
+    ? [profile.firstName, profile.lastName].filter((s) => s && s !== 'unknown').join(' ') || profile.orgName || ''
+    : '';
+  const posterAvatar = profile?.avatarUrl || '';
 
   function addToast(type: Toast['type'], message: string) {
     const id = Math.random().toString(36).slice(2);
@@ -617,7 +780,7 @@ export default function EmploymentHubPage() {
 
   function handleNext() {
     if (!validate()) return;
-    if (step < 6) {
+    if (step < 7) {
       setStep((s) => s + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
@@ -635,7 +798,7 @@ export default function EmploymentHubPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
+    <div className="min-h-screen bg-[#f5f5f5] overflow-x-hidden">
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <ToastContainer toasts={toasts} onRemove={(id) => setToasts((p) => p.filter((t) => t.id !== id))} />
@@ -645,9 +808,9 @@ export default function EmploymentHubPage() {
 
           <div className="flex-1 min-w-0 bg-white rounded-2xl border border-[#f2f2f3]">
             <div className="px-6 pt-6 pb-2">
-              <RoleToggle />
+              {step < 7 && <RoleToggle />}
               <h2 className="text-[#f77f00] text-lg font-semibold mb-5">{STEP_TITLES[step]}</h2>
-              <ProgressBar pct={STEP_PROGRESS[step]} />
+              <ProgressBar pct={STEP_PROGRESS[step]} complete={step === 7} />
             </div>
 
             <div className="px-6 pb-6 pt-2">
@@ -658,6 +821,15 @@ export default function EmploymentHubPage() {
               {step === 4 && <Step5 form={form} set={set} />}
               {step === 5 && <Step6 form={form} set={set} />}
               {step === 6 && <Step7 form={form} set={set} videoFile={videoFile} onVideoFile={setVideoFile} />}
+              {step === 7 && (
+                <PreviewStep
+                  form={form}
+                  videoFile={videoFile}
+                  visibility={visibility}
+                  posterName={posterName}
+                  posterAvatar={posterAvatar}
+                />
+              )}
             </div>
 
             <div className="border-t border-[#f2f2f3] px-6 py-3 flex items-center justify-between">
@@ -684,13 +856,13 @@ export default function EmploymentHubPage() {
                   <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
                   </svg>
-                ) : (step === 6 ? 'Submit' : 'Next')}
+                ) : (step === 7 ? 'Proceed' : 'Next')}
               </button>
             </div>
           </div>
 
-          <div className="hidden lg:block w-[270px] shrink-0 sticky top-[90px] self-start">
-            <RightPanel showHelpBox={showHelpBox} onDismissHelp={() => setShowHelpBox(false)} />
+          <div className="hidden lg:block shrink-0 sticky top-[90px] self-start">
+            <RightPanel />
           </div>
 
         </div>
