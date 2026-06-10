@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { submitHelpInquiry } from "../services/helpService";
 
 const CATEGORIES = [
   "Job Ready Exposure",
@@ -37,6 +38,9 @@ export default function GetInTouchModal({ isOpen, onClose }: Props) {
   const [phone, setPhone]                 = useState("");
   const [bestTime, setBestTime]           = useState("");
   const [contactMethod, setContactMethod] = useState<ContactMethod>("email");
+  const [loading, setLoading]             = useState(false);
+  const [submitted, setSubmitted]         = useState(false);
+  const [submitError, setSubmitError]     = useState("");
 
   const editorRef   = useRef<HTMLDivElement>(null);
   const urgencyRef  = useRef<HTMLDivElement>(null);
@@ -65,10 +69,31 @@ export default function GetInTouchModal({ isOpen, onClose }: Props) {
     editorRef.current?.focus();
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: send to backend
-    onClose();
+    setSubmitError("");
+    setLoading(true);
+    try {
+      await submitHelpInquiry({
+        category,
+        urgency: urgency || undefined,
+        timeline: timeline || undefined,
+        requirements: requirements || undefined,
+        budget: budget || undefined,
+        name,
+        email,
+        phone: phone || undefined,
+        best_time: bestTime || undefined,
+        contact_method: contactMethod,
+        additional_details: editorRef.current?.innerHTML || undefined,
+      });
+      setSubmitted(true);
+      setTimeout(onClose, 2000);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to submit. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const modal = (
@@ -93,6 +118,17 @@ export default function GetInTouchModal({ isOpen, onClose }: Props) {
           </svg>
         </button>
 
+        {submitted ? (
+          <div className="px-5 sm:px-7 py-16 flex flex-col items-center justify-center gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <h3 className="text-[#18191c] text-xl font-bold">Message Sent!</h3>
+            <p className="text-[#9199a3] text-sm">We've received your inquiry and will get back to you shortly.</p>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="px-5 sm:px-7 pt-6 pb-8 space-y-6">
           {/* Title */}
           <div className="pr-8">
@@ -329,16 +365,33 @@ export default function GetInTouchModal({ isOpen, onClose }: Props) {
           </div>
 
           {/* Submit */}
+          {submitError && (
+            <p className="text-red-500 text-sm text-center -mt-2">{submitError}</p>
+          )}
           <button
             type="submit"
-            className="w-full bg-[#f77f00] hover:bg-[#e68500] text-white font-semibold py-3.5 rounded-full flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+            disabled={loading}
+            className="w-full bg-[#f77f00] hover:bg-[#e68500] disabled:opacity-60 text-white font-semibold py-3.5 rounded-full flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
           >
-            Submit
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
+            {loading ? (
+              <>
+                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                  <path d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+                Sending...
+              </>
+            ) : (
+              <>
+                Submit
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </>
+            )}
           </button>
         </form>
+        )}
       </div>
     </div>
   );

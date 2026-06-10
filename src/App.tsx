@@ -59,6 +59,7 @@ import MyCommunityPage from './pages/MyCommunityPage';
 import ManageCommunityPage from './pages/ManageCommunityPage';
 import ManageRequestPage from './pages/ManageRequestPage';
 import MessagesPage from './pages/MessagesPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
 
 export default function App() {
   return (
@@ -137,6 +138,9 @@ export default function App() {
 
         {/* Messages */}
         <Route path="/messages" element={<MessagesPage />} />
+
+        {/* Notifications */}
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Routes>
     </BrowserRouter>
   );
