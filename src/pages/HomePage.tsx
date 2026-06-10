@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
 import PostCard from "../components/PostCard";
@@ -7,7 +8,7 @@ import RightPanel from "../components/RightPanel";
 import PhotoUploadModal from "../components/PhotoUploadModal";
 import EventModal from "../components/EventModal";
 import PollModal from "../components/PollModal";
-import { fetchFeedPosts, fetchLikedPostIds, fetchLikesCounts, togglePostLike, FEED_PAGE_SIZE } from "../services/postService";
+import { fetchFeedPosts, fetchPostById, fetchLikedPostIds, fetchLikesCounts, fetchCommentCounts, togglePostLike, FEED_PAGE_SIZE } from "../services/postService";
 import type { FeedPost, FeedFilter } from "../services/postService";
 import { fetchSavedPostIds, savePost, unsavePost } from "../services/savedService";
 import { useProfile } from "../hooks/useProfile";
@@ -47,6 +48,37 @@ const FILTERS: { key: FeedFilter; label: string }[] = [
 ];
 
 export default function HomePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [linkedPost, setLinkedPost] = useState<FeedPost | null>(null);
+  const [linkedPostLikes, setLinkedPostLikes] = useState(0);
+  const [linkedPostComments, setLinkedPostComments] = useState(0);
+  const [linkedPostLoading, setLinkedPostLoading] = useState(false);
+
+  // Load the linked post when ?post= is in the URL
+  useEffect(() => {
+    const postId = searchParams.get("post");
+    if (!postId) { setLinkedPost(null); return; }
+    setLinkedPostLoading(true);
+    fetchPostById(postId)
+      .then(async (post) => {
+        setLinkedPost(post);
+        if (post) {
+          const [likes, comments] = await Promise.all([
+            fetchLikesCounts([post.id]).catch(() => ({})),
+            fetchCommentCounts([post.id]).catch(() => ({})),
+          ]);
+          setLinkedPostLikes((likes as Record<string, number>)[post.id] ?? 0);
+          setLinkedPostComments((comments as Record<string, number>)[post.id] ?? 0);
+        }
+      })
+      .finally(() => setLinkedPostLoading(false));
+  }, [searchParams]);
+
+  function closeLinkedPost() {
+    setLinkedPost(null);
+    setSearchParams(prev => { prev.delete("post"); return prev; });
+  }
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
@@ -64,6 +96,7 @@ export default function HomePage() {
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
 
   const { profile: liveProfile } = useProfile("me");
   const storedUser = getStoredUser();
@@ -132,10 +165,19 @@ export default function HomePage() {
         if (cancelled) return;
         setPosts(data);
         setHasMore(data.length === FEED_PAGE_SIZE);
-        const counts = await fetchLikesCounts(data.map(p => p.id)).catch(() => ({}));
-        if (!cancelled) setLikesCounts(counts);
+        const ids = data.map(p => p.id);
+        const [counts, cCounts] = await Promise.all([
+          fetchLikesCounts(ids).catch(() => ({})),
+          fetchCommentCounts(ids).catch(() => ({})),
+        ]);
+        if (!cancelled) { setLikesCounts(counts); setCommentCounts(cCounts); }
       })
-      .catch((err) => { if (!cancelled) setFeedError(err.message ?? "Failed to load posts."); })
+      .catch((err) => {
+        if (!cancelled) {
+          setFeedError(err.message ?? "Failed to load posts.");
+          setHasMore(false); // stop infinite scroll retrying on error
+        }
+      })
       .finally(() => { if (!cancelled) setLoadingPosts(false); });
     return () => { cancelled = true; };
   }, [activeFilter, refreshKey]);
@@ -150,8 +192,13 @@ export default function HomePage() {
       setPosts(prev => [...prev, ...data]);
       setPage(nextPage);
       setHasMore(data.length === FEED_PAGE_SIZE);
-      const counts = await fetchLikesCounts(data.map(p => p.id)).catch(() => ({}));
+      const ids = data.map(p => p.id);
+      const [counts, cCounts] = await Promise.all([
+        fetchLikesCounts(ids).catch(() => ({})),
+        fetchCommentCounts(ids).catch(() => ({})),
+      ]);
       setLikesCounts(prev => ({ ...prev, ...counts }));
+      setCommentCounts(prev => ({ ...prev, ...cCounts }));
     } catch {
       // silently fail — user can scroll up and back down to retry
     } finally {
@@ -214,8 +261,8 @@ export default function HomePage() {
             <div className="bg-white border border-[#f2f2f3] rounded-[17px] shadow-[0px_4px_2px_rgba(231,231,231,0.25)] px-5 py-4">
               <div className="flex items-center gap-3 mb-4">
                 <UserAvatar name={userName} url={userAvatarUrl} />
-                <div className="flex-1 bg-white border border-[#f2f2f3] rounded-full px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                  <span className="text-[#474d57] text-base font-medium">
+                <div className="flex-1 px-2">
+                  <span className="text-[#474d57] text-lg font-semibold">
                     Start a post
                   </span>
                 </div>
@@ -278,8 +325,23 @@ export default function HomePage() {
 
               {/* Error */}
               {!loadingPosts && feedError && (
-                <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center text-red-400 text-sm">
-                  {feedError}
+                <div className="bg-white rounded-2xl border border-[#ececec] p-8 text-center flex flex-col items-center gap-3">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-red-400">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  <p className="text-[#18191c] text-sm font-semibold">Could not load posts</p>
+                  <p className="text-[#9ca3af] text-xs">
+                    {feedError.includes("fetch")
+                      ? "Connection failed. Check your internet or try resuming your Supabase project."
+                      : feedError}
+                  </p>
+                  <button
+                    onClick={() => setRefreshKey(k => k + 1)}
+                    className="mt-1 px-5 py-2 bg-[#FF9400] text-white text-sm font-semibold rounded-full hover:bg-orange-600 transition-colors"
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
 
@@ -300,6 +362,8 @@ export default function HomePage() {
                   isLiked={likedPostIds.has(post.id)}
                   likesCount={likesCounts[post.id] ?? 0}
                   onLikeToggle={handleLikeToggle}
+                  commentsCount={commentCounts[post.id] ?? 0}
+                  onCommentAdded={() => setCommentCounts(prev => ({ ...prev, [post.id]: (prev[post.id] ?? 0) + 1 }))}
                 />
               ))}
 
@@ -322,6 +386,53 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Linked post modal — opened from "View Post" in messages */}
+      {(linkedPost || linkedPostLoading) && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          onClick={closeLinkedPost}
+        >
+          <div
+            className="w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {linkedPostLoading ? (
+              <div className="bg-white rounded-2xl p-10 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[#FF9400] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : linkedPost ? (
+              <>
+                <div className="flex justify-end mb-2">
+                  <button
+                    onClick={closeLinkedPost}
+                    className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <PostCard
+                  post={linkedPost}
+                  isLiked={likedPostIds.has(linkedPost.id)}
+                  likesCount={linkedPostLikes}
+                  onLikeToggle={handleLikeToggle}
+                  isSaved={savedPostIds.has(linkedPost.id)}
+                  onSaveToggle={handleSaveToggle}
+                  commentsCount={linkedPostComments}
+                  onCommentAdded={() => setLinkedPostComments(c => c + 1)}
+                  inModal={true}
+                />
+              </>
+            ) : (
+              <div className="bg-white rounded-2xl p-10 text-center text-[#9ca3af] text-sm">
+                Post not found or has been removed.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

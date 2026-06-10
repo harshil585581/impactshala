@@ -219,15 +219,43 @@ export async function fetchFeedPosts(
   return (data ?? []) as unknown as FeedPost[];
 }
 
+export async function fetchPostById(postId: string): Promise<FeedPost | null> {
+  const client = getAuthClient();
+  const { data, error } = await client
+    .from('posts')
+    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
+    .eq('id', postId)
+    .single();
+  if (error) return null;
+  return data as unknown as FeedPost;
+}
+
 export async function togglePostLike(postId: string, like: boolean): Promise<void> {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
   const client = getAuthClient();
   if (like) {
-    await client.from('post_likes').upsert({ post_id: postId, user_id: userId });
+    const { error } = await client.from('post_likes').upsert({ post_id: postId, user_id: userId });
+    if (error) throw new Error(error.message);
   } else {
-    await client.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId);
+    const { error } = await client.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId);
+    if (error) throw new Error(error.message);
   }
+}
+
+export async function fetchCommentCounts(postIds: string[]): Promise<Record<string, number>> {
+  if (!postIds.length) return {};
+  const client = getAuthClient();
+  const { data } = await client
+    .from('post_comments')
+    .select('post_id')
+    .eq('post_table', 'posts')
+    .in('post_id', postIds);
+  const counts: Record<string, number> = {};
+  for (const r of (data ?? []) as { post_id: string }[]) {
+    counts[r.post_id] = (counts[r.post_id] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export async function fetchLikedPostIds(): Promise<Set<string>> {

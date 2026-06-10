@@ -139,21 +139,98 @@ export default function DiscoverCard({
       )}
 
       <div className="px-5 py-4">
-        {/* Body text */}
+        {/* Body text — clamped until "Show more" */}
         {item.body && (
-          <>
-            <p
-              className={`text-text-medium text-sm mb-2 leading-relaxed ${showMore ? "" : "line-clamp-2"}`}
-            >
-              {item.body}
-            </p>
-            <button
-              onClick={() => setShowMore((v) => !v)}
-              className="text-primary text-sm font-medium hover:underline mb-3 block"
-            >
-              {showMore ? "Show less" : "Show more"}
-            </button>
-          </>
+          <p className={`text-text-medium text-sm mb-2 leading-relaxed ${showMore ? "" : "line-clamp-2"}`}>
+            {item.body}
+          </p>
+        )}
+
+        {/* Expanded details — only when showMore */}
+        {showMore && (
+          <div className="mt-3 space-y-4 border-t border-border-light pt-4">
+            {item.eligibilityCriteria && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-1">Eligibility criteria</h4>
+                <p className="text-text-medium text-sm leading-relaxed">{item.eligibilityCriteria}</p>
+              </section>
+            )}
+
+            {(item.communicationLanguage || item.levelOfParticipant || item.educationalLevel || item.eventOccurrence) && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-2">Additional Details</h4>
+                <div className="space-y-1">
+                  {item.communicationLanguage && (
+                    <p className="text-text-medium text-sm">
+                      <span className="font-medium text-text-dark">Language : </span>
+                      {item.communicationLanguage}
+                    </p>
+                  )}
+                  {item.levelOfParticipant && (
+                    <p className="text-text-medium text-sm">
+                      <span className="font-medium text-text-dark">Level of Participation : </span>
+                      {item.levelOfParticipant}
+                    </p>
+                  )}
+                  {item.educationalLevel && (
+                    <p className="text-text-medium text-sm">
+                      <span className="font-medium text-text-dark">Educational Level : </span>
+                      {item.educationalLevel}
+                    </p>
+                  )}
+                  {item.eventOccurrence && (
+                    <p className="text-text-medium text-sm">
+                      <span className="font-medium text-text-dark">Type : </span>
+                      {item.eventOccurrence === "one_day"
+                        ? "One-Time Event"
+                        : item.eventOccurrence === "weekly"
+                        ? "Weekly"
+                        : item.eventOccurrence === "custom_multi_day"
+                        ? "Multi-Day"
+                        : item.eventOccurrence}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {(item.address || item.onsiteVenue || item.onlineAccess) && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-2">Access Details</h4>
+                <div className="space-y-1">
+                  {(item.address || item.onsiteVenue) && (
+                    <p className="text-text-medium text-sm">
+                      <span className="font-medium text-text-dark">Address : </span>
+                      {item.address || item.onsiteVenue}
+                    </p>
+                  )}
+                  {item.onlineAccess && (
+                    <p className="text-text-medium text-sm">
+                      <span className="font-medium text-text-dark">Link : </span>
+                      {item.onlineAccess}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {item.body && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-1">Description</h4>
+                <p className="text-text-medium text-sm leading-relaxed">{item.body}</p>
+              </section>
+            )}
+          </div>
+        )}
+
+        {/* Show more / Show less toggle */}
+        {item.body && (
+          <button
+            onClick={() => setShowMore((v) => !v)}
+            className="text-primary text-sm font-medium hover:underline mt-2 mb-3 block"
+          >
+            {showMore ? "Show less" : "Show more"}
+          </button>
         )}
 
         {/* Seekers: expand for opportunity details */}
