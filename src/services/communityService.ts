@@ -1,18 +1,12 @@
+import { getFreshToken } from "../lib/authToken";
+
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-function getToken(): string {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
-    return user.access_token ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function authHeaders(): Record<string, string> {
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getFreshToken();
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${getToken()}`,
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -46,19 +40,19 @@ export type SentRequest = CommunityUser & {
 export async function fetchConnections(q?: string): Promise<{ connections: Connection[]; total: number }> {
   const url = new URL(`${API_URL}/api/community/connections`);
   if (q) url.searchParams.set("q", q);
-  const res = await fetch(url.toString(), { headers: authHeaders() });
+  const res = await fetch(url.toString(), { headers: await authHeaders() });
   if (!res.ok) throw new Error("Failed to fetch connections");
   return res.json();
 }
 
 export async function fetchPendingRequests(): Promise<{ requests: PendingRequest[] }> {
-  const res = await fetch(`${API_URL}/api/community/pending`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/api/community/pending`, { headers: await authHeaders() });
   if (!res.ok) throw new Error("Failed to fetch pending requests");
   return res.json();
 }
 
 export async function fetchSuggestions(): Promise<{ suggestions: CommunityUser[] }> {
-  const res = await fetch(`${API_URL}/api/community/suggestions`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/api/community/suggestions`, { headers: await authHeaders() });
   if (!res.ok) throw new Error("Failed to fetch suggestions");
   return res.json();
 }
@@ -66,7 +60,7 @@ export async function fetchSuggestions(): Promise<{ suggestions: CommunityUser[]
 export async function sendConnectionRequest(addresseeId: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/community/request`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ addressee_id: addresseeId }),
   });
   if (!res.ok) {
@@ -78,7 +72,7 @@ export async function sendConnectionRequest(addresseeId: string): Promise<void> 
 export async function acceptRequest(requestId: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/community/accept/${requestId}`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to accept request");
 }
@@ -86,13 +80,13 @@ export async function acceptRequest(requestId: string): Promise<void> {
 export async function rejectOrCancelRequest(requestId: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/community/reject/${requestId}`, {
     method: "DELETE",
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to remove request");
 }
 
 export async function fetchSentRequests(): Promise<{ requests: SentRequest[] }> {
-  const res = await fetch(`${API_URL}/api/community/sent`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/api/community/sent`, { headers: await authHeaders() });
   if (!res.ok) throw new Error("Failed to fetch sent requests");
   return res.json();
 }
@@ -100,7 +94,7 @@ export async function fetchSentRequests(): Promise<{ requests: SentRequest[] }> 
 export async function removeConnection(peerId: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/community/remove/${peerId}`, {
     method: "DELETE",
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to remove connection");
 }

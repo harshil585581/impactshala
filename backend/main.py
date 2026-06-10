@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from supabase import Client, create_client
 
 load_dotenv()
@@ -646,7 +646,8 @@ def _row_to_item(row: dict, bookmarked_ids: set) -> dict:
         "description": row.get("body") or "",
         "onsiteVenue": row.get("onsite_venue") or "",
         "onlineAccess": row.get("online_access") or "",
-        "eligibilityCriteria": row.get("eligibility_criteria") or "",
+        "eligibilityCriteria": row.get("eligibility_criteria") or [],
+        "documentsRequired": row.get("documents_required") or [],
         "communicationLanguage": row.get("communication_language") or "",
         "levelOfParticipant": row.get("level_of_participant") or "",
         "educationalLevel": row.get("educational_level") or "",
@@ -770,16 +771,41 @@ async def submit_discover_application(
     name: str = Form(...),
     email: str = Form(...),
     phone: str = Form(""),
-    documents: List[UploadFile] = File(default=[]),  # noqa: ARG001
+    message: str = Form(""),
+    document_labels: List[str] = Form(default=[]),
+    documents: List[UploadFile] = File(default=[]),
     authorization: Optional[str] = Header(None),
 ):
     user_id = _optional_user_id(authorization)
+
+    doc_data = []
+    for i, doc in enumerate(documents):
+        if not doc.filename:
+            continue
+        content = await doc.read()
+        ts = int(datetime.now(timezone.utc).timestamp())
+        path = f"discover-apps/{postId}/{ts}_{uuid.uuid4().hex[:6]}_{doc.filename}"
+        try:
+            supabase_admin.storage.from_("post-media").upload(
+                path=path,
+                file=content,
+                file_options={"content-type": doc.content_type or "application/octet-stream", "upsert": "true"},
+            )
+            public_url = supabase_admin.storage.from_("post-media").get_public_url(path)
+            label = document_labels[i] if i < len(document_labels) else doc.filename
+            doc_data.append({"name": label, "url": public_url})
+        except Exception:
+            pass
+
     result = supabase_admin.table("discover_applications").insert({
         "post_id": postId,
         "user_id": user_id,
         "name": name,
         "email": email,
         "phone": phone,
+        "message": message,
+        "status": "applied",
+        "document_data": doc_data,
     }).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to submit application")
@@ -802,7 +828,8 @@ class ProviderPostCreate(BaseModel):
     address: Optional[str] = None
     communicationLanguage: Optional[str] = None
     levelOfParticipant: Optional[str] = None
-    eligibilityCriteria: Optional[str] = None
+    eligibilityCriteria: Optional[List[str]] = None
+    documentsRequired: Optional[List[str]] = None
     lastDateToApply: Optional[str] = None
     fee: Optional[str] = None
     onsiteVenue: Optional[str] = None
@@ -812,37 +839,50 @@ class ProviderPostCreate(BaseModel):
     visibleTo: str = "public"
     weeklySlots: Optional[List[dict]] = None
 
+    @field_validator("eligibilityCriteria", "documentsRequired", mode="before")
+    @classmethod
+    def coerce_to_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [v] if v.strip() else []
+        return v
+
 
 @app.post("/api/discover/create/provider")
 async def create_provider_post(data: ProviderPostCreate, authorization: Optional[str] = Header(None)):
     user_id = get_user_id(authorization)  # type: ignore[arg-type]
-    result = supabase_admin.table("discover_posts").insert({
-        "user_id": user_id,
-        "post_type": "provider",
-        "visibility": data.visibleTo.lower(),
-        "title": data.title,
-        "domain": data.domain,
-        "nature": data.nature,
-        "keyword": data.keyword,
-        "target_audience": data.targetAudience,
-        "educational_level": data.educationalLevel,
-        "body": data.description,
-        "image_url": data.coverImageUrl,
-        "event_occurrence": data.eventOccurrence,
-        "event_date": data.eventDate or None,
-        "start_time": data.startTime,
-        "end_time": data.endTime,
-        "delivery_mode": data.deliveryMode,
-        "address": data.address,
-        "communication_language": data.communicationLanguage,
-        "level_of_participant": data.levelOfParticipant,
-        "eligibility_criteria": data.eligibilityCriteria,
-        "last_date_to_apply": data.lastDateToApply or None,
-        "fee": data.fee,
-        "onsite_venue": data.onsiteVenue,
-        "online_access": data.onlineAccess,
-        "weekly_slots": data.weeklySlots or [],
-    }).execute()
+    try:
+        result = supabase_admin.table("discover_posts").insert({
+            "user_id": user_id,
+            "post_type": "provider",
+            "visibility": data.visibleTo.lower(),
+            "title": data.title,
+            "domain": data.domain,
+            "nature": data.nature,
+            "keyword": data.keyword,
+            "target_audience": data.targetAudience,
+            "educational_level": data.educationalLevel,
+            "body": data.description,
+            "image_url": data.coverImageUrl,
+            "event_occurrence": data.eventOccurrence,
+            "event_date": data.eventDate or None,
+            "start_time": data.startTime,
+            "end_time": data.endTime,
+            "delivery_mode": data.deliveryMode,
+            "address": data.address,
+            "communication_language": data.communicationLanguage,
+            "level_of_participant": data.levelOfParticipant,
+            "eligibility_criteria": data.eligibilityCriteria or [],
+            "documents_required": data.documentsRequired or [],
+            "last_date_to_apply": data.lastDateToApply or None,
+            "fee": data.fee,
+            "onsite_venue": data.onsiteVenue,
+            "online_access": data.onlineAccess,
+            "weekly_slots": data.weeklySlots or [],
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB error: {e}")
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create post")
     return {"id": result.data[0]["id"]}
@@ -903,6 +943,94 @@ async def upload_discover_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
     return {"url": supabase_admin.storage.from_("post-media").get_public_url(path)}
+
+
+@app.get("/api/discover/my-posts")
+async def get_my_discover_posts(authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    result = supabase_admin.table("discover_posts").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    posts = []
+    for row in (result.data or []):
+        posts.append({
+            "id": row["id"],
+            "title": row.get("title") or "",
+            "domain": row.get("domain") or "",
+            "nature": row.get("nature") or "",
+            "deliveryMode": row.get("delivery_mode") or "",
+            "address": row.get("address") or "",
+            "imageUrl": row.get("image_url") or "",
+            "eligibilityCriteria": row.get("eligibility_criteria") or [],
+            "documentsRequired": row.get("documents_required") or [],
+            "status": "active",
+            "createdAt": row.get("created_at") or "",
+        })
+    return posts
+
+
+@app.get("/api/discover/posts/{post_id}/applications")
+async def get_discover_post_applications(post_id: str, authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    post_check = supabase_admin.table("discover_posts").select("user_id").eq("id", post_id).execute()
+    if not post_check.data or post_check.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = supabase_admin.table("discover_applications").select("*").eq("post_id", post_id).order("created_at", desc=True).execute()
+    apps = result.data or []
+    enhanced = []
+    for app in apps:
+        app_data = dict(app)
+        if app.get("user_id"):
+            try:
+                u = supabase_admin.table("users").select("avatar_url, first_name, last_name, org_name").eq("id", app["user_id"]).execute()
+                if u.data:
+                    app_data["user_profile"] = u.data[0]
+            except Exception:
+                pass
+            try:
+                sp = supabase_admin.table("job_seeker_profiles").select(
+                    "career_goals, work_drives_you, current_location, job_industry, department, technical_skills, soft_skills, resume_url, institute_name, education_level"
+                ).eq("user_id", app["user_id"]).execute()
+                if sp.data:
+                    app_data["seeker_profile"] = sp.data[0]
+            except Exception:
+                pass
+        enhanced.append(app_data)
+    return enhanced
+
+
+@app.delete("/api/discover/applications/{app_id}")
+async def delete_discover_application(app_id: str, authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    app_check = supabase_admin.table("discover_applications").select("post_id").eq("id", app_id).execute()
+    if not app_check.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+    post_id = app_check.data[0]["post_id"]
+    post_check = supabase_admin.table("discover_posts").select("user_id").eq("id", post_id).execute()
+    if not post_check.data or post_check.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    supabase_admin.table("discover_applications").delete().eq("id", app_id).execute()
+    return {"ok": True}
+
+
+class DiscoverAppStatusUpdate(BaseModel):
+    status: str
+
+
+@app.patch("/api/discover/applications/{app_id}/status")
+async def update_discover_application_status(
+    app_id: str,
+    data: DiscoverAppStatusUpdate,
+    authorization: Optional[str] = Header(None),
+):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    app_check = supabase_admin.table("discover_applications").select("post_id").eq("id", app_id).execute()
+    if not app_check.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+    post_id = app_check.data[0]["post_id"]
+    post_check = supabase_admin.table("discover_posts").select("user_id").eq("id", post_id).execute()
+    if not post_check.data or post_check.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    supabase_admin.table("discover_applications").update({"status": data.status}).eq("id", app_id).execute()
+    return {"ok": True}
 
 
 # ============================================================

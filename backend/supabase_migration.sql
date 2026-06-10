@@ -422,7 +422,8 @@ CREATE TABLE IF NOT EXISTS discover_posts (
   address                TEXT,
   communication_language TEXT,
   level_of_participant   TEXT,
-  eligibility_criteria   TEXT,
+  eligibility_criteria   TEXT[]      NOT NULL DEFAULT '{}',
+  documents_required     TEXT[]      NOT NULL DEFAULT '{}',
   last_date_to_apply     DATE,
   fee                    TEXT,
   onsite_venue           TEXT,
@@ -1048,3 +1049,51 @@ DROP TRIGGER IF EXISTS trg_notify_on_comment ON post_comments;
 CREATE TRIGGER trg_notify_on_comment
   AFTER INSERT ON post_comments
   FOR EACH ROW EXECUTE FUNCTION fn_notify_on_comment();
+
+
+-- ============================================================
+-- Migrate eligibility_criteria to TEXT[] and add documents_required
+-- Run this in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+-- Step 1: add a temp array column
+ALTER TABLE discover_posts
+  ADD COLUMN IF NOT EXISTS eligibility_criteria_arr TEXT[] NOT NULL DEFAULT '{}';
+
+-- Step 2: copy existing text values into the new array column
+UPDATE discover_posts
+SET eligibility_criteria_arr =
+  CASE
+    WHEN eligibility_criteria IS NULL OR eligibility_criteria = ''
+    THEN '{}'::TEXT[]
+    ELSE ARRAY[eligibility_criteria]
+  END;
+
+-- Step 3: drop the old TEXT column and rename the new one
+ALTER TABLE discover_posts DROP COLUMN IF EXISTS eligibility_criteria;
+ALTER TABLE discover_posts RENAME COLUMN eligibility_criteria_arr TO eligibility_criteria;
+
+-- Step 4: add documents_required column
+ALTER TABLE discover_posts
+  ADD COLUMN IF NOT EXISTS documents_required TEXT[] NOT NULL DEFAULT '{}';
+
+
+-- ============================================================
+-- Update discover_applications status values for Discover My Postings
+-- Run this in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE discover_applications DROP CONSTRAINT IF EXISTS discover_applications_status_check;
+UPDATE discover_applications SET status = 'applied' WHERE status IN ('pending', 'reviewed', 'accepted', 'rejected');
+ALTER TABLE discover_applications ALTER COLUMN status SET DEFAULT 'applied';
+ALTER TABLE discover_applications ADD CONSTRAINT discover_applications_status_check
+  CHECK (status IN ('applied', 'not_a_fit', 'maybe', 'goodfit'));
+
+
+-- ============================================================
+-- Add document_data and message to discover_applications
+-- Run this in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE discover_applications ADD COLUMN IF NOT EXISTS message TEXT DEFAULT '';
+ALTER TABLE discover_applications ADD COLUMN IF NOT EXISTS document_data JSONB DEFAULT '[]'::jsonb;

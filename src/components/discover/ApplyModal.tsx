@@ -5,10 +5,10 @@ type Props = {
   postId: string;
   postTitle?: string;
   eligibilityCriteria?: string[];
+  documentsRequired?: string[];
   onClose: () => void;
 };
 
-/* ── Floating-label outlined input (Material Design 3) ── */
 function OutlinedField({
   label, required, type = "text", placeholder, value, onChange, error,
 }: {
@@ -39,7 +39,6 @@ function OutlinedField({
   );
 }
 
-/* ── Orange checkbox ── */
 function OrangeCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button
@@ -57,23 +56,29 @@ function OrangeCheckbox({ checked, onChange }: { checked: boolean; onChange: () 
   );
 }
 
-const DEFAULT_CRITERIA = [
-  "Only for students from Science or Engineering background",
-  'Minimum 60% in last qualifying exam" or "CGPA ≥ 6.5',
-  "Applicant must be available full-time for the duration of the program",
-];
+function PaperclipIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
 
-/* ── Main component ── */
-export default function ApplyModal({ postId, eligibilityCriteria, onClose }: Props) {
-  const criteria = eligibilityCriteria?.length ? eligibilityCriteria : DEFAULT_CRITERIA;
+export default function ApplyModal({ postId, eligibilityCriteria, documentsRequired, onClose }: Props) {
+  const criteria = eligibilityCriteria?.length ? eligibilityCriteria : [];
+  const docLabels = documentsRequired?.length ? documentsRequired : [];
 
-  const [step, setStep] = useState<"form" | "eligibility" | "success">("form");
+  const [step, setStep] = useState<"form" | "eligibility" | "documents" | "success">("form");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [message, setMessage] = useState("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [checked, setChecked] = useState<boolean[]>(criteria.map(() => false));
+  // One File slot per required document
+  const [docFiles, setDocFiles] = useState<(File | null)[]>(docLabels.map(() => null));
+  const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,20 +100,40 @@ export default function ApplyModal({ postId, eligibilityCriteria, onClose }: Pro
     return Object.keys(e).length === 0;
   }
 
+  function handleFileChange(i: number, file: File | null) {
+    setDocFiles((prev) => {
+      const next = [...prev];
+      next[i] = file;
+      return next;
+    });
+  }
+
   async function handleSubmit() {
     setSubmitting(true);
     try {
-      await submitApplication({ postId, name, email, phone, documents: [] });
+      const files: File[] = [];
+      const labels: string[] = [];
+      docFiles.forEach((f, i) => {
+        if (f) { files.push(f); labels.push(docLabels[i] ?? f.name); }
+      });
+      await submitApplication({ postId, name, email, phone, message, documents: files, documentLabels: labels });
       setStep("success");
     } catch {
       setFormErrors({ submit: "Submission failed. Please try again." });
-      setStep("form");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const allChecked = checked.every(Boolean);
+  function goToNextAfterEligibility() {
+    if (docLabels.length > 0) {
+      setStep("documents");
+    } else {
+      handleSubmit();
+    }
+  }
+
+  const allChecked = criteria.length === 0 || checked.every(Boolean);
 
   return (
     <div
@@ -116,7 +141,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, onClose }: Pro
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="bg-white rounded-2xl w-full max-w-[580px] shadow-2xl overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-[580px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
 
         {/* ══ SUCCESS ══ */}
         {step === "success" && (
@@ -144,7 +169,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, onClose }: Pro
                 Submit your application
               </h2>
             </div>
-            <div className="px-10 py-8 flex flex-col gap-8">
+            <div className="px-10 py-8 flex flex-col gap-8 overflow-y-auto">
               <div className="flex flex-col gap-8">
                 <OutlinedField label="Name" required placeholder="Enter your name" value={name} onChange={setName} error={formErrors.name} />
                 <OutlinedField label="Email" required type="email" placeholder="Enter your email" value={email} onChange={setEmail} error={formErrors.email} />
@@ -172,9 +197,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, onClose }: Pro
 
         {/* ══ STEP 2: Eligibility checkboxes ══ */}
         {step === "eligibility" && (
-          <div className="p-8 flex flex-col gap-8">
-
-            {/* Header */}
+          <div className="p-8 flex flex-col gap-8 overflow-y-auto">
             <div className="flex items-start justify-between gap-4">
               <h2 className="font-semibold text-[#121212] text-xl leading-snug" style={{ fontFamily: "Manrope, sans-serif" }}>
                 Select the checkboxes below to confirm that you meet the eligibility criteria before applying:
@@ -186,29 +209,107 @@ export default function ApplyModal({ postId, eligibilityCriteria, onClose }: Pro
               </button>
             </div>
 
-            {/* Criteria list */}
-            <div className="flex flex-col gap-6">
-              {criteria.map((item, i) => (
-                <div key={i} className="flex items-center justify-between gap-4">
-                  <p className="text-[#555] text-lg leading-6 flex-1">{item}</p>
-                  <OrangeCheckbox checked={checked[i]} onChange={() => {
-                    const next = [...checked];
-                    next[i] = !next[i];
-                    setChecked(next);
-                  }} />
-                </div>
-              ))}
-            </div>
+            {criteria.length === 0 ? (
+              <p className="text-[#555] text-base">No specific eligibility criteria for this posting.</p>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {criteria.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between gap-4">
+                    <p className="text-[#555] text-lg leading-6 flex-1">{item}</p>
+                    <OrangeCheckbox checked={checked[i]} onChange={() => {
+                      const next = [...checked];
+                      next[i] = !next[i];
+                      setChecked(next);
+                    }} />
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {/* Footer buttons */}
             <div className="flex items-center justify-between pt-2">
               <button onClick={() => setStep("form")}
                 className="h-10 px-6 rounded-full border text-[#ff9400] font-medium text-sm hover:bg-[#fff4e5] transition-colors"
                 style={{ borderColor: "#ff9400" }}>
                 Back
               </button>
-              <button onClick={handleSubmit} disabled={submitting || !allChecked}
-                className="h-10 px-6 rounded-full bg-[#ff9400] text-white font-medium text-sm hover:bg-[#e68500] transition-colors disabled:opacity-50">
+              <button
+                onClick={goToNextAfterEligibility}
+                disabled={!allChecked || submitting}
+                className="h-10 px-6 rounded-full bg-[#ff9400] text-white font-medium text-sm hover:bg-[#e68500] transition-colors disabled:opacity-50"
+              >
+                {submitting ? "Submitting…" : "Next"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ══ STEP 3: Document uploads ══ */}
+        {step === "documents" && (
+          <div className="p-8 flex flex-col gap-6 overflow-y-auto">
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="font-semibold text-[#121212] text-xl leading-snug" style={{ fontFamily: "Manrope, sans-serif" }}>
+                Upload the documents listed below to complete your application. Ensure that all files are clear and legible.
+              </h2>
+              <button onClick={onClose} className="shrink-0 w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors text-[#121212]">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {docLabels.map((label, i) => (
+                <div key={i} className="flex items-center justify-between gap-4 py-3 border-b border-gray-100 last:border-0">
+                  <p className="text-[#555] text-base leading-6 flex-1">
+                    {label}
+                    {docFiles[i] && (
+                      <span className="ml-2 text-xs text-[#ff9400] font-medium">{docFiles[i]!.name}</span>
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => fileRefs.current[i]?.click()}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <PaperclipIcon />
+                  </button>
+                  <input
+                    ref={(el) => { fileRefs.current[i] = el; }}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => handleFileChange(i, e.target.files?.[0] ?? null)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Message field */}
+            <div className="flex flex-col gap-2">
+              <label className="font-semibold text-[#121212] text-base">Message</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Write a short note if you want to share anything before applying"
+                maxLength={500}
+                rows={4}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-[#18191c] focus:outline-none focus:border-[#ff9400] resize-none"
+              />
+              <p className="text-right text-xs text-[#79747e]">{message.length}/500 characters</p>
+            </div>
+
+            {formErrors.submit && <p className="text-[#b3261e] text-sm text-center">{formErrors.submit}</p>}
+
+            <div className="flex items-center justify-between pt-2">
+              <button onClick={() => setStep("eligibility")}
+                className="h-10 px-6 rounded-full border text-[#ff9400] font-medium text-sm hover:bg-[#fff4e5] transition-colors"
+                style={{ borderColor: "#ff9400" }}>
+                Back
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="h-10 px-6 rounded-full bg-[#ff9400] text-white font-medium text-sm hover:bg-[#e68500] transition-colors disabled:opacity-50"
+              >
                 {submitting ? "Submitting…" : "Next"}
               </button>
             </div>
