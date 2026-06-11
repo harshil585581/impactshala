@@ -195,7 +195,7 @@ export default function DiscoverMyPostingsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
-        <div className="px-4 sm:px-6 py-6">
+        <div className="px-4 sm:px-6 py-6 max-w-[1200px] mx-auto gap-6">
 
           {/* Post selector */}
           {posts.length > 1 && (
@@ -214,13 +214,13 @@ export default function DiscoverMyPostingsPage() {
 
           {/* Post header */}
           {loading ? (
-            <div className="py-4 space-y-2">
+            <div className="bg-white border border-[#e5e5e5] px-6 py-5 space-y-2">
               <Skeleton className="h-8 w-72" />
               <Skeleton className="h-4 w-56" />
               <Skeleton className="h-4 w-40" />
             </div>
           ) : selectedPost ? (
-            <div className="flex items-start justify-between gap-4 pb-5">
+            <div className="bg-white border border-[#e5e5e5] px-6 py-5 flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-[28px] font-semibold text-black leading-tight mb-1">
                   {selectedPost.title}
@@ -248,7 +248,7 @@ export default function DiscoverMyPostingsPage() {
             </div>
           ) : null}
 
-          <div className="h-px bg-[#e5e5e5] mb-5" />
+          <div className="mb-5" />
 
           {/* Main content */}
           {loading || appsLoading ? (

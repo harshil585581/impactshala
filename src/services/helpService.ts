@@ -1,14 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-
-function getAuthClient() {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const token: string | undefined = stored?.access_token;
-  return createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
-  );
-}
+import { supabase } from '../lib/supabase';
+import { getFreshToken } from '../lib/authToken';
 
 export interface HelpInquiry {
   category: string;
@@ -25,13 +16,14 @@ export interface HelpInquiry {
 }
 
 export async function submitHelpInquiry(data: HelpInquiry): Promise<void> {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const userId: string | undefined = stored?.id;
+  // Get fresh session to ensure token is valid
+  const token = await getFreshToken();
+  const { data: { user } } = await supabase.auth.getUser(token || undefined);
 
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('help_center_inquiries')
     .insert({
-      user_id: userId || null,
+      user_id: user?.id ?? null,
       category: data.category,
       urgency: data.urgency || null,
       timeline: data.timeline || null,

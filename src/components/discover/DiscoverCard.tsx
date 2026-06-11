@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { DiscoverItem } from "../../services/discoverService";
+import { toggleReaction } from "../../services/discoverService";
 import CommentSection from "../CommentSection";
 import ShareModal from "../ShareModal";
 import likeIcon from "../../assets/images/svg/like.svg";
@@ -24,10 +25,25 @@ export default function DiscoverCard({
   isExpanded,
 }: Props) {
   const [showMore, setShowMore] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(item.isLiked ?? false);
+  const [reactionCount, setReactionCount] = useState(item.reactions);
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(item.comments);
   const [showShare, setShowShare] = useState(false);
+
+  async function handleLike() {
+    const next = !liked;
+    setLiked(next);
+    setReactionCount((c) => c + (next ? 1 : -1));
+    try {
+      const res = await toggleReaction(item.id);
+      setLiked(res.reacted);
+      setReactionCount(res.count);
+    } catch {
+      setLiked(!next);
+      setReactionCount((c) => c + (next ? -1 : 1));
+    }
+  }
 
   return (
     <article className="bg-white rounded-2xl border border-border-default overflow-hidden">
@@ -117,7 +133,7 @@ export default function DiscoverCard({
           </p>
           <p className="text-text-medium text-sm">
             <span className="font-semibold">Target audience :</span>{" "}
-            <span className="font-normal text-primary">{item.targetAudience}</span>
+            <span className="font-normal">{item.targetAudience}</span>
           </p>
           <p className="text-text-medium text-sm">
             <span className="font-semibold">Last date to apply :</span>{" "}
@@ -251,7 +267,7 @@ export default function DiscoverCard({
               <img src={heartIcon} alt="heart" className="w-5 h-5" />
               <img src={congratulateIcon} alt="congratulate" className="w-5 h-5" />
             </div>
-            <span>{item.reactions.toLocaleString()}</span>
+            <span>{reactionCount.toLocaleString()}</span>
           </div>
           <button
             onClick={() => setShowComments((v) => !v)}
@@ -264,7 +280,7 @@ export default function DiscoverCard({
         {/* Action bar */}
         <div className="flex items-center justify-around border-t border-border-light pt-3">
           <button
-            onClick={() => setLiked((v) => !v)}
+            onClick={handleLike}
             className={`flex items-center gap-1.5 text-sm transition-colors py-1 px-2 min-h-[44px] ${liked ? 'text-primary' : 'text-text-muted hover:text-primary'}`}
           >
             {liked ? (

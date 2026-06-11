@@ -511,6 +511,43 @@ async def apply_to_course(
     return {"message": "Application submitted successfully", "id": result.data[0]["id"]}
 
 
+@app.get("/api/storage/signed-url")
+async def get_signed_url(
+    bucket: str,
+    path: str,
+    authorization: str = Header(None),
+):
+    get_user_id(authorization)  # must be authenticated
+    try:
+        result = supabase_admin.storage.from_(bucket).create_signed_url(path, 3600)
+        url = result.get("signedURL") or result.get("signedUrl") or result.get("signed_url") or ""
+        if not url:
+            raise HTTPException(status_code=404, detail="Could not generate signed URL")
+        return {"url": url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/learning/my-courses")
+async def get_my_courses(authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    result = supabase_admin.table("learning_courses").select(
+        "id, title, program_level, course_mode, status, created_at, eligibility_criteria, required_documents"
+    ).eq("user_id", user_id).order("created_at", desc=True).execute()
+    return result.data or []
+
+
+@app.get("/api/learning/my-courses/{course_id}/applications")
+async def get_course_applications(course_id: str, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    # Verify this course belongs to the requesting user
+    course_check = supabase_admin.table("learning_courses").select("id").eq("id", course_id).eq("user_id", user_id).execute()
+    if not course_check.data:
+        raise HTTPException(status_code=403, detail="Not your course or course not found")
+    result = supabase_admin.table("course_applications").select("*").eq("course_id", course_id).order("created_at", desc=True).execute()
+    return result.data or []
+
+
 @app.post("/api/upload/course-image")
 async def upload_course_image(
     file: UploadFile = File(...),
@@ -611,7 +648,7 @@ def _relative_time(ts: str) -> str:
         return ""
 
 
-def _row_to_item(row: dict, bookmarked_ids: set) -> dict:
+def _row_to_item(row: dict, bookmarked_ids: set, reacted_ids: set = set()) -> dict:
     user_data = row.get("users") or {}
     name = (
         user_data.get("org_name")
@@ -641,6 +678,7 @@ def _row_to_item(row: dict, bookmarked_ids: set) -> dict:
         "reactions": row.get("reactions_count") or 0,
         "comments": row.get("comments_count") or 0,
         "isBookmarked": row["id"] in bookmarked_ids,
+        "isLiked": row["id"] in reacted_ids,
         "slug": row["id"],
         "opportunityNotes": row.get("body") or "",
         "description": row.get("body") or "",
@@ -654,6 +692,24 @@ def _row_to_item(row: dict, bookmarked_ids: set) -> dict:
         "eventOccurrence": row.get("event_occurrence") or "",
         "address": row.get("address") or "",
     }
+
+
+@app.get("/api/discover/post/{post_id}")
+async def get_single_discover_post(post_id: str, authorization: Optional[str] = Header(None)):
+    result = supabase_admin.table("discover_posts").select(
+        "*, users!discover_posts_user_id_fkey(first_name, last_name, org_name, avatar_url, role, title, company)"
+    ).eq("id", post_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Post not found")
+    user_id = _optional_user_id(authorization)
+    bookmarked_ids: set = set()
+    reacted_ids: set = set()
+    if user_id:
+        bm = supabase_admin.table("discover_bookmarks").select("post_id").eq("user_id", user_id).execute()
+        bookmarked_ids = {r["post_id"] for r in (bm.data or [])}
+        rx = supabase_admin.table("discover_reactions").select("post_id").eq("user_id", user_id).execute()
+        reacted_ids = {r["post_id"] for r in (rx.data or [])}
+    return _row_to_item(result.data[0], bookmarked_ids, reacted_ids)
 
 
 @app.get("/api/discover/feed")
@@ -690,12 +746,15 @@ async def discover_feed(
 
     user_id = _optional_user_id(authorization)
     bookmarked_ids: set = set()
+    reacted_ids: set = set()
     if user_id:
         bm = supabase_admin.table("discover_bookmarks").select("post_id").eq("user_id", user_id).execute()
         bookmarked_ids = {r["post_id"] for r in (bm.data or [])}
+        rx = supabase_admin.table("discover_reactions").select("post_id").eq("user_id", user_id).execute()
+        reacted_ids = {r["post_id"] for r in (rx.data or [])}
 
     rows = result.data or []
-    items = [_row_to_item(r, bookmarked_ids) for r in rows]
+    items = [_row_to_item(r, bookmarked_ids, reacted_ids) for r in rows]
     next_cursor = rows[-1]["created_at"] if len(rows) == 10 else None
     return {"items": items, "nextCursor": next_cursor}
 
@@ -746,6 +805,26 @@ class TrackRequest(BaseModel):
 @app.post("/api/discover/track")
 async def track_impression(data: TrackRequest, authorization: Optional[str] = Header(None)):  # noqa: ARG001
     return {"ok": True}
+
+
+class ReactRequest(BaseModel):
+    postId: str
+
+
+@app.post("/api/discover/react")
+async def toggle_reaction(data: ReactRequest, authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    existing = supabase_admin.table("discover_reactions").select("id").eq("post_id", data.postId).eq("user_id", user_id).execute()
+    if existing.data:
+        supabase_admin.table("discover_reactions").delete().eq("post_id", data.postId).eq("user_id", user_id).execute()
+        reacted = False
+    else:
+        supabase_admin.table("discover_reactions").insert({"post_id": data.postId, "user_id": user_id}).execute()
+        reacted = True
+    count_res = supabase_admin.table("discover_reactions").select("id", count="exact").eq("post_id", data.postId).execute()
+    count = count_res.count or 0
+    supabase_admin.table("discover_posts").update({"reactions_count": count}).eq("id", data.postId).execute()
+    return {"reacted": reacted, "count": count}
 
 
 class BookmarkRequest(BaseModel):

@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
 import { useDiscover } from "../hooks/useDiscover";
+import { fetchDiscoverPost } from "../services/discoverService";
+import type { DiscoverItem } from "../services/discoverService";
 import CategoryChips from "../components/discover/CategoryChips";
 import DiscoverCard from "../components/discover/DiscoverCard";
 import ExpandedCard from "../components/discover/ExpandedCard";
@@ -17,6 +20,29 @@ export default function DiscoverPage() {
   const [helpVisible, setHelpVisible] = useState(true);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [applyPostId, setApplyPostId] = useState<string | null>(null);
+  const [linkedPost, setLinkedPost] = useState<DiscoverItem | null>(null);
+  const linkedPostRef = useRef<HTMLDivElement>(null);
+
+  const [searchParams] = useSearchParams();
+
+  // If ?post=ID in URL, fetch and highlight that specific post
+  useEffect(() => {
+    const postId = searchParams.get("post");
+    if (!postId) return;
+    fetchDiscoverPost(postId)
+      .then((post) => {
+        setLinkedPost(post);
+        setExpandedCardId(post.id);
+      })
+      .catch(() => {});
+  }, [searchParams]);
+
+  // Scroll to linked post once it renders
+  useEffect(() => {
+    if (linkedPost && linkedPostRef.current) {
+      setTimeout(() => linkedPostRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
+  }, [linkedPost]);
 
   const {
     tab,
@@ -94,6 +120,39 @@ export default function DiscoverPage() {
 
             {/* Category chips */}
             <CategoryChips active={activeChip} onChange={switchChip} />
+
+            {/* Linked post from message — shown at top, highlighted */}
+            {linkedPost && (
+              <div ref={linkedPostRef} className="mb-4">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                  <p className="text-xs text-primary font-semibold">Shared post</p>
+                  <button
+                    onClick={() => { setLinkedPost(null); setExpandedCardId(null); }}
+                    className="ml-auto text-xs text-text-muted hover:text-text-dark transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <div className="ring-2 ring-primary rounded-2xl">
+                  <DiscoverCard
+                    item={linkedPost}
+                    onBookmark={setBookmarked}
+                    isBookmarked={bookmarkedIds.has(linkedPost.id)}
+                    onGetStarted={
+                      linkedPost.type === "seeker"
+                        ? () => handleExpand(linkedPost.id)
+                        : () => setApplyPostId(linkedPost.id)
+                    }
+                    onExpand={linkedPost.type === "seeker" ? handleExpand : undefined}
+                    isExpanded={expandedCardId === linkedPost.id}
+                  />
+                  {linkedPost.type === "seeker" && expandedCardId === linkedPost.id && (
+                    <ExpandedCard item={linkedPost} onApply={() => setApplyPostId(linkedPost.id)} />
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Feed */}
             {loading ? (
@@ -174,15 +233,18 @@ export default function DiscoverPage() {
       </div>
 
       {/* Apply modal */}
-      {applyPostId && (
-        <ApplyModal
-          postId={applyPostId}
-          postTitle={items.find(i => i.id === applyPostId)?.title}
-          eligibilityCriteria={items.find(i => i.id === applyPostId)?.eligibilityCriteria}
-          documentsRequired={items.find(i => i.id === applyPostId)?.documentsRequired}
-          onClose={() => setApplyPostId(null)}
-        />
-      )}
+      {applyPostId && (() => {
+        const post = items.find(i => i.id === applyPostId) ?? (linkedPost?.id === applyPostId ? linkedPost : undefined);
+        return (
+          <ApplyModal
+            postId={applyPostId}
+            postTitle={post?.title}
+            eligibilityCriteria={post?.eligibilityCriteria}
+            documentsRequired={post?.documentsRequired}
+            onClose={() => setApplyPostId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
