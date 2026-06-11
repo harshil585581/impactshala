@@ -1034,3 +1034,103 @@ CREATE POLICY "Authenticated users can submit inquiries"
   TO authenticated
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+
+-- ============================================================
+-- Discover reactions table (for like toggle)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS discover_reactions (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id    UUID        NOT NULL REFERENCES discover_posts(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (post_id, user_id)
+);
+
+ALTER TABLE discover_reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own reactions"
+  ON discover_reactions FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+
+-- ============================================================
+-- Fix help_center_inquiries RLS to allow anyone to submit
+-- ============================================================
+
+DROP POLICY IF EXISTS "Authenticated users can submit inquiries" ON help_center_inquiries;
+
+CREATE POLICY "Anyone can submit inquiry"
+  ON help_center_inquiries FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY IF NOT EXISTS "Users can view own inquiries"
+  ON help_center_inquiries FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Nested comments (replies) — add parent_id to post_comments
+-- ============================================================
+
+ALTER TABLE post_comments
+  ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES post_comments(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_post_comments_parent_id ON post_comments(parent_id);
+
+-- ============================================================
+-- Comment Likes table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS comment_likes (
+  comment_id UUID        NOT NULL REFERENCES post_comments(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (comment_id, user_id)
+);
+
+ALTER TABLE comment_likes ENABLE ROW LEVEL SECURITY;
+
+-- All authenticated users can read likes (required for like counts)
+CREATE POLICY "Authenticated users can read comment likes"
+  ON comment_likes FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Users can like comments"
+  ON comment_likes FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can unlike own likes"
+  ON comment_likes FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Fix notifications RLS — allow any authenticated user to send
+-- a notification to another user (e.g., "X liked your comment")
+-- ============================================================
+
+DROP POLICY IF EXISTS "Users manage own notifications" ON notifications;
+
+CREATE POLICY "Users can read own notifications"
+  ON notifications FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Authenticated users can send notifications"
+  ON notifications FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Users can update own notifications"
+  ON notifications FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own notifications"
+  ON notifications FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);

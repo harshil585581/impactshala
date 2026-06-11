@@ -42,6 +42,7 @@ export type DiscoverItem = {
   reactions: number;
   comments: number;
   isBookmarked: boolean;
+  isLiked?: boolean;
   slug: string;
   opportunityNotes?: string;
   description?: string;
@@ -75,6 +76,15 @@ export type DiscoverFeedParams = {
   payment?: string;
   levelOfParticipant?: string;
 };
+
+export async function fetchDiscoverPost(postId: string): Promise<DiscoverItem> {
+  const res = await fetch(`${API_URL}/api/discover/post/${postId}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  const item: DiscoverItem = await res.json();
+  return normalizeItem(item);
+}
 
 export async function fetchDiscoverFeed(
   params: DiscoverFeedParams = {}
@@ -127,6 +137,18 @@ export async function trackImpression(postId: string): Promise<void> {
     headers: await authHeaders(),
     body: JSON.stringify({ postId }),
   });
+}
+
+export async function toggleReaction(
+  postId: string
+): Promise<{ reacted: boolean; count: number }> {
+  const res = await fetch(`${API_URL}/api/discover/react`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ postId }),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
 }
 
 export async function toggleBookmark(

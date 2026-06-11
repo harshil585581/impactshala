@@ -193,6 +193,91 @@ export async function uploadCourseImage(file: File): Promise<string> {
   return url;
 }
 
+export type MyCourse = {
+  id: string;
+  title: string;
+  program_level: string;
+  course_mode: string;
+  status: string;
+  created_at: string;
+  eligibility_criteria: string[];
+  required_documents: string[];
+};
+
+export type CourseApplication = {
+  id: string;
+  course_id: string;
+  user_id: string | null;
+  applicant_name: string;
+  applicant_email: string;
+  applicant_mobile: string | null;
+  message: string | null;
+  document_urls: string[];
+  created_at: string;
+};
+
+export async function fetchMyCourses(): Promise<MyCourse[]> {
+  const headers = await authHeaders();
+  if (!headers.Authorization) return [];
+  const res = await fetch(`${API_URL}/api/learning/my-courses`, { headers });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function fetchCourseApplications(courseId: string): Promise<CourseApplication[]> {
+  const headers = await authHeaders();
+  if (!headers.Authorization) return [];
+  const res = await fetch(`${API_URL}/api/learning/my-courses/${courseId}/applications`, { headers });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function fetchCourseApplicationCountsBatch(courseIds: string[]): Promise<Map<string, number>> {
+  if (!courseIds.length) return new Map();
+  await getFreshToken();
+  const { data } = await _supabase
+    .from('course_applications')
+    .select('course_id')
+    .in('course_id', courseIds);
+  const map = new Map<string, number>();
+  (data ?? []).forEach((r: { course_id: string }) => {
+    map.set(r.course_id, (map.get(r.course_id) ?? 0) + 1);
+  });
+  return map;
+}
+
+export type MyLearningApplication = {
+  id: string;
+  course_id: string;
+  applicant_name: string;
+  applicant_email: string;
+  applicant_mobile: string | null;
+  message: string | null;
+  document_urls: string[];
+  created_at: string;
+  course: {
+    id: string;
+    title: string;
+    program_level: string;
+    course_mode: string;
+    status: string;
+  } | null;
+};
+
+export async function fetchMyLearningApplications(): Promise<MyLearningApplication[]> {
+  await getFreshToken();
+  const { data: { session } } = await _supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) return [];
+  const { data, error } = await _supabase
+    .from('course_applications')
+    .select('id, course_id, applicant_name, applicant_email, applicant_mobile, message, document_urls, created_at, course:learning_courses(id, title, program_level, course_mode, status)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as MyLearningApplication[];
+}
+
 export async function applyToCourse(
   courseId: string,
   application: { name: string; email: string; mobile: string; message: string },

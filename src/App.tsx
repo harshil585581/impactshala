@@ -37,6 +37,7 @@ import MyApplicationsPage from './pages/applications/MyApplicationsPage';
 import DiscoverMyPostingsPage from './pages/applications/DiscoverMyPostingsPage';
 import ApplicantsDetailPage from './pages/applications/ApplicantsDetailPage';
 import MyPostingsPage from './pages/applications/MyPostingsPage';
+import LearningDirectoryMyApplicationsPage from './pages/applications/LearningDirectoryMyApplicationsPage';
 import DiscoverPage from './pages/DiscoverPage';
 
 import CreateProviderPage from './pages/discover/CreateProviderPage';
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="/applications/my-applications" element={<MyApplicationsPage />} />
         <Route path="/applications/my-postings" element={<MyPostingsPage />} />
         <Route path="/applications/detail/:postingId" element={<ApplicantsDetailPage />} />
+        <Route path="/applications/learning-directory" element={<LearningDirectoryMyApplicationsPage />} />
         <Route path="/employment-hub" element={<EmploymentHubDiscoveryPage />} />
         <Route path="/employment-hub/employer" element={<EmploymentHubPage />} />
         <Route path="/employment-hub/seeker" element={<JobSeekerHubPage />} />
