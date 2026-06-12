@@ -1,39 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, getAuthenticatedSession } from '../lib/supabase';
 import type { UserProfile, EditProfileForm } from '../types/profile';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const _supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL as string,
-  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-);
-
-async function getFreshToken(): Promise<string> {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const accessToken: string = stored.access_token ?? '';
-  const refreshToken: string = stored.refresh_token ?? '';
-  if (!accessToken) return '';
-  if (refreshToken) {
-    try {
-      const { data, error } = await _supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      if (!error && data.session) {
-        stored.access_token = data.session.access_token;
-        stored.refresh_token = data.session.refresh_token;
-        localStorage.setItem('user', JSON.stringify(stored));
-        return data.session.access_token;
-      }
-    } catch {
-      // fall through to stored token
-    }
-  }
-  return accessToken;
-}
-
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = await getFreshToken();
+  const session = await getAuthenticatedSession();
+  const token = session?.access_token ?? '';
   return token
     ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
     : { 'Content-Type': 'application/json' };
@@ -85,8 +57,8 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
 }
 
 export async function fetchProfile(userId: string): Promise<UserProfile> {
-  const { data: sessionData } = await _supabase.auth.getSession();
-  const currentUserId = sessionData.session?.user?.id ?? '';
+  const session = await getAuthenticatedSession();
+  const currentUserId = session?.user?.id ?? '';
   const isOwn = userId === 'me' || (!!currentUserId && userId === currentUserId);
 
   const endpoint = isOwn

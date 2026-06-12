@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import SubCategoryPills, { type GradeLevel } from "../../features/learning-directory/components/SubCategoryPills";
 import CollegeSubCategoryPills, { type AcademicLevel } from "../../features/learning-directory/components/CollegeSubCategoryPills";
 import Sidebar from "../../components/Sidebar";
@@ -963,6 +963,7 @@ function mapApiCourse(record: CourseRecord): Course {
 
 export default function LearningDirectoryPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>("professional");
   const [levelTab, setLevelTab] = useState<LevelTab>("beginner");
@@ -1005,6 +1006,25 @@ export default function LearningDirectoryPage() {
       .catch((e: Error) => setFetchError(e.message))
       .finally(() => setLoading(false));
   }, [mainTab]);
+
+  // Auto-open application modal when navigated with ?apply=<courseId>
+  useEffect(() => {
+    const applyId = searchParams.get("apply");
+    if (!applyId) return;
+    fetchCourses()
+      .then(records => {
+        const record = records.find(r => r.id === applyId);
+        if (!record) return;
+        const lvl = record.program_level as MainTab;
+        if (lvl === "school" || lvl === "college" || lvl === "professional") {
+          setMainTab(lvl);
+        }
+        openApplication(mapApiCourse(record));
+        setSearchParams(prev => { prev.delete("apply"); return prev; }, { replace: true });
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Client-side filter on top of the fetched list
   const displayedCourses = useMemo(() => {

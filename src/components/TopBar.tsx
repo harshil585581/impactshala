@@ -103,6 +103,14 @@ function NotifTypeIcon({ type }: { type: NotificationType }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function parseNotifMessage(raw: string): { text: string; post_id?: string; post_table?: string } {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.text === 'string') return parsed;
+  } catch { /* plain text */ }
+  return { text: raw };
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -187,9 +195,19 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       setUnreadCount((c) => Math.max(0, c - 1));
       markAsRead(n.id).catch(() => {});
     }
-    if (n.action_url) {
-      setNotifOpen(false);
+    setNotifOpen(false);
+    const parsed = parseNotifMessage(n.message);
+    if (parsed.post_id) {
+      const url = parsed.post_table === 'discover_posts'
+        ? `/discover?post=${parsed.post_id}`
+        : `/home?post=${parsed.post_id}`;
+      navigate(url);
+    } else if (n.action_url) {
       navigate(n.action_url);
+    } else {
+      if (n.type === 'application' || n.type === 'employment') navigate('/applications/my-applications');
+      else if (n.type === 'course') navigate('/applications/learning-directory');
+      else navigate('/home');
     }
   }
 
@@ -375,7 +393,9 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                     <p className="text-sm">You're all caught up!</p>
                   </div>
                 ) : (
-                  notifications.map((n) => (
+                  notifications.map((n) => {
+                    const parsed = parseNotifMessage(n.message);
+                    return (
                     <div
                       key={n.id}
                       onClick={() => handleNotifClick(n)}
@@ -383,8 +403,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                     >
                       <NotifTypeIcon type={n.type} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[#18191c] text-xs font-semibold leading-snug truncate">{n.title}</p>
-                        <p className="text-[#6b7280] text-xs leading-snug mt-0.5 line-clamp-2">{n.message}</p>
+                        <p className="text-[#18191c] text-xs font-semibold leading-snug truncate">{n.title || parsed.text}</p>
+                        {n.title && <p className="text-[#6b7280] text-xs leading-snug mt-0.5 line-clamp-2">{parsed.text}</p>}
                         <p className="text-[#ff9400] text-[11px] font-medium mt-1">{timeAgo(n.created_at)}</p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 pt-1">
@@ -400,7 +420,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                         </button>
                       </div>
                     </div>
-                  ))
+                  );
+                  })
                 )}
               </div>
 

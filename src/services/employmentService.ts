@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -7,18 +6,6 @@ async function requireSession() {
   const session = await getAuthenticatedSession();
   if (!session) throw new Error('Not logged in');
   return session;
-}
-
-// Direct-auth client — injects Bearer token in headers (same pattern as savedService).
-// Avoids relying on the shared supabase singleton's session state for RLS.
-function getAuthClient() {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const token: string | undefined = stored?.access_token;
-  return createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
-  );
 }
 
 function getStoredUserId(): string {
@@ -262,7 +249,7 @@ export async function fetchMyEmployerPostings(): Promise<EmployerPosting[]> {
   const userId = getStoredUserId();
   if (!userId) return [];
 
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('employment_hub_postings')
     .select('*')
     .eq('user_id', userId)
@@ -336,7 +323,7 @@ export async function deleteEmployerPosting(id: string): Promise<void> {
 }
 
 export async function fetchEmployerPostingById(id: string): Promise<EmployerPosting | null> {
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('employment_hub_postings')
     .select('*')
     .eq('id', id)
@@ -369,7 +356,7 @@ export async function submitApplication(
 ): Promise<void> {
   const userId = getStoredUserId();
   if (!userId) throw new Error('Not logged in');
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('employment_applications')
     .upsert(
       {
@@ -388,7 +375,7 @@ export async function submitApplication(
 export async function fetchApplicationsForPosting(
   postingId: string,
 ): Promise<EmploymentApplication[]> {
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('employment_applications')
     .select('*')
     .eq('posting_id', postingId)
@@ -401,7 +388,7 @@ export async function updateApplicationStatus(
   applicationId: string,
   status: ApplicationStatus,
 ): Promise<void> {
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('employment_applications')
     .update({ status })
     .eq('id', applicationId);
@@ -411,7 +398,7 @@ export async function updateApplicationStatus(
 export async function fetchMyApplicationsAsSeeker(): Promise<MyApplication[]> {
   const userId = getStoredUserId();
   if (!userId) return [];
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('employment_applications')
     .select('*, posting:employment_hub_postings (*)')
     .eq('applicant_id', userId)
@@ -424,7 +411,7 @@ export async function fetchApplicationCountsForPostings(
   postingIds: string[],
 ): Promise<Map<string, number>> {
   if (postingIds.length === 0) return new Map();
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('employment_applications')
     .select('posting_id')
     .in('posting_id', postingIds);

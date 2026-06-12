@@ -16,6 +16,7 @@ import {
 } from '../services/savedService';
 import type { FeedPost } from '../services/postService';
 import type { EmployerPosting } from '../services/employmentService';
+import ApplyModal from '../components/discover/ApplyModal';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -214,7 +215,7 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
 
 // ─── Discover Card ────────────────────────────────────────────────────────────
 
-function DiscoverMiniCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void }) {
+function DiscoverMiniCard({ post, onUnsave, onGetStarted }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void; onGetStarted: (id: string) => void }) {
 
   return (
     <div className="border border-[#f2f2f3] rounded-2xl bg-white hover:shadow-md transition-shadow overflow-hidden flex flex-col">
@@ -230,7 +231,7 @@ function DiscoverMiniCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onU
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <button className="bg-[#ff9400] text-white text-sm font-bold px-5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
+            <button onClick={() => onGetStarted(post.id)} className="bg-[#ff9400] text-white text-sm font-bold px-5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
               Get Started
             </button>
             <button onClick={() => onUnsave(post.id)} title="Remove from saved" className="text-[#ff9400] hover:text-red-400 transition-colors">
@@ -275,7 +276,7 @@ function DiscoverMiniCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onU
 
 // ─── Static mini cards ────────────────────────────────────────────────────────
 
-function LearningMiniCard({ post, onUnsave }: { post: SavedLearningSnapshot; onUnsave: (id: string) => void }) {
+function LearningMiniCard({ post, onUnsave, onGetStarted }: { post: SavedLearningSnapshot; onUnsave: (id: string) => void; onGetStarted: (id: string) => void }) {
   return (
     <div className="bg-white border border-[#c5c5c5] rounded-xl overflow-hidden flex flex-col hover:shadow-md transition-shadow cursor-pointer">
 
@@ -309,7 +310,7 @@ function LearningMiniCard({ post, onUnsave }: { post: SavedLearningSnapshot; onU
           {/* Right: buttons + bookmark */}
           <div className="flex items-start gap-2 shrink-0">
             <div className="flex flex-col gap-1.5">
-              <button className="bg-[#f77f00] text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
+              <button onClick={() => onGetStarted(post.id)} className="bg-[#f77f00] text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
                 Get Started
               </button>
               {post.brochureUrl && (
@@ -363,7 +364,7 @@ function LearningMiniCard({ post, onUnsave }: { post: SavedLearningSnapshot; onU
   );
 }
 
-function EmploymentMiniCard({ post, onUnsave }: { post: EmployerPosting; onUnsave: (id: string) => void }) {
+function EmploymentMiniCard({ post, onUnsave, onGetStarted }: { post: EmployerPosting; onUnsave: (id: string) => void; onGetStarted: (id: string) => void }) {
   const skills = post.preferred_skillsets
     ? post.preferred_skillsets.split(',').map(s => s.trim()).filter(Boolean)
     : [];
@@ -385,7 +386,7 @@ function EmploymentMiniCard({ post, onUnsave }: { post: EmployerPosting; onUnsav
 
         {/* Right: Get Started + unsave bookmark */}
         <div className="flex items-center gap-2 shrink-0">
-          <button className="bg-[#f77f00] text-white text-sm font-semibold px-6 py-2.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
+          <button onClick={() => onGetStarted(post.id)} className="bg-[#f77f00] text-white text-sm font-semibold px-6 py-2.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
             Get Started
           </button>
           <button
@@ -447,6 +448,7 @@ function EmploymentMiniCard({ post, onUnsave }: { post: EmployerPosting; onUnsav
 
 export default function SavedPostsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [applyPostId, setApplyPostId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const [communityPosts, setCommunityPosts] = useState<FeedPost[]>([]);
@@ -552,7 +554,7 @@ export default function SavedPostsPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {discoverPosts.map(p => (
-                  <DiscoverMiniCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} />
+                  <DiscoverMiniCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} onGetStarted={setApplyPostId} />
                 ))}
               </div>
             )}
@@ -571,7 +573,7 @@ export default function SavedPostsPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {learningCourses.map(p => (
-                  <LearningMiniCard key={p.id} post={p} onUnsave={handleLearningUnsave} />
+                  <LearningMiniCard key={p.id} post={p} onUnsave={handleLearningUnsave} onGetStarted={(id) => navigate(`/learning-directory?apply=${id}`)} />
                 ))}
               </div>
             )}
@@ -590,7 +592,7 @@ export default function SavedPostsPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {employmentPostings.map(p => (
-                  <EmploymentMiniCard key={p.id} post={p} onUnsave={handleEmploymentUnsave} />
+                  <EmploymentMiniCard key={p.id} post={p} onUnsave={handleEmploymentUnsave} onGetStarted={(id) => navigate(`/employment-hub?apply=${id}`)} />
                 ))}
               </div>
             )}
@@ -598,6 +600,14 @@ export default function SavedPostsPage() {
 
         </div>
       </div>
+
+      {applyPostId && (
+        <ApplyModal
+          postId={applyPostId}
+          postTitle={discoverPosts.find(p => p.id === applyPostId)?.title}
+          onClose={() => setApplyPostId(null)}
+        />
+      )}
     </div>
   );
 }

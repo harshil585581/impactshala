@@ -1,19 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, getAuthenticatedSession } from '../lib/supabase';
 import type { FeedPost } from './postService';
 import { toggleBookmark } from './discoverService';
 import type { EmployerPosting } from './employmentService';
 
-// ─── Supabase helpers (same pattern as postService) ───────────────────────────
-
-function getAuthClient() {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const token: string | undefined = stored?.access_token;
-  return createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
-  );
-}
+// ─── Supabase helpers ─────────────────────────────────────────────────────────
 
 function getUserId(): string {
   const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
@@ -26,7 +16,7 @@ function getUserId(): string {
 export async function savePost(postId: string): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_community_posts')
     .upsert({ user_id: userId, post_id: postId }, { onConflict: 'user_id,post_id' });
   if (error) throw new Error(error.message);
@@ -36,7 +26,7 @@ export async function savePost(postId: string): Promise<void> {
 export async function unsavePost(postId: string): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_community_posts')
     .delete()
     .eq('user_id', userId)
@@ -48,7 +38,7 @@ export async function unsavePost(postId: string): Promise<void> {
 export async function fetchSavedPostIds(): Promise<Set<string>> {
   const userId = getUserId();
   if (!userId) return new Set();
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('saved_community_posts')
     .select('post_id')
     .eq('user_id', userId);
@@ -60,7 +50,7 @@ export async function fetchSavedPostIds(): Promise<Set<string>> {
 export async function fetchSavedCommunityPosts(): Promise<FeedPost[]> {
   const userId = getUserId();
   if (!userId) return [];
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('saved_community_posts')
     .select(`
       saved_at,
@@ -112,7 +102,7 @@ export type SavedDiscoverSnapshot = {
 export async function saveDiscoverItem(snapshot: SavedDiscoverSnapshot): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_discover_items')
     .upsert(
       { user_id: userId, item_id: snapshot.id, item_data: snapshot },
@@ -125,7 +115,7 @@ export async function saveDiscoverItem(snapshot: SavedDiscoverSnapshot): Promise
 export async function unsaveDiscoverItem(itemId: string): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_discover_items')
     .delete()
     .eq('user_id', userId)
@@ -157,7 +147,7 @@ export type SavedLearningSnapshot = {
 export async function saveLearningCourse(snapshot: SavedLearningSnapshot): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_learning_courses')
     .upsert(
       { user_id: userId, course_id: snapshot.id, course_data: snapshot },
@@ -169,7 +159,7 @@ export async function saveLearningCourse(snapshot: SavedLearningSnapshot): Promi
 export async function unsaveLearningCourse(courseId: string): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_learning_courses')
     .delete()
     .eq('user_id', userId)
@@ -180,7 +170,7 @@ export async function unsaveLearningCourse(courseId: string): Promise<void> {
 export async function fetchSavedLearningCourseIds(): Promise<Set<string>> {
   const userId = getUserId();
   if (!userId) return new Set();
-  const { data } = await getAuthClient()
+  const { data } = await supabase
     .from('saved_learning_courses')
     .select('course_id')
     .eq('user_id', userId);
@@ -190,7 +180,7 @@ export async function fetchSavedLearningCourseIds(): Promise<Set<string>> {
 export async function fetchSavedLearningCourses(): Promise<SavedLearningSnapshot[]> {
   const userId = getUserId();
   if (!userId) return [];
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('saved_learning_courses')
     .select('course_data, saved_at')
     .eq('user_id', userId)
@@ -203,7 +193,7 @@ export async function fetchSavedLearningCourses(): Promise<SavedLearningSnapshot
 export async function fetchSavedDiscoverItems(): Promise<SavedDiscoverSnapshot[]> {
   const userId = getUserId();
   if (!userId) return [];
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('saved_discover_items')
     .select('item_data, saved_at')
     .eq('user_id', userId)
@@ -221,7 +211,7 @@ export async function fetchSavedDiscoverItems(): Promise<SavedDiscoverSnapshot[]
 export async function fetchSavedEmploymentPostingIds(): Promise<Set<string>> {
   const userId = getUserId();
   if (!userId) return new Set();
-  const { data } = await getAuthClient()
+  const { data } = await supabase
     .from('saved_employment_postings')
     .select('posting_id')
     .eq('user_id', userId);
@@ -231,7 +221,7 @@ export async function fetchSavedEmploymentPostingIds(): Promise<Set<string>> {
 export async function saveEmploymentPosting(postingId: string): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_employment_postings')
     .upsert({ user_id: userId, posting_id: postingId }, { onConflict: 'user_id,posting_id' });
   if (error) throw new Error(error.message);
@@ -240,7 +230,7 @@ export async function saveEmploymentPosting(postingId: string): Promise<void> {
 export async function unsaveEmploymentPosting(postingId: string): Promise<void> {
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('saved_employment_postings')
     .delete()
     .eq('user_id', userId)
@@ -252,7 +242,7 @@ export async function fetchSavedEmploymentPostings(): Promise<EmployerPosting[]>
   const userId = getUserId();
   if (!userId) return [];
 
-  const { data: savedRows, error: savedError } = await getAuthClient()
+  const { data: savedRows, error: savedError } = await supabase
     .from('saved_employment_postings')
     .select('posting_id, saved_at')
     .eq('user_id', userId)
@@ -262,7 +252,7 @@ export async function fetchSavedEmploymentPostings(): Promise<EmployerPosting[]>
   const ids = (savedRows ?? []).map((r) => r.posting_id as string);
   if (ids.length === 0) return [];
 
-  const { data, error } = await getAuthClient()
+  const { data, error } = await supabase
     .from('employment_hub_postings')
     .select('*')
     .in('id', ids);
