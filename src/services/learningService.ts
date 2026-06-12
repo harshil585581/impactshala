@@ -1,41 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase as _supabase, getAuthenticatedSession } from '../lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const _supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL as string,
-  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-);
-
-async function getFreshToken(): Promise<string> {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const accessToken: string = stored.access_token ?? '';
-  const refreshToken: string = stored.refresh_token ?? '';
-
-  if (!accessToken) return '';
-
-  if (refreshToken) {
-    try {
-      const { data, error } = await _supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      if (!error && data.session) {
-        stored.access_token = data.session.access_token;
-        stored.refresh_token = data.session.refresh_token;
-        localStorage.setItem('user', JSON.stringify(stored));
-        return data.session.access_token;
-      }
-    } catch {
-      // fall through to stored token
-    }
-  }
-
-  return accessToken;
-}
-
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = await getFreshToken();
+  const session = await getAuthenticatedSession();
+  const token = session?.access_token ?? '';
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -234,7 +203,7 @@ export async function fetchCourseApplications(courseId: string): Promise<CourseA
 
 export async function fetchCourseApplicationCountsBatch(courseIds: string[]): Promise<Map<string, number>> {
   if (!courseIds.length) return new Map();
-  await getFreshToken();
+  await getAuthenticatedSession();
   const { data } = await _supabase
     .from('course_applications')
     .select('course_id')
@@ -265,7 +234,7 @@ export type MyLearningApplication = {
 };
 
 export async function fetchMyLearningApplications(): Promise<MyLearningApplication[]> {
-  await getFreshToken();
+  await getAuthenticatedSession();
   const { data: { session } } = await _supabase.auth.getSession();
   const userId = session?.user?.id;
   if (!userId) return [];

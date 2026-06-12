@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import Sidebar from '../components/Sidebar';
+import ApplyModal from '../components/discover/ApplyModal';
 import likeIcon from '../assets/images/svg/like.svg';
 import heartIcon from '../assets/images/svg/heart.svg';
 import congratulateIcon from '../assets/images/svg/congratulate.svg';
@@ -77,7 +78,7 @@ function SkeletonCard() {
 
 // ─── Discover Card (matches Figma 303593:49846) ───────────────────────────────
 
-function DiscoverCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void }) {
+function DiscoverCard({ post, onUnsave, onGetStarted }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void; onGetStarted: (id: string) => void }) {
   const [showMore, setShowMore] = useState(false);
   const [liked, setLiked] = useState(false);
 
@@ -106,7 +107,10 @@ function DiscoverCard({ post, onUnsave }: { post: SavedDiscoverSnapshot; onUnsav
 
           {/* Get Started + bookmark */}
           <div className="flex items-center gap-1 shrink-0">
-            <button className="bg-[#f77f00] text-white text-[13px] font-semibold px-5 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
+            <button
+              onClick={() => onGetStarted(post.id)}
+              className="bg-[#f77f00] text-white text-[13px] font-semibold px-5 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+            >
               Get Started
             </button>
             <button
@@ -417,6 +421,7 @@ export default function SavedCategoryPage() {
   const [discoverPosts, setDiscoverPosts] = useState<SavedDiscoverSnapshot[]>([]);
   const [communityPosts, setCommunityPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [applyPostId, setApplyPostId] = useState<string | null>(null);
 
   const meta = CATEGORY_META[category] ?? CATEGORY_META.discover;
 
@@ -470,7 +475,7 @@ export default function SavedCategoryPage() {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {discoverPosts.map(p => (
-            <DiscoverCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} />
+            <DiscoverCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} onGetStarted={setApplyPostId} />
           ))}
         </div>
       );
@@ -540,6 +545,14 @@ export default function SavedCategoryPage() {
 
         </div>
       </div>
+
+      {applyPostId && (
+        <ApplyModal
+          postId={applyPostId}
+          postTitle={discoverPosts.find(p => p.id === applyPostId)?.title}
+          onClose={() => setApplyPostId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -106,6 +106,14 @@ function TypeBadge({ type }: { type: NotificationType }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function parseNotifMessage(raw: string): { text: string; post_id?: string; post_table?: string } {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.text === 'string') return parsed;
+  } catch { /* plain text */ }
+  return { text: raw };
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -155,7 +163,8 @@ export default function NotificationsPage() {
   const filtered = debouncedSearch
     ? notifications.filter((n) => {
         const q = debouncedSearch.toLowerCase();
-        return n.title.toLowerCase().includes(q) || n.message.toLowerCase().includes(q);
+        const text = parseNotifMessage(n.message).text.toLowerCase();
+        return (n.title ?? '').toLowerCase().includes(q) || text.includes(q);
       })
     : notifications;
 
@@ -213,7 +222,18 @@ export default function NotificationsPage() {
 
   function handleClick(n: Notification) {
     handleMarkRead(n);
-    if (n.action_url) navigate(n.action_url);
+    const parsed = parseNotifMessage(n.message);
+    if (parsed.post_id) {
+      const url = parsed.post_table === 'discover_posts'
+        ? `/discover?post=${parsed.post_id}`
+        : `/home?post=${parsed.post_id}`;
+      navigate(url);
+    } else if (n.action_url) {
+      navigate(n.action_url);
+    } else {
+      if (n.type === 'application' || n.type === 'employment') navigate('/applications/my-applications');
+      else if (n.type === 'course') navigate('/applications/learning-directory');
+    }
   }
 
   // BUG-005 fix: roll back if delete fails
@@ -362,7 +382,9 @@ export default function NotificationsPage() {
               </div>
             ) : (
               <div className="divide-y divide-[#f2f2f3]">
-                {filtered.map((n) => (
+                {filtered.map((n) => {
+                  const parsed = parseNotifMessage(n.message);
+                  return (
                   <div
                     key={n.id}
                     onClick={() => handleClick(n)}
@@ -374,14 +396,14 @@ export default function NotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
                         <p className={`text-sm leading-snug ${n.is_read ? 'text-[#18191c] font-medium' : 'text-[#18191c] font-bold'}`}>
-                          {n.title}
+                          {n.title || parsed.text}
                         </p>
                         <TypeBadge type={n.type} />
                         {!n.is_read && (
                           <span className="w-2 h-2 rounded-full bg-[#ff9400] shrink-0" />
                         )}
                       </div>
-                      <p className="text-[#6b7280] text-[13px] leading-relaxed">{n.message}</p>
+                      {n.title && <p className="text-[#6b7280] text-[13px] leading-relaxed">{parsed.text}</p>}
                       <p className="text-[#ff9400] text-xs font-medium mt-1.5">{timeAgo(n.created_at)}</p>
                     </div>
 
@@ -406,7 +428,8 @@ export default function NotificationsPage() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
 export type NotificationType =
   | 'message'
@@ -12,7 +12,7 @@ export type NotificationType =
 export interface Notification {
   id: string;
   user_id: string;
-  title: string;
+  title?: string | null;
   message: string;
   type: NotificationType;
   is_read: boolean;
@@ -21,19 +21,13 @@ export interface Notification {
   created_at: string;
 }
 
-function getAuthClient() {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const token: string | undefined = stored?.access_token;
-  return createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
-  );
-}
-
 function getUserId(): string {
   const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
   return stored?.id ?? '';
+}
+
+async function ensureAuth() {
+  await getAuthenticatedSession();
 }
 
 export async function fetchNotifications(
@@ -41,10 +35,11 @@ export async function fetchNotifications(
   offset = 0,
   onlyUnread = false,
 ): Promise<Notification[]> {
+  await ensureAuth();
   const userId = getUserId();
   if (!userId) return [];
 
-  let query = getAuthClient()
+  let query = supabase
     .from('notifications')
     .select('*')
     .eq('user_id', userId)
@@ -59,10 +54,11 @@ export async function fetchNotifications(
 }
 
 export async function fetchUnreadCount(): Promise<number> {
+  await ensureAuth();
   const userId = getUserId();
   if (!userId) return 0;
 
-  const { count, error } = await getAuthClient()
+  const { count, error } = await supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
@@ -73,7 +69,8 @@ export async function fetchUnreadCount(): Promise<number> {
 }
 
 export async function markAsRead(id: string): Promise<void> {
-  const { error } = await getAuthClient()
+  await ensureAuth();
+  const { error } = await supabase
     .from('notifications')
     .update({ is_read: true })
     .eq('id', id);
@@ -81,9 +78,10 @@ export async function markAsRead(id: string): Promise<void> {
 }
 
 export async function markAllAsRead(): Promise<void> {
+  await ensureAuth();
   const userId = getUserId();
   if (!userId) return;
-  const { error } = await getAuthClient()
+  const { error } = await supabase
     .from('notifications')
     .update({ is_read: true })
     .eq('user_id', userId)
@@ -92,7 +90,8 @@ export async function markAllAsRead(): Promise<void> {
 }
 
 export async function deleteNotification(id: string): Promise<void> {
-  const { error } = await getAuthClient()
+  await ensureAuth();
+  const { error } = await supabase
     .from('notifications')
     .delete()
     .eq('id', id);
@@ -101,7 +100,7 @@ export async function deleteNotification(id: string): Promise<void> {
 
 export interface CreateNotificationPayload {
   user_id: string;
-  title: string;
+  title?: string;
   message: string;
   type: NotificationType;
   action_url?: string;
@@ -109,7 +108,8 @@ export interface CreateNotificationPayload {
 }
 
 export async function createNotification(payload: CreateNotificationPayload): Promise<void> {
-  const { error } = await getAuthClient()
+  await ensureAuth();
+  const { error } = await supabase
     .from('notifications')
     .insert(payload);
   if (error) throw new Error(error.message);

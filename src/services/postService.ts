@@ -1,19 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
 export type PostVisibility = 'public' | 'community';
-
-function getAuthClient() {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const token: string | undefined = stored?.access_token;
-
-  return createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    token
-      ? { global: { headers: { Authorization: `Bearer ${token}` } } }
-      : undefined,
-  );
-}
 
 function getUserId(): string {
   const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
@@ -21,17 +8,17 @@ function getUserId(): string {
 }
 
 async function uploadFile(file: File, userId: string): Promise<string> {
-  const client = getAuthClient();
+  await getAuthenticatedSession();
   const ext = file.name.split('.').pop() ?? 'bin';
   const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
-  const { error } = await client.storage
+  const { error } = await supabase.storage
     .from('post-media')
     .upload(path, file, { cacheControl: '3600', upsert: false });
 
   if (error) throw new Error(`Upload failed: ${error.message}`);
 
-  const { data } = client.storage.from('post-media').getPublicUrl(path);
+  const { data } = supabase.storage.from('post-media').getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -43,10 +30,9 @@ export async function createPhotoPost(params: {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
 
-  const client = getAuthClient();
   const mediaUrls = await Promise.all(params.files.map(f => uploadFile(f, userId)));
 
-  const { error } = await client.from('posts').insert({
+  const { error } = await supabase.from('posts').insert({
     user_id: userId,
     post_type: 'photo',
     content: params.content,
@@ -64,10 +50,9 @@ export async function createVideoPost(params: {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
 
-  const client = getAuthClient();
   const mediaUrl = await uploadFile(params.file, userId);
 
-  const { error } = await client.from('posts').insert({
+  const { error } = await supabase.from('posts').insert({
     user_id: userId,
     post_type: 'video',
     content: params.content,
@@ -94,14 +79,14 @@ export async function createEventPost(params: {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
 
-  const client = getAuthClient();
-
   let coverImageUrl: string | null = null;
   if (params.coverFile) {
     coverImageUrl = await uploadFile(params.coverFile, userId);
+  } else {
+    await getAuthenticatedSession();
   }
 
-  const { error } = await client.from('posts').insert({
+  const { error } = await supabase.from('posts').insert({
     user_id: userId,
     post_type: 'event',
     event_type: params.eventType,
@@ -127,8 +112,8 @@ export async function createPollPost(params: {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
 
-  const client = getAuthClient();
-  const { error } = await client.from('posts').insert({
+  await getAuthenticatedSession();
+  const { error } = await supabase.from('posts').insert({
     user_id: userId,
     post_type: 'poll',
     poll_question: params.question,
@@ -145,8 +130,8 @@ export async function createQuestionPost(params: {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
 
-  const client = getAuthClient();
-  const { error } = await client.from('posts').insert({
+  await getAuthenticatedSession();
+  const { error } = await supabase.from('posts').insert({
     user_id: userId,
     post_type: 'question',
     question_text: params.question,
@@ -200,11 +185,11 @@ export async function fetchFeedPosts(
   filter: FeedFilter = 'all',
   page = 0,
 ): Promise<FeedPost[]> {
-  const client = getAuthClient();
+  await getAuthenticatedSession();
   const from = page * FEED_PAGE_SIZE;
   const to = from + FEED_PAGE_SIZE - 1;
 
-  let query = client
+  let query = supabase
     .from('posts')
     .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
     .order('created_at', { ascending: false })
@@ -220,8 +205,8 @@ export async function fetchFeedPosts(
 }
 
 export async function fetchPostById(postId: string): Promise<FeedPost | null> {
-  const client = getAuthClient();
-  const { data, error } = await client
+  await getAuthenticatedSession();
+  const { data, error } = await supabase
     .from('posts')
     .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
     .eq('id', postId)
@@ -233,20 +218,20 @@ export async function fetchPostById(postId: string): Promise<FeedPost | null> {
 export async function togglePostLike(postId: string, like: boolean): Promise<void> {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
-  const client = getAuthClient();
+  await getAuthenticatedSession();
   if (like) {
-    const { error } = await client.from('post_likes').upsert({ post_id: postId, user_id: userId });
+    const { error } = await supabase.from('post_likes').upsert({ post_id: postId, user_id: userId });
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await client.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId);
+    const { error } = await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId);
     if (error) throw new Error(error.message);
   }
 }
 
 export async function fetchCommentCounts(postIds: string[]): Promise<Record<string, number>> {
   if (!postIds.length) return {};
-  const client = getAuthClient();
-  const { data } = await client
+  await getAuthenticatedSession();
+  const { data } = await supabase
     .from('post_comments')
     .select('post_id')
     .eq('post_table', 'posts')
@@ -261,15 +246,15 @@ export async function fetchCommentCounts(postIds: string[]): Promise<Record<stri
 export async function fetchLikedPostIds(): Promise<Set<string>> {
   const userId = getUserId();
   if (!userId) return new Set();
-  const client = getAuthClient();
-  const { data } = await client.from('post_likes').select('post_id').eq('user_id', userId);
+  await getAuthenticatedSession();
+  const { data } = await supabase.from('post_likes').select('post_id').eq('user_id', userId);
   return new Set((data ?? []).map((r: { post_id: string }) => r.post_id));
 }
 
 export async function fetchLikesCounts(postIds: string[]): Promise<Record<string, number>> {
   if (!postIds.length) return {};
-  const client = getAuthClient();
-  const { data } = await client.from('post_likes').select('post_id').in('post_id', postIds);
+  await getAuthenticatedSession();
+  const { data } = await supabase.from('post_likes').select('post_id').in('post_id', postIds);
   const counts: Record<string, number> = {};
   for (const r of (data ?? []) as { post_id: string }[]) {
     counts[r.post_id] = (counts[r.post_id] ?? 0) + 1;
@@ -283,8 +268,8 @@ export async function fetchPollData(postId: string): Promise<{
   totalVotes: number;
 }> {
   const userId = getUserId();
-  const client = getAuthClient();
-  const { data } = await client
+  await getAuthenticatedSession();
+  const { data } = await supabase
     .from('poll_votes')
     .select('option_index, user_id')
     .eq('post_id', postId);
@@ -302,8 +287,8 @@ export async function fetchPollData(postId: string): Promise<{
 export async function voteOnPoll(postId: string, optionIndex: number): Promise<void> {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
-  const client = getAuthClient();
-  await client
+  await getAuthenticatedSession();
+  await supabase
     .from('poll_votes')
     .upsert({ post_id: postId, user_id: userId, option_index: optionIndex });
 }
@@ -311,8 +296,8 @@ export async function voteOnPoll(postId: string, optionIndex: number): Promise<v
 export async function unvoteOnPoll(postId: string): Promise<void> {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
-  const client = getAuthClient();
-  await client
+  await getAuthenticatedSession();
+  await supabase
     .from('poll_votes')
     .delete()
     .eq('post_id', postId)
@@ -320,8 +305,8 @@ export async function unvoteOnPoll(postId: string): Promise<void> {
 }
 
 export async function fetchUserPosts(userId: string): Promise<FeedPost[]> {
-  const client = getAuthClient();
-  const { data, error } = await client
+  await getAuthenticatedSession();
+  const { data, error } = await supabase
     .from('posts')
     .select('*, user:users!posts_user_id_fkey(first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
     .eq('user_id', userId)

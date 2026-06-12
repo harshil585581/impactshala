@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
 export type Experience = {
   id: string;
@@ -19,23 +19,13 @@ export type Experience = {
 
 export type ExperienceInput = Omit<Experience, 'id' | 'user_id' | 'created_at'>;
 
-function getAuthClient() {
-  const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const token: string | undefined = stored?.access_token;
-  return createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
-  );
-}
-
 function getUserId(): string {
   return JSON.parse(localStorage.getItem('user') ?? '{}')?.id ?? '';
 }
 
 export async function fetchExperiences(userId: string): Promise<Experience[]> {
-  const client = getAuthClient();
-  const { data, error } = await client
+  await getAuthenticatedSession();
+  const { data, error } = await supabase
     .from('experiences')
     .select('*')
     .eq('user_id', userId)
@@ -48,20 +38,20 @@ export async function fetchExperiences(userId: string): Promise<Experience[]> {
 export async function createExperience(input: ExperienceInput): Promise<void> {
   const userId = getUserId();
   if (!userId) throw new Error('Not logged in');
-  const client = getAuthClient();
-  const { error } = await client.from('experiences').insert({ ...input, user_id: userId });
+  await getAuthenticatedSession();
+  const { error } = await supabase.from('experiences').insert({ ...input, user_id: userId });
   if (error) throw new Error(error.message);
 }
 
 export async function updateExperience(id: string, input: ExperienceInput): Promise<void> {
-  const client = getAuthClient();
-  const { error } = await client.from('experiences').update(input).eq('id', id);
+  await getAuthenticatedSession();
+  const { error } = await supabase.from('experiences').update(input).eq('id', id);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteExperience(id: string): Promise<void> {
-  const client = getAuthClient();
-  const { error } = await client.from('experiences').delete().eq('id', id);
+  await getAuthenticatedSession();
+  const { error } = await supabase.from('experiences').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
 

@@ -1,5 +1,7 @@
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+
 async function ensureSession() {
   return await getAuthenticatedSession();
 }
@@ -110,7 +112,8 @@ export async function createComment(
   postTable: 'posts' | 'discover_posts' = 'posts',
   parentId?: string,
 ): Promise<PostComment> {
-  const userId = await getSessionUserId();
+  const session = await ensureSession();
+  const userId = session?.user?.id ?? getUserId();
   if (!userId) throw new Error('Not logged in');
 
   const payload: Record<string, unknown> = {
@@ -128,6 +131,41 @@ export async function createComment(
     .single();
 
   if (error) throw new Error(error.message);
+
+  // Notify @mentioned users — backend resolves slugs server-side via supabase_admin
+  if (/@[\w]+/.test(content)) {
+    try {
+      const { data: me } = await supabase
+        .from('users')
+        .select('first_name, last_name, org_name')
+        .eq('id', userId)
+        .single();
+      const commenterName = me
+        ? ([me.first_name, me.last_name].filter(Boolean).join(' ') || me.org_name || 'Someone')
+        : 'Someone';
+      const token = session?.access_token ?? '';
+      const res = await fetch(`${API_URL}/api/comments/notify-mentions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          content,
+          commenter_name: commenterName,
+          post_id: postId,
+          post_table: postTable,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        console.warn('[mention notify] backend error:', err);
+      }
+    } catch (e) {
+      console.warn('[mention notify] failed:', e);
+    }
+  }
+
   return data as unknown as PostComment;
 }
 
@@ -172,7 +210,7 @@ export async function toggleCommentLike(
           user_id: commentAuthorId,
           title: 'Someone liked your comment',
           message: `${likerName} liked your comment`,
-          type: 'system',
+          type: 'application',
         });
       } catch { /* notification failure is non-fatal */ }
     }

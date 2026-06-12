@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import TopBar from '../../components/TopBar';
 import Sidebar from '../../components/Sidebar';
 import { cn } from '@/lib/cn';
@@ -2036,6 +2036,7 @@ function ApplicantsView({
 export default function EmploymentHubDiscoveryPage() {
   useRequireAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('hire');
@@ -2123,6 +2124,18 @@ export default function EmploymentHubDiscoveryPage() {
       .then(setSavedIds)
       .catch(() => {});
   }, []);
+
+  // Auto-open apply modal when navigated with ?apply=<jobId>
+  useEffect(() => {
+    const applyId = searchParams.get('apply');
+    if (!applyId || postings.length === 0) return;
+    const match = postings.find(p => p.id === applyId);
+    if (match) {
+      setApplyPosting(match);
+      setSearchParams(prev => { prev.delete('apply'); return prev; }, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postings, searchParams]);
 
   useEffect(() => {
     setPage(1);

@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, List, Optional
@@ -1587,3 +1588,99 @@ async def upload_message_file(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
     url = supabase_admin.storage.from_("post-media").get_public_url(path)
     return {"url": url, "name": file.filename}
+
+
+class MentionNotifyRequest(BaseModel):
+    content: str
+    commenter_name: str
+    post_id: Optional[str] = None
+    post_table: Optional[str] = None
+
+
+@app.post("/api/comments/notify-mentions")
+async def notify_comment_mentions(
+    body: MentionNotifyRequest,
+    authorization: str = Header(None),
+):
+    """
+    Parse @slugs from comment text, resolve to user IDs via DB name matching,
+    then insert notifications via direct REST POST with the caller's JWT
+    (authenticated role — avoids service-role PostgREST schema cache issues).
+    """
+    import json as _json
+    import urllib.request as _urllib
+    import urllib.error
+
+    commenter_id = get_user_id(authorization)
+    access_token = (authorization or "").split(" ", 1)[-1]
+
+    slugs = list(set(re.findall(r'@([\w]+)', body.content)))
+    if not slugs:
+        return {"notified": 0}
+
+    all_users_resp = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name"
+    ).execute()
+    all_users = all_users_resp.data or []
+
+    notified = 0
+    seen_ids: set = set()
+
+    for slug in slugs:
+        slug_lower = slug.lower()
+        for u in all_users:
+            uid = u.get("id", "")
+            if uid in seen_ids or uid == commenter_id:
+                continue
+            first = (u.get("first_name") or "").strip()
+            last = (u.get("last_name") or "").strip()
+            org = (u.get("org_name") or "").strip()
+
+            full_name = f"{first} {last}".strip()
+            candidates = set()
+            if full_name:
+                candidates.add(re.sub(r'\s+', '_', full_name).lower())
+            if org:
+                candidates.add(re.sub(r'\s+', '_', org).lower())
+            if first:
+                candidates.add(first.lower())
+            if last:
+                candidates.add(last.lower())
+
+            if slug_lower in candidates:
+                seen_ids.add(uid)
+                try:
+                    msg_data: dict = {
+                        "text": f"{body.commenter_name} mentioned you in a comment",
+                    }
+                    if body.post_id:
+                        msg_data["post_id"] = body.post_id
+                        msg_data["post_table"] = body.post_table or "posts"
+                    notif: dict = {
+                        "user_id": uid,
+                        "message": _json.dumps(msg_data),
+                        "type": "message",
+                    }
+                    payload = _json.dumps(notif).encode("utf-8")
+                    req = _urllib.Request(
+                        f"{SUPABASE_URL}/rest/v1/notifications",
+                        data=payload,
+                        headers={
+                            "apikey": SUPABASE_KEY,
+                            "Authorization": f"Bearer {access_token}",
+                            "Content-Type": "application/json",
+                            "Prefer": "return=minimal",
+                        },
+                        method="POST",
+                    )
+                    try:
+                        with _urllib.urlopen(req) as resp:
+                            if resp.status < 300:
+                                notified += 1
+                    except urllib.error.HTTPError as http_err:
+                        body_bytes = http_err.read()
+                        print(f"[mention notify] HTTP {http_err.code} for uid={uid}: {body_bytes.decode('utf-8', errors='replace')}")
+                except Exception as e:
+                    print(f"[mention notify] failed for uid={uid}: {e}")
+
+    return {"notified": notified}

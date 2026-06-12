@@ -1,27 +1,19 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
 import TopBar from "../../components/TopBar";
 import Sidebar from "../../components/Sidebar";
 import { createProviderPost } from "../../services/discoverService";
 import DiscoverSidePanel from "../../components/discover/DiscoverSidePanel";
+import { supabase, getAuthenticatedSession } from "../../lib/supabase";
 
 async function uploadCoverImage(file: File): Promise<string> {
-  const stored = JSON.parse(localStorage.getItem("user") ?? "{}");
-  const token: string | undefined = stored?.access_token;
-  const userId: string = stored?.id ?? "anon";
-  const client = createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    token ? { global: { headers: { Authorization: `Bearer ${token}` } } } : undefined,
-  );
+  const session = await getAuthenticatedSession();
+  const userId: string = session?.user?.id ?? JSON.parse(localStorage.getItem("user") ?? "{}").id ?? "anon";
   const ext = file.name.split(".").pop() ?? "jpg";
-  // Path must start with userId so the storage policy check passes:
-  // policy: auth.uid() = storage.foldername(name)[1]  (first folder = userId)
   const path = `${userId}/discover_${Date.now()}.${ext}`;
-  const { error } = await client.storage.from("post-media").upload(path, file, { cacheControl: "3600", upsert: false });
+  const { error } = await supabase.storage.from("post-media").upload(path, file, { cacheControl: "3600", upsert: false });
   if (error) throw new Error(error.message);
-  return client.storage.from("post-media").getPublicUrl(path).data.publicUrl;
+  return supabase.storage.from("post-media").getPublicUrl(path).data.publicUrl;
 }
 
 export default function CreateProviderPreviewPage() {
