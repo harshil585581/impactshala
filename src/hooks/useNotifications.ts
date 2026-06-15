@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   fetchNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
-  dismissNotification,
-  dismissAllNotifications,
+  markAsRead as markNotificationRead,
+  markAllAsRead as markAllNotificationsRead,
+  deleteNotification as dismissNotification,
+  deleteAllNotifications as dismissAllNotifications,
   type AppNotification,
 } from '../services/notificationService';
 

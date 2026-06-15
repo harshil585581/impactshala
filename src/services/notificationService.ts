@@ -21,6 +21,15 @@ export interface Notification {
   created_at: string;
 }
 
+export interface AppNotification extends Notification {
+  actor?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    org_name?: string | null;
+    avatar_url?: string | null;
+  } | null;
+}
+
 function getUserId(): string {
   const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
   return stored?.id ?? '';
@@ -95,6 +104,14 @@ export async function deleteNotification(id: string): Promise<void> {
     .from('notifications')
     .delete()
     .eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteAllNotifications(): Promise<void> {
+  await ensureAuth();
+  const userId = getUserId();
+  if (!userId) return;
+  const { error } = await supabase.from('notifications').delete().eq('user_id', userId);
   if (error) throw new Error(error.message);
 }
 

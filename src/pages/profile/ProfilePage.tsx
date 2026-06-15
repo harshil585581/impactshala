@@ -20,7 +20,7 @@ import AchievementDetailModal from '../../components/profile/AchievementDetailMo
 import { fetchEducations, deleteEducation, formatEducationPeriod, formatEducationDegree } from '../../services/educationService';
 import type { Education } from '../../services/educationService';
 import AddEducationModal from '../../components/profile/AddEducationModal';
-import { fetchUserPosts, type FeedPost } from '../../services/postService';
+import { fetchUserPosts, deletePost, type FeedPost } from '../../services/postService';
 import {
   fetchCollaborativeAccomplishments,
 } from '../../services/collaborativeAccomplishmentService';
@@ -272,6 +272,8 @@ export default function ProfilePage() {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [showAllExp, setShowAllExp] = useState(false);
   const [showAllEdu, setShowAllEdu] = useState(false);
+  const [showAllPosts, setShowAllPosts] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   const { profile, loading, saving, toasts, removeToast, saveProfile, follow } = useProfile(userId);
 
@@ -816,7 +818,7 @@ export default function ProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#18191c] text-base font-semibold">Recent Posts</h3>
-                    <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
+                    <button onClick={() => setShowAllPosts(true)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   {posts.length === 0 ? (
                     <p className="text-[#9199a3] text-sm">No posts yet.</p>
@@ -928,6 +930,77 @@ export default function ProfilePage() {
           onSave={async (data) => { await saveProfile(data); setEditOpen(false); }}
           onClose={() => setEditOpen(false)}
         />
+      )}
+
+      {showAllPosts && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setShowAllPosts(false); setDeletingPostId(null); }}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3]">
+              <h2 className="text-[#18191c] text-base font-semibold">All Posts</h2>
+              <button onClick={() => { setShowAllPosts(false); setDeletingPostId(null); }} className="text-[#9199a3] hover:text-[#18191c]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
+              {posts.length === 0 ? (
+                <p className="text-[#9199a3] text-sm text-center py-8">No posts yet.</p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {posts.map((post) => {
+                    const img = post.media_urls?.[0] || post.cover_image_url || postImg1;
+                    const title = post.event_title || post.poll_question || post.question_text || post.content?.slice(0, 80) || 'Post';
+                    const desc = post.content || post.event_description || '';
+                    const isConfirming = deletingPostId === post.id;
+                    return (
+                      <div key={post.id} className="flex gap-4 rounded-xl border border-[#f2f2f3] overflow-hidden bg-white hover:shadow-md transition-shadow">
+                        <img src={img} alt={title} className="w-24 h-20 object-cover flex-shrink-0 bg-slate-50" />
+                        <div className="py-3 pr-3 flex items-center flex-1 min-w-0 gap-3">
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <p className="text-[#18191c] text-sm font-semibold leading-snug line-clamp-2">{title}</p>
+                            {desc && <p className="text-[#9199a3] text-xs mt-1.5 leading-snug line-clamp-2">{desc}</p>}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {isConfirming ? (
+                              <>
+                                <span className="text-xs text-[#9199a3]">Delete?</span>
+                                <button
+                                  onClick={async () => {
+                                    await deletePost(post.id);
+                                    setPosts((prev) => prev.filter((p) => p.id !== post.id));
+                                    setDeletingPostId(null);
+                                  }}
+                                  className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg font-medium"
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  onClick={() => setDeletingPostId(null)}
+                                  className="text-xs text-[#18191c] bg-[#f2f2f3] hover:bg-[#e8e8e8] px-2.5 py-1 rounded-lg font-medium"
+                                >
+                                  No
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => setDeletingPostId(post.id)}
+                                className="text-[#9199a3] hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50"
+                                title="Delete post"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />

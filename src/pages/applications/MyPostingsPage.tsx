@@ -493,13 +493,13 @@ export default function MyPostingsPage() {
                       )}
 
                       {/* Skills */}
-                      {(selectedProfile?.technical_skills?.length > 0 || selectedProfile?.soft_skills?.length > 0) && (
+                      {((selectedProfile?.technical_skills?.length ?? 0) > 0 || (selectedProfile?.soft_skills?.length ?? 0) > 0) && (
                         <div>
                           <p className="text-[#9ca3af] text-xs font-semibold mb-2">Skills</p>
                           <div className="flex flex-wrap gap-1.5">
                             {[
-                              ...(selectedProfile.technical_skills ?? []),
-                              ...(selectedProfile.soft_skills ?? []),
+                              ...(selectedProfile?.technical_skills ?? []),
+                              ...(selectedProfile?.soft_skills ?? []),
                             ].slice(0, 8).map((sk, i) => (
                               <span key={i} className="text-xs bg-[#fff3e0] text-[#f77f00] px-2.5 py-0.5 rounded-full">
                                 {sk}

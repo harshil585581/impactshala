@@ -1,4 +1,4 @@
-import { supabase, getAuthenticatedSession } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { FeedPost } from './postService';
 import { toggleBookmark } from './discoverService';
 import type { EmployerPosting } from './employmentService';

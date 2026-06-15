@@ -1,4 +1,4 @@
-import { supabase, getAuthenticatedSession } from '../lib/supabase';
+import { getAuthenticatedSession } from '../lib/supabase';
 import type { UserProfile, EditProfileForm } from '../types/profile';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';

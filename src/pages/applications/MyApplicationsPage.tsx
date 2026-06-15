@@ -53,7 +53,6 @@ function Skeleton({ className }: { className?: string }) {
 // ─── Seeker view ──────────────────────────────────────────────────────────────
 
 function SeekerView() {
-  const navigate = useNavigate();
   const [apps, setApps] = useState<MyApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('all');
