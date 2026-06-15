@@ -304,6 +304,12 @@ export async function unvoteOnPoll(postId: string): Promise<void> {
     .eq('user_id', userId);
 }
 
+export async function deletePost(postId: string): Promise<void> {
+  await getAuthenticatedSession();
+  const { error } = await supabase.from('posts').delete().eq('id', postId);
+  if (error) throw new Error(error.message);
+}
+
 export async function fetchUserPosts(userId: string): Promise<FeedPost[]> {
   await getAuthenticatedSession();
   const { data, error } = await supabase
