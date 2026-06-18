@@ -9,9 +9,10 @@ const OPTIONS: { value: PostVisibility; label: string; sub: string }[] = [
 type Props = {
   value: PostVisibility;
   onChange: (v: PostVisibility) => void;
+  openUp?: boolean;
 };
 
-export function VisibleToDropdown({ value, onChange }: Props) {
+export function VisibleToDropdown({ value, onChange, openUp = true }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,7 +40,7 @@ export function VisibleToDropdown({ value, onChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 min-w-[270px] overflow-hidden">
+        <div className={`absolute ${openUp ? 'bottom-full mb-2' : 'top-full mt-2'} left-0 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 min-w-[270px] overflow-hidden`}>
           {OPTIONS.map(opt => (
             <button
               key={opt.value}

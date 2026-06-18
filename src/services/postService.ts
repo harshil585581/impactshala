@@ -163,6 +163,7 @@ export type FeedPost = {
   question_text: string | null;
   created_at: string;
   user: {
+    id: string;
     first_name: string | null;
     last_name: string | null;
     org_name: string | null;
@@ -314,7 +315,7 @@ export async function fetchUserPosts(userId: string): Promise<FeedPost[]> {
   await getAuthenticatedSession();
   const { data, error } = await supabase
     .from('posts')
-    .select('*, user:users!posts_user_id_fkey(first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
+    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 

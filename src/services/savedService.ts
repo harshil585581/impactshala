@@ -60,7 +60,7 @@ export async function fetchSavedCommunityPosts(): Promise<FeedPost[]> {
         start_date, start_time, end_date, end_time, event_description,
         poll_question, poll_options, question_text, created_at,
         user:users!posts_user_id_fkey (
-          first_name, last_name, org_name, user_type, org_type, avatar_url, title, company,
+          id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company,
           experiences (role, company, is_current)
         )
       )

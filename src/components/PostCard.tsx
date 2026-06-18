@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { FeedPost } from '../services/postService';
 import { fetchPollData, voteOnPoll, unvoteOnPoll } from '../services/postService';
 import likeIcon        from '../assets/images/svg/like.svg';
@@ -62,6 +63,7 @@ export default function PostCard({
   commentsCount = 0,
   onCommentAdded,
   inModal = false,
+  onDelete,
 }: {
   post: FeedPost;
   isSaved?: boolean;
@@ -72,6 +74,7 @@ export default function PostCard({
   commentsCount?: number;
   onCommentAdded?: () => void;
   inModal?: boolean;
+  onDelete?: (postId: string) => void;
 }) {
   const [pollVoteCounts, setPollVoteCounts] = useState<Record<number, number>>({});
   const [pollUserVote, setPollUserVote] = useState<number | null>(null);
@@ -154,6 +157,11 @@ export default function PostCard({
   const [commentCount, setCommentCount] = useState(commentsCount);
   useEffect(() => { setCommentCount(commentsCount); }, [commentsCount]);
   const [showShare, setShowShare] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const navigate = useNavigate();
+  const storedUserId = (() => { try { return JSON.parse(localStorage.getItem('user') ?? '{}').id; } catch { return null; } })();
+  const isOwnPost = !!onDelete || (!!post.user?.id && post.user.id === storedUserId);
 
   const name = getDisplayName(post.user);
 
@@ -169,9 +177,11 @@ export default function PostCard({
       {/* Header */}
       <div className="flex items-start justify-between px-6 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <UserAvatar name={name} url={post.user?.avatar_url} />
+          <button onClick={() => post.user?.id && navigate(`/profile/${post.user.id}`)} className="shrink-0 focus:outline-none">
+            <UserAvatar name={name} url={post.user?.avatar_url} />
+          </button>
           <div className="flex flex-col">
-            <span className="font-bold text-[#18191c] text-base leading-tight block">{name}</span>
+            <button onClick={() => post.user?.id && navigate(`/profile/${post.user.id}`)} className="font-bold text-[#18191c] text-base leading-tight text-left hover:underline focus:outline-none">{name}</button>
             {post.user && (
               <div className="flex items-center gap-1.5 text-[#5e6670] text-xs mt-0.5">
                 {(() => {
@@ -211,12 +221,42 @@ export default function PostCard({
             </div>
           </div>
         </div>
-        <button className="text-[#FF9400] text-sm font-semibold flex items-center gap-1 hover:opacity-80">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="#FF9400" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
-          Follow
-        </button>
+        {isOwnPost && onDelete ? (
+          confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#9199a3]">Delete?</span>
+              <button
+                onClick={() => { onDelete(post.id); setConfirmDelete(false); }}
+                className="text-xs text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg font-medium"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-xs text-[#18191c] bg-[#f2f2f3] hover:bg-[#e8e8e8] px-2.5 py-1 rounded-lg font-medium"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="text-[#9199a3] hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50"
+              title="Delete post"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+              </svg>
+            </button>
+          )
+        ) : !isOwnPost ? (
+          <button className="text-[#FF9400] text-sm font-semibold flex items-center gap-1 hover:opacity-80">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="#FF9400" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+            Follow
+          </button>
+        ) : null}
       </div>
 
       {/* Photo */}

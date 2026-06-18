@@ -8,6 +8,7 @@ import RightPanel from "../components/RightPanel";
 import PhotoUploadModal from "../components/PhotoUploadModal";
 import EventModal from "../components/EventModal";
 import PollModal from "../components/PollModal";
+import CreatePostModal from "../components/CreatePostModal";
 import { fetchFeedPosts, fetchPostById, fetchLikedPostIds, fetchLikesCounts, fetchCommentCounts, togglePostLike, FEED_PAGE_SIZE } from "../services/postService";
 import type { FeedPost, FeedFilter } from "../services/postService";
 import { fetchSavedPostIds, savePost, unsavePost } from "../services/savedService";
@@ -80,6 +81,7 @@ export default function HomePage() {
   }
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
@@ -227,6 +229,14 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
+      <CreatePostModal
+        isOpen={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        userAvatar={userAvatarUrl}
+        userName={userName}
+        onVideoMode={() => setVideoModalOpen(true)}
+        onPosted={() => setRefreshKey(k => k + 1)}
+      />
       <PhotoUploadModal
         isOpen={photoModalOpen}
         onClose={closeAndRefresh(setPhotoModalOpen)}
@@ -261,11 +271,12 @@ export default function HomePage() {
             <div className="bg-white border border-[#f2f2f3] rounded-[17px] shadow-[0px_4px_2px_rgba(231,231,231,0.25)] px-5 py-4">
               <div className="flex items-center gap-3 mb-4">
                 <UserAvatar name={userName} url={userAvatarUrl} />
-                <div className="flex-1 px-2">
-                  <span className="text-[#474d57] text-lg font-semibold">
-                    Start a post
-                  </span>
-                </div>
+                <button
+                  onClick={() => setComposeOpen(true)}
+                  className="flex-1 text-left px-4 py-2.5 rounded-full border border-[#e5e7eb] bg-[#f9fafb] text-[#9ca3af] text-sm font-medium hover:bg-[#f3f4f6] hover:border-[#f77f00] transition-colors"
+                >
+                  What do you want to talk about?
+                </button>
               </div>
               <div className="flex items-center justify-around pt-2 border-t border-[#f2f2f3] flex-wrap gap-2">
                 <button
@@ -287,8 +298,7 @@ export default function HomePage() {
                   className="flex items-center gap-2 text-[#605f5f] text-sm sm:text-base font-medium hover:text-[#FF9400] transition-colors py-1"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  <span className="hidden sm:inline">Event</span>
-                  <span className="sm:hidden">Event</span>
+                  Event
                 </button>
                 <button
                   onClick={() => setPollModalOpen(true)}

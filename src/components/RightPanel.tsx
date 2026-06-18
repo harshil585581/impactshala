@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useProfile } from "../hooks/useProfile";
 import { fetchExperiences } from "../services/experienceService";
 import type { Experience } from "../services/experienceService";
+import { fetchEndorsementCount } from "../services/endorsementService";
+import { fetchPersonalAchievements } from "../services/achievementService";
+import { supabase } from "../lib/supabase";
 import GetInTouchModal from "./GetInTouchModal";
 import helpIcon from "../assets/images/svg/h-help.svg";
 
@@ -13,6 +16,9 @@ export default function RightPanel() {
   const storedUser = JSON.parse(localStorage.getItem("user") ?? "{}");
   const { profile } = useProfile("me");
   const [currentExp, setCurrentExp] = useState<Experience | null>(null);
+  const [recommendations, setRecommendations] = useState<number | null>(null);
+  const [credibility, setCredibility] = useState<number | null>(null);
+  const [achievement, setAchievement] = useState<number | null>(null);
 
   useEffect(() => {
     if (storedUser.id) {
@@ -22,6 +28,21 @@ export default function RightPanel() {
           setCurrentExp(current || exps[0] || null);
         })
         .catch(() => { });
+
+      fetchEndorsementCount(storedUser.id)
+        .then(setRecommendations)
+        .catch(() => setRecommendations(0));
+
+      fetchPersonalAchievements(storedUser.id)
+        .then(exps => setAchievement(exps.length))
+        .catch(() => setAchievement(0));
+
+      supabase
+        .from('user_reviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('reviewed_id', storedUser.id)
+        .then(({ count }) => setCredibility(count ?? 0))
+        .catch(() => setCredibility(0));
     }
   }, [storedUser.id]);
 
@@ -78,21 +99,27 @@ export default function RightPanel() {
           {/* Stats */}
           <div className="flex items-center gap-3 mt-5 w-full justify-center">
             <div className="flex flex-col items-center gap-1">
-              <span className="text-[#FF9400] text-sm font-bold">183</span>
+              <span className="text-[#FF9400] text-sm font-bold">
+                {recommendations ?? '—'}
+              </span>
               <span className="text-black text-[10px] font-medium text-center leading-tight">
                 Recommendations
               </span>
             </div>
             <div className="w-px h-10 bg-[#FF9400]/30" />
             <div className="flex flex-col items-center gap-1">
-              <span className="text-[#FF9400] text-sm font-bold">60</span>
+              <span className="text-[#FF9400] text-sm font-bold">
+                {credibility ?? '—'}
+              </span>
               <span className="text-black text-[10px] font-medium text-center leading-tight">
                 Credibility
               </span>
             </div>
             <div className="w-px h-10 bg-[#FF9400]/30" />
             <div className="flex flex-col items-center gap-1">
-              <span className="text-[#FF9400] text-sm font-bold">48</span>
+              <span className="text-[#FF9400] text-sm font-bold">
+                {achievement ?? '—'}
+              </span>
               <span className="text-black text-[10px] font-medium text-center leading-tight">
                 Achievement
               </span>

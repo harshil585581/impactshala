@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
 import EditProfileModal from '../../components/profile/EditProfileModal';
@@ -20,19 +20,36 @@ import AchievementDetailModal from '../../components/profile/AchievementDetailMo
 import { fetchEducations, deleteEducation, formatEducationPeriod, formatEducationDegree } from '../../services/educationService';
 import type { Education } from '../../services/educationService';
 import AddEducationModal from '../../components/profile/AddEducationModal';
-import { fetchUserPosts, deletePost, type FeedPost } from '../../services/postService';
+import { fetchUserPosts, deletePost, fetchLikedPostIds, fetchLikesCounts, fetchCommentCounts, togglePostLike, type FeedPost } from '../../services/postService';
+import { fetchSavedPostIds, savePost, unsavePost } from '../../services/savedService';
+import PostDetailModal from '../../components/profile/PostDetailModal';
 import {
   fetchCollaborativeAccomplishments,
 } from '../../services/collaborativeAccomplishmentService';
 import type { CollaborativeAccomplishment } from '../../services/collaborativeAccomplishmentService';
 import AddCollaborativeAccomplishmentModal from '../../components/profile/AddCollaborativeAccomplishmentModal';
 import CollaborativeAccomplishmentDetailModal from '../../components/profile/CollaborativeAccomplishmentDetailModal';
+import { getFreshToken } from '../../lib/authToken';
+import {
+  fetchConnections,
+  fetchSentRequests,
+  sendConnectionRequest,
+  rejectOrCancelRequest,
+  removeConnection,
+} from '../../services/communityService';
+import {
+  fetchEndorsementCount,
+  fetchIsEndorsed,
+  toggleEndorsement,
+  fetchCommunityMembersCount,
+} from '../../services/endorsementService';
+import WriteReviewModal from '../../components/profile/WriteReviewModal';
+import ReviewsPreviewModal from '../../components/profile/ReviewsPreviewModal';
+import { fetchReviews, deleteReview, type Review } from '../../services/reviewService';
 const postImg1 = 'https://placehold.co/400x300/f5f5f5/cccccc';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-const MOCK_REVIEWS: any[] = [];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function SocialIcon({ platform }: { platform: string }) {
   const p = platform.toLowerCase();
   if (p.includes('linkedin')) return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14zm-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.79zM6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68zm1.39 9.94v-8.37H5.5v8.37h2.77z" /></svg>;
@@ -261,10 +278,15 @@ function BadgeIcon() {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const { userId = 'me' } = useParams<{ userId?: string }>();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
@@ -273,9 +295,25 @@ export default function ProfilePage() {
   const [showAllExp, setShowAllExp] = useState(false);
   const [showAllEdu, setShowAllEdu] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
+  const [showAllAchievements, setShowAllAchievements] = useState(false);
+  const [showAllCollab, setShowAllCollab] = useState(false);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showReviewsPreview, setShowReviewsPreview] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [copyDone, setCopyDone] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [isEndorsed, setIsEndorsed] = useState(false);
+  const [endorsementCount, setEndorsementCount] = useState(0);
+  const [communityMembersCount, setCommunityMembersCount] = useState(0);
+  const [endorseLoading, setEndorseLoading] = useState(false);
+  const [communityStatus, setCommunityStatus] = useState<'none' | 'pending' | 'connected'>('none');
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [viewerMoreOpen, setViewerMoreOpen] = useState(false);
 
-  const { profile, loading, saving, toasts, removeToast, saveProfile, follow } = useProfile(userId);
+  const { profile, loading, saving, toasts, removeToast, saveProfile } = useProfile(userId);
 
   const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
   const isOwn = userId === 'me' || userId === storedUser.id;
@@ -308,9 +346,33 @@ export default function ProfilePage() {
     fetchEducations(resolvedUserId).then(setEducations).catch(() => { });
   };
 
-  const loadPosts = () => {
+  const loadPosts = async () => {
     if (!resolvedUserId) return;
-    fetchUserPosts(resolvedUserId).then(setPosts).catch(() => { });
+    try {
+      const fetched = await fetchUserPosts(resolvedUserId);
+      setPosts(fetched);
+      if (fetched.length === 0) return;
+      const ids = fetched.map((p) => p.id);
+      const [liked, likesCts, commentCts, saved] = await Promise.all([
+        fetchLikedPostIds().catch(() => new Set<string>()),
+        fetchLikesCounts(ids).catch(() => ({} as Record<string, number>)),
+        fetchCommentCounts(ids).catch(() => ({} as Record<string, number>)),
+        fetchSavedPostIds().catch(() => new Set<string>()),
+      ]);
+      setLikedPostIds(liked);
+      setLikesCounts(likesCts as Record<string, number>);
+      setCommentCounts(commentCts as Record<string, number>);
+      setSavedPostIds(saved);
+    } catch {}
+  };
+  const handlePostLikeToggle = (postId: string, willLike: boolean) => {
+    setLikedPostIds((prev) => { const next = new Set(prev); if (willLike) next.add(postId); else next.delete(postId); return next; });
+    setLikesCounts((prev) => ({ ...prev, [postId]: Math.max(0, (prev[postId] ?? 0) + (willLike ? 1 : -1)) }));
+    togglePostLike(postId, willLike).catch(() => {});
+  };
+  const handlePostSaveToggle = (postId: string, willSave: boolean) => {
+    setSavedPostIds((prev) => { const next = new Set(prev); if (willSave) next.add(postId); else next.delete(postId); return next; });
+    if (willSave) savePost(postId).catch(() => {}); else unsavePost(postId).catch(() => {});
   };
 
   const loadCollabAccomplishments = () => {
@@ -323,6 +385,79 @@ export default function ProfilePage() {
   useEffect(() => { loadEducations(); }, [resolvedUserId]);
   useEffect(() => { loadPosts(); }, [resolvedUserId]);
   useEffect(() => { loadCollabAccomplishments(); }, [resolvedUserId]);
+
+  const loadReviews = () => {
+    if (!resolvedUserId) return;
+    fetchReviews(resolvedUserId).then(setReviews).catch(() => {});
+  };
+  useEffect(() => { loadReviews(); }, [resolvedUserId]);
+  const handleDeleteReview = async () => {
+    if (!resolvedUserId || !confirm('Delete your review?')) return;
+    try { await deleteReview(resolvedUserId); loadReviews(); } catch {}
+  };
+
+  useEffect(() => {
+    if (!resolvedUserId) return;
+    Promise.all([
+      fetchEndorsementCount(resolvedUserId).catch(() => 0),
+      isOwn ? Promise.resolve(false) : fetchIsEndorsed(resolvedUserId).catch(() => false),
+      fetchCommunityMembersCount(resolvedUserId).catch(() => 0),
+    ]).then(([count, endorsed, memberCount]) => {
+      setEndorsementCount(count);
+      setCommunityMembersCount(memberCount);
+      if (!isOwn) setIsEndorsed(endorsed);
+    });
+  }, [resolvedUserId, isOwn]);
+
+  useEffect(() => {
+    if (isOwn || !resolvedUserId) return;
+    setCommunityStatus('none');
+    setPendingRequestId(null);
+    Promise.all([
+      fetchConnections().catch(() => ({ connections: [] as any[] })),
+      fetchSentRequests().catch(() => ({ requests: [] as any[] })),
+    ]).then(([connData, sentData]) => {
+      const isConnected = connData.connections.some((c: any) => c.id === resolvedUserId);
+      if (isConnected) { setCommunityStatus('connected'); return; }
+      const pending = sentData.requests.find((r: any) => r.id === resolvedUserId);
+      if (pending) { setCommunityStatus('pending'); setPendingRequestId(pending.request_id); }
+    }).catch(() => {});
+  }, [isOwn, resolvedUserId]);
+
+  const handleEndorse = async () => {
+    if (endorseLoading || !resolvedUserId) return;
+    const next = !isEndorsed;
+    setIsEndorsed(next);
+    setEndorsementCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    setEndorseLoading(true);
+    try {
+      await toggleEndorsement(resolvedUserId, next);
+    } catch {
+      setIsEndorsed(!next);
+      setEndorsementCount((c) => Math.max(0, c + (next ? -1 : 1)));
+    } finally {
+      setEndorseLoading(false);
+    }
+  };
+
+  const handleCommunityAction = async () => {
+    if (communityLoading || !resolvedUserId) return;
+    setCommunityLoading(true);
+    try {
+      if (communityStatus === 'none') {
+        await sendConnectionRequest(resolvedUserId);
+        setCommunityStatus('pending');
+      } else if (communityStatus === 'pending' && pendingRequestId) {
+        await rejectOrCancelRequest(pendingRequestId);
+        setCommunityStatus('none');
+        setPendingRequestId(null);
+      } else if (communityStatus === 'connected') {
+        await removeConnection(resolvedUserId);
+        setCommunityStatus('none');
+      }
+    } catch { /* silently ignore */ }
+    finally { setCommunityLoading(false); }
+  };
 
   const displayedExp = showAllExp ? experiences : experiences.slice(0, 2);
   const displayedEdu = showAllEdu ? educations : educations.slice(0, 2);
@@ -385,7 +520,7 @@ export default function ProfilePage() {
                       </h1>
                       {(profile?.title || profile?.company || profile?.instituteName) && (
                         <p className="text-[#5e6670] text-sm">
-                          {[profile?.title, profile?.company || profile?.instituteName].filter(Boolean).join(' · ')}
+                          {[profile?.title, profile?.company || profile?.instituteName].filter(Boolean).join(' Â· ')}
                         </p>
                       )}
                       {profile?.location && (
@@ -433,7 +568,7 @@ export default function ProfilePage() {
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
                             <div className="absolute left-0 top-[calc(100%+6px)] w-44 bg-white rounded-xl shadow-lg border border-[#f2f2f3] z-50 overflow-hidden py-1">
-                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">
+                              <button onClick={() => { setMoreMenuOpen(false); setShowShareModal(true); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" /></svg>
                                 Share Profile
                               </button>
@@ -448,19 +583,109 @@ export default function ProfilePage() {
                     </>
                   ) : (
                     <>
-                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        Add to Community
+                      {/* Community button — state-driven */}
+                      <button
+                        onClick={handleCommunityAction}
+                        disabled={communityLoading}
+                        className={`flex items-center gap-1.5 h-[36px] px-4 text-xs font-semibold rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                          communityStatus === 'connected'
+                            ? 'bg-[rgba(167,85,255,0.18)] text-[#6656cd] hover:bg-red-50 hover:text-red-600'
+                            : communityStatus === 'pending'
+                            ? 'bg-[rgba(167,85,255,0.06)] text-[#9199a3] border border-[#e4e5e8] hover:bg-red-50 hover:text-red-500'
+                            : 'bg-[rgba(167,85,255,0.1)] text-[#6656cd] hover:bg-[rgba(167,85,255,0.18)]'
+                        }`}
+                      >
+                        {communityStatus === 'connected' ? (
+                          <>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+                              <circle cx="9" cy="7" r="4" />
+                              <line x1="22" y1="11" x2="16" y2="11" />
+                            </svg>
+                            Remove from Community
+                          </>
+                        ) : communityStatus === 'pending' ? (
+                          <>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
+                            </svg>
+                            Request Sent
+                          </>
+                        ) : (
+                          <>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+                              <circle cx="9" cy="7" r="4" />
+                              <line x1="19" y1="8" x2="19" y2="14" />
+                              <line x1="22" y1="11" x2="16" y2="11" />
+                            </svg>
+                            Add To Community
+                          </>
+                        )}
                       </button>
-                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
+
+                      {/* Message — purple pill, navigates to messages */}
+                      <button
+                        onClick={() => navigate('/messages')}
+                        className="flex items-center gap-1.5 h-[36px] px-4 bg-[rgba(167,85,255,0.1)] text-[#6656cd] text-xs font-semibold rounded-full hover:bg-[rgba(167,85,255,0.18)] transition-colors"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                        </svg>
                         Message
                       </button>
-                      <button onClick={follow}
-                        className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        {profile?.isFollowing ? 'Following' : '+ Follow'}
+
+                      {/* Endorse — orange pill */}
+                      <button
+                        onClick={handleEndorse}
+                        disabled={endorseLoading}
+                        className={`flex items-center gap-1.5 h-[36px] px-4 text-xs font-semibold rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                          isEndorsed
+                            ? 'bg-[#f77f00] text-white hover:bg-[#e06e00]'
+                            : 'bg-[#ffeacc] text-[#f77f00] hover:bg-[#ffd9a0]'
+                        }`}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill={isEndorsed ? 'white' : 'none'} stroke={isEndorsed ? 'white' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="8" r="6" />
+                          <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+                        </svg>
+                        {isEndorsed ? 'Endorsed' : 'Endorse'}
                       </button>
-                      <button className="w-[34px] h-[34px] border border-[#e4e5e8] rounded-full flex items-center justify-center text-[#9199a3] hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /><circle cx="5" cy="12" r="1.5" /></svg>
-                      </button>
+
+                      {/* Three dots with dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setViewerMoreOpen((v) => !v)}
+                          className="w-[36px] h-[36px] rounded-full border border-[#e4e5e8] flex items-center justify-center text-[#9199a3] hover:bg-[#f3f4f6] hover:border-[#9199a3] transition-colors"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
+                          </svg>
+                        </button>
+                        {viewerMoreOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setViewerMoreOpen(false)} />
+                            <div className="absolute left-0 top-[calc(100%+6px)] w-[196px] bg-white border border-[#d6d6d6] rounded-[8px] shadow-lg z-50 py-[2px] overflow-hidden">
+                              {[
+                                { label: 'Block', danger: true },
+                                { label: 'Report', danger: true },
+                                { label: 'Mute', danger: false },
+                                { label: 'Remove from community', danger: false },
+                              ].map(({ label, danger }) => (
+                                <button
+                                  key={label}
+                                  onClick={() => setViewerMoreOpen(false)}
+                                  className={`w-full flex items-center px-[16px] py-[12px] text-[14px] font-medium text-left hover:bg-[#f8f8f8] transition-colors ${
+                                    danger ? 'text-[#c00f0c]' : 'text-[#6b6b6b]'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -469,10 +694,10 @@ export default function ProfilePage() {
                 <div className="mt-5 mb-1">
                   <div className="flex items-stretch border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
                     {[
-                      { label: 'Endorsements', value: '0' },
-                      { label: 'Review', value: '0' },
+                      { label: 'Endorsements', value: String(endorsementCount) },
+                      { label: 'Review', value: String(reviews.length) },
                       { label: 'Achievements', value: String(achievements.length) },
-                      { label: 'Community Members', value: '0' },
+                      { label: 'Community Members', value: String(communityMembersCount) },
                     ].map((s) => (
                       <button key={s.label} className="flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors">
                         <span className="text-[#ff9400] text-xl font-bold leading-tight">{s.value}</span>
@@ -544,39 +769,40 @@ export default function ProfilePage() {
 
                   <div>
                     <p className="text-[#18191c] text-sm font-semibold mb-3">Portfolio / Resume</p>
-                    <div
-                      onClick={async () => {
-                        if (!profile?.resumeUrl) return;
-                        try {
-                          const user = JSON.parse(localStorage.getItem('user') ?? '{}');
-                          const res = await fetch(`${API_URL}/api/profile/resume`, { headers: { Authorization: `Bearer ${user.access_token ?? ''}` } });
-                          const data = await res.json();
-                          if (data.url) window.open(data.url, '_blank');
-                        } catch { /* ignore */ }
-                      }}
-                      className={`relative w-[150px] h-[190px] group cursor-pointer overflow-hidden rounded-xl border border-[#e4e5e8] bg-white shadow-sm hover:shadow-md transition-all ${!profile?.resumeUrl ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    >
-                      <div className="absolute inset-0 bg-[#f8fafc]">
-                        <img
-                          src="data:image/png;base64,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"
-                          alt="Resume Preview"
-                          className="w-full h-full object-cover blur-[1.5px] opacity-50 grayscale-[0.3]"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+                    <div className="w-[150px] rounded-xl border border-[#e4e5e8] bg-white shadow-sm overflow-hidden">
+                      <div className="w-full h-[120px] bg-[#fff4e5] flex items-center justify-center">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#ff9400" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          <polyline points="14 2 14 8 20 8" stroke="#ff9400" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          <line x1="16" y1="13" x2="8" y2="13" stroke="#ff9400" strokeWidth="1.8" strokeLinecap="round"/>
+                          <line x1="16" y1="17" x2="8" y2="17" stroke="#ff9400" strokeWidth="1.8" strokeLinecap="round"/>
+                          <polyline points="10 9 9 9 8 9" stroke="#ff9400" strokeWidth="1.8" strokeLinecap="round"/>
+                        </svg>
                       </div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-11 h-11 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-[#ff9400] transform group-hover:scale-110 transition-transform duration-300">
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
+                      <div className="flex border-t border-[#f2f2f3]">
+                        <button
+                          onClick={async () => {
+                            if (!profile?.resumeUrl) return;
+                            try {
+                              const token = await getFreshToken();
+                              const res = await fetch(`${API_URL}/api/profile/resume`, { headers: { Authorization: `Bearer ${token}` } });
+                              const data = await res.json();
+                              if (data.url) window.open(data.url, '_blank');
+                              else if (profile.resumeUrl) window.open(profile.resumeUrl, '_blank');
+                            } catch {
+                              if (profile?.resumeUrl) window.open(profile.resumeUrl, '_blank');
+                            }
+                          }}
+                          disabled={!profile?.resumeUrl}
+                          className="flex-1 flex flex-col items-center gap-1 py-2.5 text-[#ff9400] hover:bg-[#fff4e5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
                           </svg>
-                        </div>
+                          <span className="text-[10px] font-medium">View</span>
+                        </button>
                       </div>
-                      {!profile?.resumeUrl && (
-                        <div className="absolute inset-0 flex items-end justify-center pb-4">
-                          <span className="text-[10px] text-[#9199a3] font-bold tracking-wider uppercase bg-white/90 px-2 py-0.5 rounded shadow-sm border border-[#e4e5e8]">No Resume</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -605,7 +831,7 @@ export default function ProfilePage() {
                               <p className="text-[#5e6670] text-xs mt-1.5">
                                 <span className="font-bold text-[#18191c]">{exp.company}</span>
                                 {[exp.emp_type, formatPeriod(exp)].filter(Boolean).map((text, i) => (
-                                  <span key={i}> · {text}</span>
+                                  <span key={i}> Â· {text}</span>
                                 ))}
                               </p>
                               {exp.location && <p className="text-[#9199a3] text-xs mt-1.5">{exp.location}</p>}
@@ -650,21 +876,42 @@ export default function ProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#18191c] text-base font-semibold">Credibility</h3>
-                    <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
+                    <button onClick={() => setShowReviewsPreview(true)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {MOCK_REVIEWS.length > 0 ? MOCK_REVIEWS.map((review) => (
-                      <div key={review.id} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[#18191c] text-sm font-semibold">{review.name}</p>
-                          <StarRating rating={review.rating} />
+                    {reviews.length > 0 ? reviews.slice(0, 3).map((review) => {
+                      const reviewerName = review.reviewer
+                        ? (
+                            `${review.reviewer.first_name ?? ''} ${review.reviewer.last_name ?? ''}`.trim() ||
+                            review.reviewer.org_name ||
+                            'Anonymous'
+                          )
+                        : 'Anonymous';
+                      return (
+                        <div key={review.id} onClick={() => setShowReviewsPreview(true)} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2 cursor-pointer hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="text-[#18191c] text-sm font-semibold">{reviewerName}</p>
+                            <StarRating rating={review.rating} />
+                          </div>
+                          <p className="text-[#5e6670] text-xs leading-relaxed">{review.review_text}</p>
                         </div>
-                        <p className="text-[#5e6670] text-xs leading-relaxed">{review.text}</p>
-                      </div>
-                    )) : (
+                      );
+                    }) : (
                       <p className="text-[#9199a3] text-sm col-span-3">No reviews yet.</p>
                     )}
                   </div>
+                  {!isOwn && (
+                    <div className="flex justify-center gap-3 mt-4">
+                      {reviews.some(r => r.reviewer_id === storedUser.id) ? (
+                        <>
+                          <button onClick={() => setShowReviewModal(true)} className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e88600] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">Update Review</button>
+                          <button onClick={handleDeleteReview} className="h-[40px] px-8 border border-red-400 text-red-500 text-sm font-semibold rounded-full hover:bg-red-50 transition-colors">Delete Review</button>
+                        </>
+                      ) : (
+                        <button onClick={() => setShowReviewModal(true)} className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">Write A Review</button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <Divider />
@@ -673,12 +920,7 @@ export default function ProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#18191c] text-base font-semibold">Personal Achievements</h3>
-                    {isOwn && (
-                      <button onClick={() => setAddAchievementOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round" /></svg>
-                        Add
-                      </button>
-                    )}
+                    <button onClick={() => setShowAllAchievements(true)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   {achievements.length === 0 && (
                     <p className="text-[#9199a3] text-sm">No personal achievements added yet.</p>
@@ -713,14 +955,7 @@ export default function ProfilePage() {
                       Collaborative Achievements{' '}
                       <span className="text-[#9199a3] font-normal text-sm">({collabAccomplishments.length})</span>
                     </h3>
-                    <div className="flex items-center gap-3">
-                      {isOwn && (
-                        <button onClick={() => setAddCollabOpen(true)} className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round" /></svg>
-                          Add
-                        </button>
-                      )}
-                    </div>
+                    <button onClick={() => setShowAllCollab(true)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   {collabAccomplishments.length === 0 ? (
                     <p className="text-[#9199a3] text-sm">No collaborative achievements yet.</p>
@@ -818,7 +1053,7 @@ export default function ProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#18191c] text-base font-semibold">Recent Posts</h3>
-                    <button onClick={() => setShowAllPosts(true)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
+                    <button onClick={() => navigate(`/profile/${userId}/posts`)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   {posts.length === 0 ? (
                     <p className="text-[#9199a3] text-sm">No posts yet.</p>
@@ -829,7 +1064,7 @@ export default function ProfilePage() {
                         const title = post.event_title || post.poll_question || post.question_text || post.content?.slice(0, 50) || 'Post';
                         const desc = post.content || post.event_description || '';
                         return (
-                          <div key={post.id} className="rounded-xl overflow-hidden border border-[#f2f2f3] cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col h-full">
+                          <div key={post.id} onClick={() => setSelectedPost(post)} className="rounded-xl overflow-hidden border border-[#f2f2f3] cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col h-full">
                             <img src={img} alt={title} className="w-full h-[110px] object-cover bg-slate-50" />
                             <div className="p-3 flex-1 flex flex-col">
                               <p className="text-[#18191c] text-xs font-semibold leading-snug line-clamp-2">{title}</p>
@@ -932,6 +1167,110 @@ export default function ProfilePage() {
         />
       )}
 
+      {showAllAchievements && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowAllAchievements(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3]">
+              <h2 className="text-[#18191c] text-base font-semibold">Personal Achievements</h2>
+              <div className="flex items-center gap-3">
+                {isOwn && (
+                  <button
+                    onClick={() => { setShowAllAchievements(false); setAddAchievementOpen(true); }}
+                    className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round" /></svg>
+                    Add
+                  </button>
+                )}
+                <button onClick={() => setShowAllAchievements(false)} className="text-[#9199a3] hover:text-[#18191c]">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
+              {achievements.length === 0 ? (
+                <p className="text-[#9199a3] text-sm text-center py-8">No personal achievements added yet.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {achievements.map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => { setShowAllAchievements(false); setSelectedAchievement(a); }}
+                      className="border-2 border-[#ffd9a0] rounded-xl p-5 pt-6 relative bg-white hover:bg-[#fffaf4] transition-colors flex flex-col items-center text-center min-h-[130px] justify-center"
+                    >
+                      <div className="absolute top-2.5 right-2.5"><BadgeIcon /></div>
+                      <p className="text-[#18191c] text-base font-bold leading-snug">{a.title}</p>
+                      {a.achieved_date && (
+                        <p className="text-[#9199a3] text-sm mt-2">
+                          Achieved on: {new Date(a.achieved_date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAllCollab && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowAllCollab(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3]">
+              <h2 className="text-[#18191c] text-base font-semibold">Collaborative Achievements</h2>
+              <div className="flex items-center gap-3">
+                {isOwn && (
+                  <button
+                    onClick={() => { setShowAllCollab(false); setAddCollabOpen(true); }}
+                    className="flex items-center gap-1 text-[#ff9400] text-sm font-medium hover:underline"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#ff9400" strokeWidth="2.5" strokeLinecap="round" /></svg>
+                    Add
+                  </button>
+                )}
+                <button onClick={() => setShowAllCollab(false)} className="text-[#9199a3] hover:text-[#18191c]">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
+              {collabAccomplishments.length === 0 ? (
+                <p className="text-[#9199a3] text-sm text-center py-8">No collaborative achievements yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {collabAccomplishments.map((a) => {
+                    const collabs = a.collaborators ?? [];
+                    const firstName = collabs[0]?.name ?? '';
+                    const othersCount = collabs.length - 1;
+                    const dateStr = [a.achieved_month, a.achieved_year].filter(Boolean).join(' ');
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() => { setShowAllCollab(false); setSelectedCollab(a); }}
+                        className="border-2 border-[#ffd9a0] rounded-xl p-5 pt-6 relative bg-white hover:bg-[#fffaf4] transition-colors flex flex-col items-center text-center min-h-[130px] justify-center"
+                      >
+                        <div className="absolute top-2.5 right-2.5"><BadgeIcon /></div>
+                        <p className="text-[#18191c] text-base font-bold leading-snug" style={{ marginTop: '12px' }}>{a.title}</p>
+                        {collabs.length > 0 && (
+                          <p className="text-[#5e6670] text-sm mt-2 leading-relaxed">
+                            {firstName}
+                            {othersCount > 0 && (
+                              <> and <span className="text-[#ff9400] font-semibold">{othersCount} others</span></>
+                            )}
+                          </p>
+                        )}
+                        {dateStr && <p className="text-[#9199a3] text-sm mt-0.5">Achieved on &nbsp;{dateStr}</p>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAllPosts && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setShowAllPosts(false); setDeletingPostId(null); }}>
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
@@ -1002,6 +1341,203 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Write Review Modal */}
+      {showReviewModal && profile && (
+        <WriteReviewModal
+          targetUserId={resolvedUserId}
+          targetName={`${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || 'this user'}
+          onClose={() => setShowReviewModal(false)}
+          onSubmitted={loadReviews}
+          initialRating={reviews.find(r => r.reviewer_id === storedUser.id)?.rating}
+          initialReviewText={reviews.find(r => r.reviewer_id === storedUser.id)?.review_text}
+          initialMediaUrl={reviews.find(r => r.reviewer_id === storedUser.id)?.media_url}
+        />
+      )}
+
+      {selectedPost && (
+        <PostDetailModal
+          post={selectedPost}
+          isLiked={likedPostIds.has(selectedPost.id)}
+          likesCount={likesCounts[selectedPost.id] ?? 0}
+          onLikeToggle={handlePostLikeToggle}
+          isSaved={savedPostIds.has(selectedPost.id)}
+          onSaveToggle={handlePostSaveToggle}
+          commentsCount={commentCounts[selectedPost.id] ?? 0}
+          onClose={() => setSelectedPost(null)}
+        />
+      )}
+
+      {showReviewsPreview && (
+        <ReviewsPreviewModal
+          reviews={reviews}
+          onClose={() => setShowReviewsPreview(false)}
+        />
+      )}
+
+      {/* Share Profile Modal */}
+      {showShareModal && profile && (() => {
+        const today = new Date();
+        const day = today.getDate().toString().padStart(2, '0');
+        const month = today.toLocaleString('en-GB', { month: 'long' });
+        const year = today.getFullYear();
+        const dateStr = `${day}-${month}-${year}`;
+        const profileUrl = `${window.location.origin}/profile/${resolvedUserId}`;
+        const fullName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim();
+        const roleCompany = [profile.title, profile.company || profile.instituteName].filter(Boolean).join(' • ');
+        const handle = `@${(profile.firstName ?? '').toLowerCase()}${(profile.lastName ?? '').toLowerCase()}`.replace(/\s+/g, '');
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(profileUrl)}&margin=10`;
+        return (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => { setShowShareModal(false); setCopyDone(false); setShowQR(false); }}
+          >
+            <div
+              className="bg-white rounded-2xl w-full max-w-[340px] shadow-2xl overflow-hidden relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* QR toggle button — top-right corner, always visible */}
+              <button
+                onClick={() => setShowQR((v) => !v)}
+                className="absolute top-3 right-3 z-20 w-8 h-8 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors"
+                title={showQR ? 'Back to share card' : 'Show QR code'}
+              >
+                {showQR ? (
+                  /* back arrow when QR is open */
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 12H5M5 12l7 7M5 12l7-7" />
+                  </svg>
+                ) : (
+                  /* QR icon when share card is open */
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zm-3 3h2v2h-2v-2zm3 0h2v2h-2v-2z" />
+                  </svg>
+                )}
+              </button>
+
+              {showQR ? (
+                /* ── QR Code View ── */
+                <div className="flex flex-col">
+                  {/* Gradient header */}
+                  <div className="bg-gradient-to-br from-[#8b2fc9] via-[#d03a8c] to-[#ff6b35] h-[84px] flex flex-col items-center justify-center px-4 pt-2">
+                    <p className="text-white text-base font-bold tracking-wide">Impactshaala</p>
+                    <p className="text-white/80 text-xs mt-0.5">{fullName}</p>
+                  </div>
+
+                  {/* QR code */}
+                  <div className="flex flex-col items-center py-7 px-6 bg-white">
+                    <div className="w-[230px] h-[230px] rounded-2xl overflow-hidden border border-[#f2f2f3] shadow-sm bg-white flex items-center justify-center">
+                      <img
+                        src={qrUrl}
+                        alt="Profile QR Code"
+                        className="w-[220px] h-[220px]"
+                      />
+                    </div>
+                    <p className="text-[#9199a3] text-[11px] mt-3 text-center">Scan to view profile</p>
+                  </div>
+
+                  {/* Handle strip */}
+                  <div className="mx-5 mb-6 rounded-xl bg-gradient-to-r from-[#ff9400] to-[#ff6600] flex items-center justify-center py-3.5">
+                    <p className="text-white text-sm font-bold tracking-wider">{handle}</p>
+                  </div>
+                </div>
+              ) : (
+                /* ── Share Card View ── */
+                <>
+                  {/* Gradient cover */}
+                  <div className="relative h-[110px] bg-gradient-to-br from-[#8b2fc9] via-[#d03a8c] to-[#ff6b35] overflow-visible">
+                    {profile.coverUrl && (
+                      <img src={profile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                    )}
+                    <div className="absolute -bottom-[44px] left-1/2 -translate-x-1/2">
+                      {profile.avatarUrl ? (
+                        <img
+                          src={profile.avatarUrl}
+                          alt={fullName}
+                          className="w-[88px] h-[88px] rounded-full object-cover border-4 border-white shadow-lg"
+                        />
+                      ) : (
+                        <div className="w-[88px] h-[88px] rounded-full bg-[#ff9400] flex items-center justify-center border-4 border-white shadow-lg">
+                          <span className="text-white text-3xl font-bold">
+                            {(profile.firstName?.[0] ?? '?').toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="pt-[54px] pb-6 px-6 flex flex-col items-center">
+                    <h2 className="text-[#18191c] text-[20px] font-bold leading-tight text-center">{fullName || 'Profile'}</h2>
+                    {roleCompany && (
+                      <p className="text-[#5e6670] text-[13px] text-center mt-1">{roleCompany}</p>
+                    )}
+
+                    {/* Stats */}
+                    <div className="flex items-stretch w-full border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] mt-5 shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
+                      {[
+                        { label: 'Endorsements', value: String(endorsementCount) },
+                        { label: 'Reviews', value: '0' },
+                        { label: 'Achievement', value: String(achievements.length) },
+                      ].map((s) => (
+                        <div key={s.label} className="flex-1 flex flex-col items-center py-3 px-1">
+                          <span className="text-[#ff9400] text-[17px] font-bold leading-tight">{s.value}</span>
+                          <span className="text-[#18191c] text-[10px] font-medium text-center mt-0.5 leading-snug">{s.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Action buttons on orange gradient */}
+                    <div className="w-full mt-5 bg-gradient-to-r from-[#ff9400] to-[#ff6600] rounded-xl p-3">
+                      <div className="flex gap-2.5">
+                        <button
+                          onClick={async () => {
+                            if (navigator.share) {
+                              try { await navigator.share({ title: `${fullName}'s profile on Impactshaala`, url: profileUrl }); } catch {}
+                            } else {
+                              await navigator.clipboard.writeText(profileUrl).catch(() => {});
+                              setCopyDone(true);
+                              setTimeout(() => setCopyDone(false), 2000);
+                            }
+                          }}
+                          className="flex-1 bg-white rounded-lg flex flex-col items-center gap-2 py-3 text-[#5e6670] hover:text-[#ff9400] hover:bg-[#fff8ee] transition-colors"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                            <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+                          </svg>
+                          <span className="text-[11px] font-semibold">Share profile</span>
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(profileUrl).catch(() => {});
+                            setCopyDone(true);
+                            setTimeout(() => setCopyDone(false), 2000);
+                          }}
+                          className="flex-1 bg-white rounded-lg flex flex-col items-center gap-2 py-3 text-[#5e6670] hover:text-[#ff9400] hover:bg-[#fff8ee] transition-colors"
+                        >
+                          {copyDone ? (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
+                          ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+                            </svg>
+                          )}
+                          <span className="text-[11px] font-semibold">{copyDone ? 'Copied!' : 'Copy link'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Date */}
+                    <p className="text-[#ff9400] text-[14px] font-semibold mt-4">{dateStr}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
