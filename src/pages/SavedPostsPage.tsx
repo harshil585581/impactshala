@@ -14,9 +14,20 @@ import {
   type SavedDiscoverSnapshot,
   type SavedLearningSnapshot,
 } from '../services/savedService';
-import type { FeedPost } from '../services/postService';
+import {
+  fetchLikedPostIds,
+  fetchLikesCounts,
+  fetchCommentCounts,
+  togglePostLike,
+  type FeedPost,
+} from '../services/postService';
+import {
+  fetchSavedPostIds,
+  savePost,
+} from '../services/savedService';
 import type { EmployerPosting } from '../services/employmentService';
 import ApplyModal from '../components/discover/ApplyModal';
+import PostDetailModal from '../components/profile/PostDetailModal';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -101,7 +112,7 @@ function LoadingState() {
 
 // ─── Community Post Card ──────────────────────────────────────────────────────
 
-function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: string) => void }) {
+function CommunityMiniCard({ post, onUnsave, onOpenPost }: { post: FeedPost; onUnsave: (id: string) => void; onOpenPost: (post: FeedPost) => void }) {
   const [voted, setVoted] = useState<number | null>(null);
 
   const name = getDisplayName(post.user);
@@ -174,11 +185,14 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
 
       {/* Media image — no side padding, fills card width */}
       {hasMedia && !isPoll && (
-        <div className="bg-[#232246] rounded-xl overflow-hidden mb-3">
+        <div
+          className="bg-[#232246] rounded-xl overflow-hidden mb-3 cursor-pointer"
+          onClick={() => onOpenPost(post)}
+        >
           <img
             src={post.media_urls![0]}
             alt=""
-            className="w-full h-[280px] object-cover block"
+            className="w-full h-[280px] object-cover block hover:opacity-90 transition-opacity"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
@@ -186,11 +200,14 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
 
       {/* Event cover */}
       {isEvent && post.cover_image_url && (
-        <div className="bg-[#232246] rounded-xl overflow-hidden mb-3">
+        <div
+          className="bg-[#232246] rounded-xl overflow-hidden mb-3 cursor-pointer"
+          onClick={() => onOpenPost(post)}
+        >
           <img
             src={post.cover_image_url}
             alt=""
-            className="w-full h-[280px] object-cover block"
+            className="w-full h-[280px] object-cover block hover:opacity-90 transition-opacity"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>
@@ -215,7 +232,7 @@ function CommunityMiniCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: 
 
 // ─── Discover Card ────────────────────────────────────────────────────────────
 
-function DiscoverMiniCard({ post, onUnsave, onGetStarted }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void; onGetStarted: (id: string) => void }) {
+function DiscoverMiniCard({ post, onUnsave, onGetStarted, onOpenPost }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void; onGetStarted: (id: string) => void; onOpenPost: (post: SavedDiscoverSnapshot) => void }) {
 
   return (
     <div className="border border-[#f2f2f3] rounded-2xl bg-white hover:shadow-md transition-shadow overflow-hidden flex flex-col">
@@ -264,8 +281,11 @@ function DiscoverMiniCard({ post, onUnsave, onGetStarted }: { post: SavedDiscove
 
       {post.imageUrl && (
         <div className="px-3 pb-3">
-          <div className="w-full h-[280px] rounded-lg overflow-hidden">
-            <img src={post.imageUrl} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <div
+            className="w-full h-[280px] rounded-lg overflow-hidden cursor-pointer"
+            onClick={() => onOpenPost(post)}
+          >
+            <img src={post.imageUrl} alt="" className="w-full h-full object-cover hover:opacity-90 transition-opacity" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
         </div>
       )}
@@ -444,11 +464,151 @@ function EmploymentMiniCard({ post, onUnsave, onGetStarted }: { post: EmployerPo
   );
 }
 
+// ─── Discover detail modal ────────────────────────────────────────────────────
+
+function DiscoverDetailModal({ post, onClose, onUnsave }: { post: SavedDiscoverSnapshot; onClose: () => void; onUnsave: (id: string) => void }) {
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(post.reactions);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[640px] mt-6 mb-8"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={onClose}
+            className="bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md text-[#9199a3] hover:text-[#18191c] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white border border-[#c5c5c5] rounded-xl p-4 flex flex-col gap-4">
+          {/* Header */}
+          <div className="flex items-start gap-2.5 w-full">
+            <Avatar name={post.userName} url={post.userAvatarUrl} size={50} />
+            <div className="flex flex-1 min-w-0 items-start gap-2">
+              <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                <p className="text-[#222] text-[15px] font-semibold leading-tight">{post.userName}</p>
+                <p className="text-[#666] text-[12px]">{post.userRole}</p>
+                <p className="text-[#787777] text-[12px]">{post.time}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button className="bg-[#f77f00] text-white text-[13px] font-semibold px-5 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
+                  Get Started
+                </button>
+                <button onClick={() => { onUnsave(post.id); onClose(); }} title="Remove from saved" className="text-[#f77f00] hover:opacity-75 transition-opacity">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Title */}
+          <h3 className="text-[#222] text-[17px] font-semibold leading-snug">{post.title}</h3>
+
+          {/* Tags */}
+          {post.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {post.tags.map(t => (
+                <span key={t} className="bg-[#fff4e5] text-black text-[10.5px] font-medium px-3 py-1.5 rounded-full whitespace-nowrap">{t}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Details */}
+          <div className="flex flex-col gap-2 text-[12px]">
+            <div className="flex gap-6">
+              <div className="flex-1"><span className="text-[#18191c] font-normal">Mode : </span><span className="text-[#717171]">{post.mode}</span></div>
+              <div className="flex-1"><span className="text-[#18191c] font-normal">Payment : </span><span className="text-[#717171]">{post.payment}</span></div>
+            </div>
+            <div className="flex gap-6">
+              <div className="flex-1"><span className="text-[#18191c] font-normal">Target audience : </span><span className="text-[#717171]">{post.audience}</span></div>
+              <div className="flex-1"><span className="text-[#18191c] font-normal">Last date : </span><span className="text-[#717171]">{post.lastDate}</span></div>
+            </div>
+          </div>
+
+          {/* Image */}
+          {post.imageUrl && (
+            <div className="w-full rounded-[10px] overflow-hidden">
+              <img src={post.imageUrl} alt="" className="w-full object-cover block" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            </div>
+          )}
+
+          {/* Stats */}
+          <div className="flex items-center justify-between text-[9.5px] font-semibold">
+            <div className="flex items-center gap-1.5">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill={liked ? '#ff4757' : 'none'} stroke={liked ? '#ff4757' : '#646464'} strokeWidth="1.8">
+                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+              </svg>
+              <span className="text-[#646464]">{likesCount.toLocaleString()}</span>
+            </div>
+            <span className="text-[#6f6f6f]">{post.comments} comments</span>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-[#f2f2f3]" />
+
+          {/* Action bar */}
+          <div className="flex items-center justify-around">
+            <button
+              onClick={() => { setLiked(v => !v); setLikesCount(n => n + (liked ? -1 : 1)); }}
+              className={`flex items-center gap-1.5 text-[12px] font-medium py-1 px-3 rounded-md transition-colors ${liked ? 'text-[#f77f00]' : 'text-[#575555] hover:text-[#f77f00] hover:bg-[#fff8ee]'}`}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
+                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+              </svg>
+              Like
+            </button>
+            <button className="flex items-center gap-1.5 text-[12px] font-medium py-1 px-3 rounded-md text-[#575555] hover:text-[#f77f00] hover:bg-[#fff8ee] transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              </svg>
+              Comment
+            </button>
+            <button className="flex items-center gap-1.5 text-[12px] font-medium py-1 px-3 rounded-md text-[#575555] hover:text-[#f77f00] hover:bg-[#fff8ee] transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
+              </svg>
+              Share
+            </button>
+            <button onClick={() => { onUnsave(post.id); onClose(); }} className="flex items-center gap-1.5 text-[12px] font-medium py-1 px-3 rounded-md text-[#f77f00] hover:bg-[#fff8ee] transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              </svg>
+              Saved
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SavedPostsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [applyPostId, setApplyPostId] = useState<string | null>(null);
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
+  const [selectedDiscover, setSelectedDiscover] = useState<SavedDiscoverSnapshot | null>(null);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   const [communityPosts, setCommunityPosts] = useState<FeedPost[]>([]);
@@ -463,7 +623,21 @@ export default function SavedPostsPage() {
   useEffect(() => {
     setLoadingCommunity(true);
     fetchSavedCommunityPosts()
-      .then(setCommunityPosts)
+      .then(async (posts) => {
+        setCommunityPosts(posts);
+        if (posts.length === 0) return;
+        const ids = posts.map(p => p.id);
+        const [liked, likesCts, commentCts, saved] = await Promise.all([
+          fetchLikedPostIds().catch(() => new Set<string>()),
+          fetchLikesCounts(ids).catch(() => ({} as Record<string, number>)),
+          fetchCommentCounts(ids).catch(() => ({} as Record<string, number>)),
+          fetchSavedPostIds().catch(() => new Set<string>()),
+        ]);
+        setLikedPostIds(liked);
+        setLikesCounts(likesCts as Record<string, number>);
+        setCommentCounts(commentCts as Record<string, number>);
+        setSavedPostIds(saved);
+      })
       .catch(() => {})
       .finally(() => setLoadingCommunity(false));
 
@@ -489,6 +663,17 @@ export default function SavedPostsPage() {
   function handleCommunityUnsave(postId: string) {
     unsavePost(postId).catch(() => {});
     setCommunityPosts(prev => prev.filter(p => p.id !== postId));
+  }
+
+  function handlePostLikeToggle(postId: string, willLike: boolean) {
+    setLikedPostIds(prev => { const next = new Set(prev); if (willLike) next.add(postId); else next.delete(postId); return next; });
+    setLikesCounts(prev => ({ ...prev, [postId]: Math.max(0, (prev[postId] ?? 0) + (willLike ? 1 : -1)) }));
+    togglePostLike(postId, willLike).catch(() => {});
+  }
+
+  function handlePostSaveToggle(postId: string, willSave: boolean) {
+    setSavedPostIds(prev => { const next = new Set(prev); if (willSave) next.add(postId); else next.delete(postId); return next; });
+    if (willSave) savePost(postId).catch(() => {}); else unsavePost(postId).catch(() => {});
   }
 
   function handleDiscoverUnsave(itemId: string) {
@@ -530,8 +715,8 @@ export default function SavedPostsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {communityPosts.map(p => (
-                  <CommunityMiniCard key={p.id} post={p} onUnsave={handleCommunityUnsave} />
+                {communityPosts.slice(0, 4).map(p => (
+                  <CommunityMiniCard key={p.id} post={p} onUnsave={handleCommunityUnsave} onOpenPost={setSelectedPost} />
                 ))}
               </div>
             )}
@@ -553,8 +738,8 @@ export default function SavedPostsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {discoverPosts.map(p => (
-                  <DiscoverMiniCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} onGetStarted={setApplyPostId} />
+                {discoverPosts.slice(0, 4).map(p => (
+                  <DiscoverMiniCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} onGetStarted={setApplyPostId} onOpenPost={setSelectedDiscover} />
                 ))}
               </div>
             )}
@@ -572,7 +757,7 @@ export default function SavedPostsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {learningCourses.map(p => (
+                {learningCourses.slice(0, 4).map(p => (
                   <LearningMiniCard key={p.id} post={p} onUnsave={handleLearningUnsave} onGetStarted={(id) => navigate(`/learning-directory?apply=${id}`)} />
                 ))}
               </div>
@@ -591,7 +776,7 @@ export default function SavedPostsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {employmentPostings.map(p => (
+                {employmentPostings.slice(0, 4).map(p => (
                   <EmploymentMiniCard key={p.id} post={p} onUnsave={handleEmploymentUnsave} onGetStarted={(id) => navigate(`/employment-hub?apply=${id}`)} />
                 ))}
               </div>
@@ -606,6 +791,27 @@ export default function SavedPostsPage() {
           postId={applyPostId}
           postTitle={discoverPosts.find(p => p.id === applyPostId)?.title}
           onClose={() => setApplyPostId(null)}
+        />
+      )}
+
+      {selectedPost && (
+        <PostDetailModal
+          post={selectedPost}
+          isLiked={likedPostIds.has(selectedPost.id)}
+          likesCount={likesCounts[selectedPost.id] ?? 0}
+          onLikeToggle={handlePostLikeToggle}
+          isSaved={savedPostIds.has(selectedPost.id)}
+          onSaveToggle={handlePostSaveToggle}
+          commentsCount={commentCounts[selectedPost.id] ?? 0}
+          onClose={() => setSelectedPost(null)}
+        />
+      )}
+
+      {selectedDiscover && (
+        <DiscoverDetailModal
+          post={selectedDiscover}
+          onClose={() => setSelectedDiscover(null)}
+          onUnsave={(id) => { handleDiscoverUnsave(id); setSelectedDiscover(null); }}
         />
       )}
     </div>

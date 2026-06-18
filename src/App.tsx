@@ -30,6 +30,7 @@ import PublicWelfareServicesOrgAccountUpdatePage from './pages/account/PublicWel
 import StudentAccountUpdatePage from './pages/account/StudentAccountUpdatePage';
 import EntrepreneurAccountUpdatePage from './pages/account/EntrepreneurAccountUpdatePage';
 import ProfilePageWrapper from './pages/profile/ProfilePageWrapper';
+import UserPostsPage from './pages/profile/UserPostsPage';
 import ProfessionalAccountUpdatePage from './pages/account/ProfessionalAccountUpdatePage';
 import EducatorAccountUpdatePage from './pages/account/EducatorAccountUpdatePage';
 import AuthCallbackPage from './pages/auth/AuthCallbackPage';
@@ -63,6 +64,7 @@ import ManageCommunityPage from './pages/ManageCommunityPage';
 import ManageRequestPage from './pages/ManageRequestPage';
 import MessagesPage from './pages/MessagesPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
+import SearchResultsPage from './pages/SearchResultsPage';
 
 export default function App() {
   return (
@@ -88,6 +90,8 @@ export default function App() {
 
         {/* Profile */}
         <Route path="/profile/me" element={<ProfilePageWrapper />} />
+        <Route path="/profile/me/posts" element={<UserPostsPage />} />
+        <Route path="/profile/:userId/posts" element={<UserPostsPage />} />
         <Route path="/profile/:userId" element={<ProfilePageWrapper />} />
 
         {/* App */}
@@ -141,6 +145,9 @@ export default function App() {
         <Route path="/community" element={<MyCommunityPage />} />
         <Route path="/community/manage" element={<ManageCommunityPage />} />
         <Route path="/community/requests" element={<ManageRequestPage />} />
+
+        {/* Search */}
+        <Route path="/search" element={<SearchResultsPage />} />
 
         {/* Messages */}
         <Route path="/messages" element={<MessagesPage />} />

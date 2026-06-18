@@ -227,6 +227,28 @@ async def get_profile(authorization: str = Header(None)):
     return result.data[0]
 
 
+@app.get("/api/profile/resume")
+async def get_resume_url(authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    result = supabase_admin.table("users").select("resume_url").eq("id", user_id).execute()
+    if not result.data or not result.data[0].get("resume_url"):
+        raise HTTPException(status_code=404, detail="No resume uploaded")
+    raw = result.data[0]["resume_url"]
+    # Normalize: extract just the storage path within the bucket.
+    # Stored value may be a bare path like "{uuid}/resume.pdf" or a full/signed
+    # URL like "storage/v1/object/sign/documents/{uuid}/resume.pdf".
+    bucket_marker = "/documents/"
+    if bucket_marker in raw:
+        path = raw.split(bucket_marker, 1)[1].split("?")[0]
+    else:
+        path = raw.split("?")[0]
+    # Also fix the DB record so future requests are clean
+    if path != raw:
+        supabase_admin.table("users").update({"resume_url": path}).eq("id", user_id).execute()
+    signed = supabase_admin.storage.from_("documents").create_signed_url(path, 3600)
+    return {"url": signed.get("signedURL") or signed.get("signed_url") or ""}
+
+
 @app.get("/api/profile/{user_id}")
 async def get_public_profile(user_id: str, authorization: str = Header(None)):
     """Return a public profile for any user by ID (requires auth)."""
@@ -286,17 +308,6 @@ async def upload_profile_image(
     supabase_admin.table("users").update({field: public_url}).eq("id", user_id).select().execute()
 
     return {"url": public_url}
-
-
-@app.get("/api/profile/resume")
-async def get_resume_url(authorization: str = Header(None)):
-    user_id = get_user_id(authorization)
-    result = supabase_admin.table("users").select("resume_url").eq("id", user_id).execute()
-    if not result.data or not result.data[0].get("resume_url"):
-        raise HTTPException(status_code=404, detail="No resume uploaded")
-    path = result.data[0]["resume_url"]
-    signed = supabase_admin.storage.from_("documents").create_signed_url(path, 3600)
-    return {"url": signed.get("signedURL") or signed.get("signed_url") or ""}
 
 
 @app.post("/api/upload/document")
@@ -1273,8 +1284,10 @@ async def get_suggestions(authorization: str = Header(None)):
     # Collect candidate IDs first
     candidate_ids = [u["id"] for u in (all_users.data or []) if u["id"] not in excluded_ids]
 
-    # Batch-fetch achievement counts for all candidates
+    # Batch-fetch achievement, endorsement, and review counts for all candidates
     achievement_counts: dict[str, int] = {}
+    endorsement_counts: dict[str, int] = {}
+    review_counts: dict[str, int] = {}
     if candidate_ids:
         try:
             ach_rows = supabase_admin.table("personal_achievements").select(
@@ -1284,7 +1297,25 @@ async def get_suggestions(authorization: str = Header(None)):
                 uid = row["user_id"]
                 achievement_counts[uid] = achievement_counts.get(uid, 0) + 1
         except Exception:
-            pass  # table may not exist yet
+            pass
+        try:
+            end_rows = supabase_admin.table("user_endorsements").select(
+                "endorsed_id"
+            ).in_("endorsed_id", candidate_ids).execute()
+            for row in (end_rows.data or []):
+                uid = row["endorsed_id"]
+                endorsement_counts[uid] = endorsement_counts.get(uid, 0) + 1
+        except Exception:
+            pass
+        try:
+            rev_rows = supabase_admin.table("user_reviews").select(
+                "reviewed_id"
+            ).in_("reviewed_id", candidate_ids).execute()
+            for row in (rev_rows.data or []):
+                uid = row["reviewed_id"]
+                review_counts[uid] = review_counts.get(uid, 0) + 1
+        except Exception:
+            pass
 
     suggestions = []
     for u in (all_users.data or []):
@@ -1292,8 +1323,8 @@ async def get_suggestions(authorization: str = Header(None)):
             continue
         formatted = _format_user(u)
         uid = u["id"]
-        formatted["endorsement_count"] = 0
-        formatted["review_count"] = 0
+        formatted["endorsement_count"] = endorsement_counts.get(uid, 0)
+        formatted["review_count"] = review_counts.get(uid, 0)
         formatted["achievement_count"] = achievement_counts.get(uid, 0)
         suggestions.append(formatted)
 

@@ -9,7 +9,9 @@ import { fetchPersonalAchievements } from '../../services/achievementService';
 import type { PersonalAchievement } from '../../services/achievementService';
 import AddPersonalAchievementModal from '../../components/profile/AddPersonalAchievementModal';
 import AllAchievementsModal from '../../components/profile/AllAchievementsModal';
-import { fetchUserPosts, type FeedPost } from '../../services/postService';
+import { fetchUserPosts, fetchLikedPostIds, fetchLikesCounts, fetchCommentCounts, togglePostLike, type FeedPost } from '../../services/postService';
+import { fetchSavedPostIds, savePost, unsavePost } from '../../services/savedService';
+import PostDetailModal from '../../components/profile/PostDetailModal';
 import {
   fetchCollaborativeAccomplishments,
   fetchCollaboratorAvatars,
@@ -18,11 +20,13 @@ import type { CollaborativeAccomplishment } from '../../services/collaborativeAc
 import AddCollaborativeAccomplishmentModal from '../../components/profile/AddCollaborativeAccomplishmentModal';
 import CollaborativeAccomplishmentDetailModal from '../../components/profile/CollaborativeAccomplishmentDetailModal';
 import cupSvg from '../../assets/images/svg/cup.svg';
+import { fetchCommunityMembersCount } from '../../services/endorsementService';
+import WriteReviewModal from '../../components/profile/WriteReviewModal';
+import ReviewsPreviewModal from '../../components/profile/ReviewsPreviewModal';
+import { fetchReviews, deleteReview, type Review } from '../../services/reviewService';
 
 const postImg1 = 'https://placehold.co/400x300/f5f5f5/cccccc';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-
-const MOCK_REVIEWS: { id: string; name: string; rating: number; text: string }[] = [];
 
 function AddIndustryExperienceModal({
   currentIndustries,
@@ -150,10 +154,20 @@ function OutlinedTag({ label }: { label: string }) {
 export default function NonProfitOrgProfilePage() {
   const { userId = 'me' } = useParams<{ userId?: string }>();
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copyDone, setCopyDone] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showReviewsPreview, setShowReviewsPreview] = useState(false);
   const [showAllSdg, setShowAllSdg] = useState(false);
   const [showAllInd, setShowAllInd] = useState(false);
   const [addIndExpOpen, setAddIndExpOpen] = useState(false);
@@ -168,6 +182,8 @@ export default function NonProfitOrgProfilePage() {
   const resolvedUserId = userId === 'me' ? storedUser.id : userId;
 
   const [achievements, setAchievements] = useState<PersonalAchievement[]>([]);
+  const [communityMembersCount, setCommunityMembersCount] = useState(0);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [showAllAchievements, setShowAllAchievements] = useState(false);
   const [addAchievementOpen, setAddAchievementOpen] = useState(false);
   const [collabAccomplishments, setCollabAccomplishments] = useState<CollaborativeAccomplishment[]>([]);
@@ -179,9 +195,33 @@ export default function NonProfitOrgProfilePage() {
     if (!resolvedUserId) return;
     fetchPersonalAchievements(resolvedUserId).then(setAchievements).catch(() => { });
   };
-  const loadPosts = () => {
+  const loadPosts = async () => {
     if (!resolvedUserId) return;
-    fetchUserPosts(resolvedUserId).then(setPosts).catch(() => { });
+    try {
+      const fetched = await fetchUserPosts(resolvedUserId);
+      setPosts(fetched);
+      if (fetched.length === 0) return;
+      const ids = fetched.map((p) => p.id);
+      const [liked, likesCts, commentCts, saved] = await Promise.all([
+        fetchLikedPostIds().catch(() => new Set<string>()),
+        fetchLikesCounts(ids).catch(() => ({} as Record<string, number>)),
+        fetchCommentCounts(ids).catch(() => ({} as Record<string, number>)),
+        fetchSavedPostIds().catch(() => new Set<string>()),
+      ]);
+      setLikedPostIds(liked);
+      setLikesCounts(likesCts as Record<string, number>);
+      setCommentCounts(commentCts as Record<string, number>);
+      setSavedPostIds(saved);
+    } catch {}
+  };
+  const handlePostLikeToggle = (postId: string, willLike: boolean) => {
+    setLikedPostIds((prev) => { const next = new Set(prev); if (willLike) next.add(postId); else next.delete(postId); return next; });
+    setLikesCounts((prev) => ({ ...prev, [postId]: Math.max(0, (prev[postId] ?? 0) + (willLike ? 1 : -1)) }));
+    togglePostLike(postId, willLike).catch(() => {});
+  };
+  const handlePostSaveToggle = (postId: string, willSave: boolean) => {
+    setSavedPostIds((prev) => { const next = new Set(prev); if (willSave) next.add(postId); else next.delete(postId); return next; });
+    if (willSave) savePost(postId).catch(() => {}); else unsavePost(postId).catch(() => {});
   };
   const loadCollabAccomplishments = () => {
     if (!resolvedUserId) return;
@@ -191,10 +231,23 @@ export default function NonProfitOrgProfilePage() {
       fetchCollaboratorAvatars(ids).then(setCollabAvatars).catch(() => { });
     }).catch(() => { });
   };
+  const loadReviews = () => {
+    if (!resolvedUserId) return;
+    fetchReviews(resolvedUserId).then(setReviews).catch(() => {});
+  };
 
   useEffect(() => { loadAchievements(); }, [resolvedUserId]);
   useEffect(() => { loadPosts(); }, [resolvedUserId]);
   useEffect(() => { loadCollabAccomplishments(); }, [resolvedUserId]);
+  useEffect(() => { loadReviews(); }, [resolvedUserId]);
+  const handleDeleteReview = async () => {
+    if (!resolvedUserId || !confirm('Delete your review?')) return;
+    try { await deleteReview(resolvedUserId); loadReviews(); } catch {}
+  };
+  useEffect(() => {
+    if (!resolvedUserId) return;
+    fetchCommunityMembersCount(resolvedUserId).then(setCommunityMembersCount).catch(() => {});
+  }, [resolvedUserId]);
 
   async function handleBrochureUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -353,7 +406,7 @@ export default function NonProfitOrgProfilePage() {
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
                             <div className="absolute left-0 top-[calc(100%+6px)] w-44 bg-white rounded-xl shadow-lg border border-[#f2f2f3] z-50 overflow-hidden py-1">
-                              <button className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left">Share Profile</button>
+                              <button onClick={() => { setMoreMenuOpen(false); setShowShareModal(true); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#f8f8f8] text-left"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" /></svg>Share Profile</button>
                             </div>
                           </>
                         )}
@@ -375,9 +428,9 @@ export default function NonProfitOrgProfilePage() {
                   <div className="flex items-stretch border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
                     {[
                       { label: 'Media Posts', value: String(posts.length) },
-                      { label: 'Reviews', value: '0' },
+                      { label: 'Reviews', value: String(reviews.length) },
                       { label: 'Achievements', value: String(achievements.length) },
-                      { label: 'Community Members', value: '0' },
+                      { label: 'Community Members', value: String(communityMembersCount) },
                     ].map((s) => (
                       <button key={s.label} className="flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors">
                         <span className="text-[#ff9400] text-xl font-bold leading-tight">{s.value}</span>
@@ -644,27 +697,42 @@ export default function NonProfitOrgProfilePage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#18191c] text-base font-semibold">Credibility</h3>
-                    <button className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
+                    <button onClick={() => setShowReviewsPreview(true)} className="text-[#ff9400] text-sm font-medium hover:underline">View All</button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {MOCK_REVIEWS.length > 0
-                      ? MOCK_REVIEWS.map((review) => (
-                        <div key={review.id} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[#18191c] text-sm font-semibold">{review.name}</p>
+                    {reviews.length > 0 ? reviews.slice(0, 3).map((review) => {
+                      const reviewerName = review.reviewer
+                        ? (
+                            `${review.reviewer.first_name ?? ''} ${review.reviewer.last_name ?? ''}`.trim() ||
+                            review.reviewer.org_name ||
+                            'Anonymous'
+                          )
+                        : 'Anonymous';
+                      return (
+                        <div key={review.id} onClick={() => setShowReviewsPreview(true)} className="border border-[#f2f2f3] rounded-xl p-4 flex flex-col gap-2 cursor-pointer hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="text-[#18191c] text-sm font-semibold">{reviewerName}</p>
                             <StarRating rating={review.rating} />
                           </div>
-                          <p className="text-[#5e6670] text-xs leading-relaxed">{review.text}</p>
+                          <p className="text-[#5e6670] text-xs leading-relaxed">{review.review_text}</p>
                         </div>
-                      ))
-                      : <p className="text-[#9199a3] text-sm col-span-3">No reviews yet.</p>
-                    }
+                      );
+                    }) : (
+                      <p className="text-[#9199a3] text-sm col-span-3">No reviews yet.</p>
+                    )}
                   </div>
-                  <div className="mt-4 flex justify-center">
-                    <button className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">
-                      Write A Review
-                    </button>
-                  </div>
+                  {!isOwn && (
+                    <div className="flex justify-center gap-3 mt-4">
+                      {reviews.some(r => r.reviewer_id === storedUser.id) ? (
+                        <>
+                          <button onClick={() => setShowReviewModal(true)} className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e88600] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">Update Review</button>
+                          <button onClick={handleDeleteReview} className="h-[40px] px-8 border border-red-400 text-red-500 text-sm font-semibold rounded-full hover:bg-red-50 transition-colors">Delete Review</button>
+                        </>
+                      ) : (
+                        <button onClick={() => setShowReviewModal(true)} className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">Write A Review</button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <Divider />
@@ -783,7 +851,7 @@ export default function NonProfitOrgProfilePage() {
                         const title = post.event_title || post.poll_question || post.question_text || post.content?.slice(0, 50) || 'Post';
                         const desc = post.content || post.event_description || '';
                         return (
-                          <div key={post.id} className="rounded-xl overflow-hidden border border-[#f2f2f3] cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col h-full">
+                          <div key={post.id} onClick={() => setSelectedPost(post)} className="rounded-xl overflow-hidden border border-[#f2f2f3] cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col h-full">
                             <img src={img} alt={title} className="w-full h-[110px] object-cover bg-slate-50" />
                             <div className="p-3 flex-1 flex flex-col">
                               <p className="text-[#18191c] text-xs font-semibold leading-snug line-clamp-2">{title}</p>
@@ -858,6 +926,108 @@ export default function NonProfitOrgProfilePage() {
           onClose={() => setEditOpen(false)}
         />
       )}
+
+      {showReviewModal && profile && (
+        <WriteReviewModal
+          targetUserId={resolvedUserId}
+          targetName={(profile.orgName || profile.firstName || '').trim() || 'this organization'}
+          onClose={() => setShowReviewModal(false)}
+          onSubmitted={loadReviews}
+          initialRating={reviews.find(r => r.reviewer_id === storedUser.id)?.rating}
+          initialReviewText={reviews.find(r => r.reviewer_id === storedUser.id)?.review_text}
+          initialMediaUrl={reviews.find(r => r.reviewer_id === storedUser.id)?.media_url}
+        />
+      )}
+
+      {selectedPost && (
+        <PostDetailModal
+          post={selectedPost}
+          isLiked={likedPostIds.has(selectedPost.id)}
+          likesCount={likesCounts[selectedPost.id] ?? 0}
+          onLikeToggle={handlePostLikeToggle}
+          isSaved={savedPostIds.has(selectedPost.id)}
+          onSaveToggle={handlePostSaveToggle}
+          commentsCount={commentCounts[selectedPost.id] ?? 0}
+          onClose={() => setSelectedPost(null)}
+        />
+      )}
+
+      {showReviewsPreview && (
+        <ReviewsPreviewModal
+          reviews={reviews}
+          onClose={() => setShowReviewsPreview(false)}
+        />
+      )}
+
+      {showShareModal && profile && (() => {
+        const today = new Date();
+        const dateStr = `${today.getDate().toString().padStart(2, '0')}-${today.toLocaleString('en-GB', { month: 'long' })}-${today.getFullYear()}`;
+        const profileUrl = `${window.location.origin}/profile/${resolvedUserId}`;
+        const fullName = (profile.orgName || profile.firstName || '').trim();
+        const roleCompany = [profile.title, profile.sector].filter(Boolean).join(' • ');
+        const handle = `@${fullName.toLowerCase().replace(/\s+/g, '')}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(profileUrl)}&margin=10`;
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowShareModal(false); setCopyDone(false); setShowQR(false); }}>
+            <div className="bg-white rounded-2xl w-full max-w-[340px] shadow-2xl overflow-hidden relative" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setShowQR((v) => !v)} className="absolute top-3 right-3 z-20 w-8 h-8 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/40 transition-colors">
+                {showQR ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M5 12l7 7M5 12l7-7" /></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zm-3 3h2v2h-2v-2zm3 0h2v2h-2v-2z" /></svg>}
+              </button>
+              {showQR ? (
+                <div className="flex flex-col">
+                  <div className="bg-gradient-to-br from-[#8b2fc9] via-[#d03a8c] to-[#ff6b35] h-[84px] flex flex-col items-center justify-center px-4 pt-2">
+                    <p className="text-white text-base font-bold tracking-wide">Impactshaala</p>
+                    <p className="text-white/80 text-xs mt-0.5">{fullName}</p>
+                  </div>
+                  <div className="flex flex-col items-center py-7 px-6 bg-white">
+                    <div className="w-[230px] h-[230px] rounded-2xl overflow-hidden border border-[#f2f2f3] shadow-sm bg-white flex items-center justify-center">
+                      <img src={qrUrl} alt="Profile QR Code" className="w-[220px] h-[220px]" />
+                    </div>
+                    <p className="text-[#9199a3] text-[11px] mt-3 text-center">Scan to view profile</p>
+                  </div>
+                  <div className="mx-5 mb-6 rounded-xl bg-gradient-to-r from-[#ff9400] to-[#ff6600] flex items-center justify-center py-3.5">
+                    <p className="text-white text-sm font-bold tracking-wider">{handle}</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="relative h-[110px] bg-gradient-to-br from-[#8b2fc9] via-[#d03a8c] to-[#ff6b35] overflow-visible">
+                    {profile.coverUrl && <img src={profile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />}
+                    <div className="absolute -bottom-[44px] left-1/2 -translate-x-1/2">
+                      {profile.avatarUrl ? <img src={profile.avatarUrl} alt={fullName} className="w-[88px] h-[88px] rounded-full object-cover border-4 border-white shadow-lg" /> : <div className="w-[88px] h-[88px] rounded-full bg-[#ff9400] flex items-center justify-center border-4 border-white shadow-lg"><span className="text-white text-3xl font-bold">{(fullName[0] ?? '?').toUpperCase()}</span></div>}
+                    </div>
+                  </div>
+                  <div className="pt-[54px] pb-6 px-6 flex flex-col items-center">
+                    <h2 className="text-[#18191c] text-[20px] font-bold leading-tight text-center">{fullName || 'Profile'}</h2>
+                    {roleCompany && <p className="text-[#5e6670] text-[13px] text-center mt-1">{roleCompany}</p>}
+                    <div className="flex items-stretch w-full border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] mt-5 shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
+                      {[{ label: 'Media Posts', value: String(posts.length) }, { label: 'Achievements', value: String(achievements.length) }, { label: 'Community', value: String(communityMembersCount) }].map((s) => (
+                        <div key={s.label} className="flex-1 flex flex-col items-center py-3 px-1">
+                          <span className="text-[#ff9400] text-[17px] font-bold leading-tight">{s.value}</span>
+                          <span className="text-[#18191c] text-[10px] font-medium text-center mt-0.5 leading-snug">{s.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="w-full mt-5 bg-gradient-to-r from-[#ff9400] to-[#ff6600] rounded-xl p-3">
+                      <div className="flex gap-2.5">
+                        <button onClick={async () => { if (navigator.share) { try { await navigator.share({ title: `${fullName} on Impactshaala`, url: profileUrl }); } catch {} } else { await navigator.clipboard.writeText(profileUrl).catch(() => {}); setCopyDone(true); setTimeout(() => setCopyDone(false), 2000); } }} className="flex-1 bg-white rounded-lg flex flex-col items-center gap-2 py-3 text-[#5e6670] hover:text-[#ff9400] hover:bg-[#fff8ee] transition-colors">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" /></svg>
+                          <span className="text-[11px] font-semibold">Share profile</span>
+                        </button>
+                        <button onClick={async () => { await navigator.clipboard.writeText(profileUrl).catch(() => {}); setCopyDone(true); setTimeout(() => setCopyDone(false), 2000); }} className="flex-1 bg-white rounded-lg flex flex-col items-center gap-2 py-3 text-[#5e6670] hover:text-[#ff9400] hover:bg-[#fff8ee] transition-colors">
+                          {copyDone ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" /></svg>}
+                          <span className="text-[11px] font-semibold">{copyDone ? 'Copied!' : 'Copy link'}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[#ff9400] text-[14px] font-semibold mt-4">{dateStr}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>

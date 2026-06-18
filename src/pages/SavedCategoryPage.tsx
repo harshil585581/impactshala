@@ -11,9 +11,33 @@ import {
   fetchSavedCommunityPosts,
   unsaveDiscoverItem,
   unsavePost,
+  fetchSavedPostIds,
+  savePost,
+  fetchSavedLearningCourses,
+  unsaveLearningCourse,
+  fetchSavedEmploymentPostings,
+  unsaveEmploymentPosting,
   type SavedDiscoverSnapshot,
+  type SavedLearningSnapshot,
 } from '../services/savedService';
-import type { FeedPost } from '../services/postService';
+import { applyToCourse } from '../services/learningService';
+import { submitApplication, type EmployerPosting } from '../services/employmentService';
+import { toggleReaction, fetchDiscoverPost, type DiscoverItem } from '../services/discoverService';
+import CommentSection from '../components/CommentSection';
+import ShareModal from '../components/ShareModal';
+import {
+  fetchLikedPostIds,
+  fetchLikesCounts,
+  fetchCommentCounts,
+  togglePostLike,
+  type FeedPost,
+} from '../services/postService';
+import {
+  fetchConnections,
+  fetchSentRequests,
+  sendConnectionRequest,
+} from '../services/communityService';
+import PostDetailModal from '../components/profile/PostDetailModal';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,6 +67,447 @@ function Avatar({ name, url, size = 40 }: { name: string; url?: string | null; s
 }
 
 
+
+// ─── Learning Apply Modal ─────────────────────────────────────────────────────
+
+function LearningApplyModal({ course, onClose }: { course: SavedLearningSnapshot; onClose: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', mobile: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await applyToCourse(course.id, form, []);
+      setDone(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit. Try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="relative w-full max-w-[520px] bg-white rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+
+        {done ? (
+          <div className="text-center py-8">
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <h3 className="text-[#18191c] font-bold text-lg mb-1">Application Submitted!</h3>
+            <p className="text-text-muted text-sm mb-6">Your application for <span className="font-semibold">{course.title}</span> has been sent.</p>
+            <button onClick={onClose} className="bg-[#f77f00] text-white font-semibold px-6 py-2 rounded-full hover:bg-[#e07000] transition-colors">Done</button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-5">
+              <h3 className="text-[#18191c] font-bold text-lg leading-snug">{course.title}</h3>
+              <p className="text-text-muted text-sm mt-0.5">{course.university}</p>
+            </div>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Full Name *</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Your full name" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00]" required />
+              </div>
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Email *</label>
+                <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00]" required />
+              </div>
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Mobile</label>
+                <input value={form.mobile} onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} placeholder="+91 9876543210" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00]" />
+              </div>
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Message</label>
+                <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Why are you interested in this course?" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00] resize-none" />
+              </div>
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+              <button type="submit" disabled={submitting || !form.name.trim() || !form.email.trim()} className="bg-[#f77f00] text-white font-semibold py-2.5 rounded-full hover:bg-[#e07000] transition-colors disabled:opacity-50">
+                {submitting ? 'Submitting…' : 'Submit Application'}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Learning Card ────────────────────────────────────────────────────────────
+
+function LearningCard({ course, onUnsave }: { course: SavedLearningSnapshot; onUnsave: (id: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [applying, setApplying] = useState(false);
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden shadow-sm">
+        <img
+          src={course.image || 'https://placehold.co/500x200/1e293b/ffffff?text=Course'}
+          alt={course.title}
+          className="w-full h-[180px] object-cover"
+          onError={e => { (e.currentTarget as HTMLImageElement).src = 'https://placehold.co/500x200/1e293b/ffffff?text=Course'; }}
+        />
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#f77f00"/>
+                  <circle cx="12" cy="9" r="2.5" fill="white"/>
+                </svg>
+                <span className="text-[#374151] text-xs">{course.university}</span>
+              </div>
+              <h3 className="text-[#18191c] font-bold text-base leading-snug">{course.title}</h3>
+            </div>
+            <button onClick={() => onUnsave(course.id)} title="Remove from saved" className="shrink-0 p-1 hover:bg-gray-100 rounded-lg transition-colors">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#f77f00">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="flex gap-2 mb-3">
+            <button onClick={() => setApplying(true)} className="flex-1 bg-[#f77f00] text-white text-sm font-semibold py-2 rounded-full hover:bg-[#e07000] transition-colors">
+              Get Started
+            </button>
+            <button
+              onClick={() => course.brochureUrl && window.open(course.brochureUrl, '_blank')}
+              disabled={!course.brochureUrl}
+              className={`flex-1 border border-[#e5e7eb] text-[#374151] text-sm font-medium py-2 rounded-full transition-colors ${course.brochureUrl ? 'hover:bg-gray-50' : 'opacity-40 cursor-not-allowed'}`}
+            >
+              Download Brochure
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+            <div>
+              <p className="text-[#f77f00] text-xs font-medium">Academic level</p>
+              <p className="text-[#18191c] text-sm">{course.level}</p>
+            </div>
+            <div>
+              <p className="text-[#f77f00] text-xs font-medium">Mode</p>
+              <p className="text-[#18191c] text-sm">{course.mode}</p>
+            </div>
+            <div>
+              <p className="text-[#f77f00] text-xs font-medium">Course Fee</p>
+              <p className="text-[#18191c] text-sm">{course.fee}</p>
+            </div>
+            <div>
+              <p className="text-[#f77f00] text-xs font-medium">Duration</p>
+              <p className="text-[#18191c] text-sm">{course.duration}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-[#f77f00] text-xs font-medium">Application Deadline</p>
+              <p className="text-[#18191c] text-sm">{course.deadline}</p>
+            </div>
+          </div>
+
+          <button onClick={() => setExpanded(v => !v)} className="mt-3 text-[#f77f00] text-sm font-medium hover:underline block">
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        </div>
+      </div>
+
+      {applying && <LearningApplyModal course={course} onClose={() => setApplying(false)} />}
+    </>
+  );
+}
+
+// ─── Employment helpers (mirrors EmploymentHubDiscoveryPage) ──────────────────
+
+function EField({ label, value }: { label: string; value?: string | string[] | null }) {
+  if (!value || (Array.isArray(value) && value.length === 0)) return null;
+  const display = Array.isArray(value) ? value.join(', ') : value;
+  if (!display.trim()) return null;
+  return (
+    <p className="text-sm text-[#18191c] leading-relaxed">
+      <span className="font-medium">{label}:&nbsp;</span>{display}
+    </p>
+  );
+}
+
+function EBullets({ label, value }: { label: string; value?: string | null }) {
+  if (!value?.trim()) return null;
+  const lines = value.trim().split('\n').filter(Boolean);
+  if (lines.length <= 1) {
+    return (
+      <p className="text-sm text-[#18191c] leading-relaxed">
+        <span className="font-medium">{label}:&nbsp;</span>{lines[0]}
+      </p>
+    );
+  }
+  return (
+    <div>
+      <p className="text-sm font-medium text-[#18191c] mb-1.5">{label}:</p>
+      <ul className="list-disc list-outside ml-4 space-y-1">
+        {lines.map((line, i) => <li key={i} className="text-sm text-[#18191c] leading-relaxed">{line}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+function ESection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-[#f2f2f3] pt-4 mt-4">
+      <h4 className="text-base font-bold text-[#18191c] mb-3">{title}</h4>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function ESkillPill({ label }: { label: string }) {
+  return (
+    <span className="text-[#f77f00] text-xs font-medium px-3 py-1.5 rounded-full border border-[#f77f00]/30 bg-[#fff8ee] whitespace-nowrap">
+      {label}
+    </span>
+  );
+}
+
+function EmployerExpandedDetails({ posting, onApply }: { posting: EmployerPosting; onApply: () => void }) {
+  const skills = posting.preferred_skillsets
+    ? posting.preferred_skillsets.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  return (
+    <div>
+      <ESection title="Job Overview">
+        <EField label="Department" value={posting.department} />
+        <EField label="Industry" value={posting.industry} />
+        <EField label="Career Level" value={posting.career_level} />
+        <EField label="Job Type" value={posting.job_type} />
+        <EField label="Work Mode" value={posting.work_mode} />
+      </ESection>
+      <ESection title="Role Details">
+        <EField label="Role Type" value={posting.role_type} />
+        <EField label="Reporting To" value={posting.reporting_to} />
+        <EBullets label="Daily Tasks" value={posting.daily_tasks} />
+        <EField label="Training Support" value={posting.training_support} />
+        <EField label="Growth Potential" value={posting.growth_potential} />
+      </ESection>
+      <ESection title="Work Culture & Flexibility">
+        <EField label="Working Hours" value={posting.working_hours} />
+        <EField label="Leave Policy" value={posting.leave_policy} />
+        <EField label="Company Culture" value={posting.company_culture} />
+        <EField label="Diversity Practices" value={posting.diversity_practices} />
+      </ESection>
+      <ESection title="Compensation & Benefits">
+        <EField label="Compensation" value={posting.compensation} />
+        <EField label="Payment Frequency" value={posting.payment_frequency} />
+        <EField label="Additional Perks" value={posting.additional_perks} />
+      </ESection>
+      <ESection title="Candidate Profile">
+        <EBullets label="Mandatory Attributes" value={posting.mandatory_attributes} />
+        {skills.length > 0 && (
+          <p className="text-sm text-[#18191c]">
+            <span className="font-medium">Preferred Skillsets:&nbsp;</span>{skills.join(', ')}
+          </p>
+        )}
+        {posting.eligibility_criteria?.length > 0 && (
+          <div>
+            <p className="text-sm font-medium text-[#18191c] mb-1.5">Eligibility Criteria:</p>
+            <ul className="list-disc list-outside ml-4 space-y-1">
+              {posting.eligibility_criteria.map((c, i) => <li key={i} className="text-sm text-[#18191c]">{c}</li>)}
+            </ul>
+          </div>
+        )}
+        {posting.required_documents?.length > 0 && (
+          <div>
+            <p className="text-sm font-medium text-[#18191c] mb-1.5">Required Documents:</p>
+            <ul className="list-disc list-outside ml-4 space-y-1">
+              {posting.required_documents.map((d, i) => <li key={i} className="text-sm text-[#18191c]">{d}</li>)}
+            </ul>
+          </div>
+        )}
+      </ESection>
+      <ESection title="Application Process">
+        <EField label="Weekly Hours" value={posting.weekly_hours} />
+        <EField label="Last Date to Apply" value={posting.last_date_to_apply} />
+        <EField label="Selection Process" value={posting.selection_process} />
+      </ESection>
+      {posting.faqs?.length > 0 && (
+        <ESection title="FAQs">
+          {posting.faqs.map((faq, i) => (
+            <div key={i} className="bg-[#f9f9f9] rounded-xl p-3">
+              <p className="text-sm font-semibold text-[#18191c]">Q: {faq.q}</p>
+              {faq.a && <p className="text-sm text-[#6b6b6b] mt-1">A: {faq.a}</p>}
+            </div>
+          ))}
+        </ESection>
+      )}
+      <div className="border-t border-[#f2f2f3] pt-4 mt-4">
+        <button onClick={onApply} className="w-full bg-[#f77f00] text-white font-semibold py-2.5 rounded-full hover:bg-[#e07000] transition-colors">
+          Apply Now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Employment Apply Modal ───────────────────────────────────────────────────
+
+function EmploymentApplyModal({ posting, onClose }: { posting: EmployerPosting; onClose: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', mobile: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await submitApplication(posting.id, { name: form.name, email: form.email, mobile: form.mobile, message: form.message || undefined });
+      setDone(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit. Try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="relative w-full max-w-[520px] bg-white rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+
+        {done ? (
+          <div className="text-center py-8">
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <h3 className="text-[#18191c] font-bold text-lg mb-1">Application Submitted!</h3>
+            <p className="text-text-muted text-sm mb-6">Your application for <span className="font-semibold">{posting.job_title}</span> has been sent.</p>
+            <button onClick={onClose} className="bg-[#f77f00] text-white font-semibold px-6 py-2 rounded-full hover:bg-[#e07000] transition-colors">Done</button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-5">
+              <h3 className="text-[#18191c] font-bold text-lg leading-snug">{posting.job_title}</h3>
+              <p className="text-text-muted text-sm mt-0.5">{posting.org_name}</p>
+            </div>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Full Name *</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Your full name" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00]" required />
+              </div>
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Email *</label>
+                <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="your@email.com" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00]" required />
+              </div>
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Mobile</label>
+                <input value={form.mobile} onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} placeholder="+91 9876543210" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00]" />
+              </div>
+              <div>
+                <label className="text-[#18191c] text-sm font-medium block mb-1">Message</label>
+                <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Why are you a good fit for this role?" className="w-full border border-[#e5e7eb] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#f77f00] resize-none" />
+              </div>
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+              <button type="submit" disabled={submitting || !form.name.trim() || !form.email.trim()} className="bg-[#f77f00] text-white font-semibold py-2.5 rounded-full hover:bg-[#e07000] transition-colors disabled:opacity-50">
+                {submitting ? 'Submitting…' : 'Submit Application'}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Employment Card ──────────────────────────────────────────────────────────
+
+function EmploymentCard({ posting, onUnsave }: { posting: EmployerPosting; onUnsave: (id: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const initial = posting.org_name?.[0]?.toUpperCase() ?? 'J';
+  const skills = posting.preferred_skillsets
+    ? posting.preferred_skillsets.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `${minutes || 1} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+    const months = Math.floor(days / 30);
+    return `${months} month${months !== 1 ? 's' : ''} ago`;
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl border border-[#f2f2f3] p-5">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-12 h-12 rounded-full bg-[#1a1a1a] flex items-center justify-center text-white font-bold text-base shrink-0">
+            {initial}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-[#18191c] font-bold text-base leading-tight">{posting.job_title || 'Untitled Role'}</h3>
+            <p className="text-[#6b6b6b] text-sm">{posting.org_name}</p>
+            {posting.work_mode && <p className="text-[#6b6b6b] text-sm">({posting.work_mode})</p>}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setApplying(true)} className="bg-[#f77f00] text-white text-sm font-semibold px-5 h-10 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
+              Get Started
+            </button>
+            <button onClick={() => onUnsave(posting.id)} className="w-10 h-10 flex items-center justify-center rounded-full border border-[#f77f00] bg-[#fff8ee] text-[#f77f00] transition-colors">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm mb-3">
+          {posting.career_level && (
+            <span><span className="text-[#f77f00] font-semibold">Exp - </span><span className="text-[#18191c] font-semibold">{posting.career_level}</span></span>
+          )}
+          {posting.compensation && (
+            <span><span className="text-[#f77f00] font-semibold">Salary - </span><span className="text-[#18191c] font-semibold">{posting.compensation}</span></span>
+          )}
+          {posting.job_type && (
+            <span><span className="text-[#f77f00] font-semibold">Type - </span><span className="text-[#18191c] font-semibold">{posting.job_type}</span></span>
+          )}
+        </div>
+
+        {skills.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="text-[#f77f00] font-semibold text-sm">Skills -</span>
+            {skills.slice(0, 4).map((s, i) => <ESkillPill key={i} label={s} />)}
+            {skills.length > 4 && <span className="text-[#f77f00] text-xs font-medium">+{skills.length - 4} more</span>}
+          </div>
+        )}
+
+        {expanded && <EmployerExpandedDetails posting={posting} onApply={() => setApplying(true)} />}
+
+        <div className="flex items-center justify-between text-sm pt-3 mt-2 border-t border-[#f2f2f3]">
+          <span className="text-[#9f9f9f]">{timeAgo(posting.created_at)}</span>
+          <button onClick={() => setExpanded(v => !v)} className="text-[#f77f00] font-medium hover:underline">
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        </div>
+      </div>
+
+      {applying && <EmploymentApplyModal posting={posting} onClose={() => setApplying(false)} />}
+    </>
+  );
+}
 
 function EmptyState({ message, sub }: { message: string; sub: string }) {
   return (
@@ -76,173 +541,305 @@ function SkeletonCard() {
   );
 }
 
-// ─── Discover Card (matches Figma 303593:49846) ───────────────────────────────
+// ─── Discover Card (same design as /discover page) ────────────────────────────
 
-function DiscoverCard({ post, onUnsave, onGetStarted }: { post: SavedDiscoverSnapshot; onUnsave: (id: string) => void; onGetStarted: (id: string) => void }) {
+function DiscoverCard({ post, onUnsave, onGetStarted }: {
+  post: SavedDiscoverSnapshot;
+  onUnsave: (id: string) => void;
+  onGetStarted: (id: string) => void;
+}) {
   const [showMore, setShowMore] = useState(false);
+  const [fullItem, setFullItem] = useState<DiscoverItem | null>(null);
   const [liked, setLiked] = useState(false);
+  const [reactionCount, setReactionCount] = useState(post.reactions);
+  const [commentCount, setCommentCount] = useState(post.comments);
+  const [showComments, setShowComments] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+
+  // Fetch real liked state and full details on mount
+  useEffect(() => {
+    fetchDiscoverPost(post.id)
+      .then(item => {
+        setFullItem(item);
+        setLiked(item.isLiked ?? false);
+        setReactionCount(item.reactions);
+        setCommentCount(item.comments);
+      })
+      .catch(() => {});
+  }, [post.id]);
+
+  function handleShowMore() {
+    setShowMore(v => !v);
+  }
+
+  async function handleLike() {
+    const next = !liked;
+    setLiked(next);
+    setReactionCount(c => c + (next ? 1 : -1));
+    try {
+      const res = await toggleReaction(post.id);
+      setLiked(res.reacted);
+      setReactionCount(res.count);
+    } catch {
+      setLiked(!next);
+      setReactionCount(c => c + (next ? -1 : 1));
+    }
+  }
 
   return (
-    <div className="bg-white border border-[#c5c5c5] rounded-xl p-4 flex flex-col gap-4">
-
-      {/* ── Header ── */}
-      <div className="flex items-start gap-2.5 w-full">
-        <Avatar name={post.userName} url={post.userAvatarUrl} size={50} />
-
-        <div className="flex flex-1 min-w-0 items-start gap-2">
-          {/* Name / role / time */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1">
-            <p className="text-[#222] text-[15px] font-semibold leading-tight">{post.userName}</p>
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[#666] text-[12px]">{post.userRole}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[#787777] text-[12px]">{post.time}</span>
-              <span className="w-[4px] h-[4px] rounded-full bg-[#787777] shrink-0" />
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#787777" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
-              </svg>
+    <article className="bg-white rounded-2xl border border-border-default overflow-hidden">
+      <div className="px-5 pt-5">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <img
+              src={post.userAvatarUrl || 'https://placehold.co/56x56/ff9400/ffffff'}
+              alt={post.userName}
+              className="w-14 h-14 rounded-full object-cover shrink-0"
+            />
+            <div>
+              <p className="font-semibold text-text-dark text-base leading-tight">{post.userName}</p>
+              <p className="text-text-muted text-sm">{post.userRole}</p>
+              <div className="flex items-center gap-1 text-text-muted text-xs mt-0.5">
+                <span>{post.time}</span>
+                <span>•</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="#9ca3af" strokeWidth="1.5" />
+                  <path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#9ca3af" strokeWidth="1.5" />
+                </svg>
+              </div>
             </div>
           </div>
 
           {/* Get Started + bookmark */}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 pt-1">
             <button
               onClick={() => onGetStarted(post.id)}
-              className="bg-[#f77f00] text-white text-[13px] font-semibold px-5 py-2 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+              className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-full hover:bg-orange-600 transition-colors min-h-[44px] whitespace-nowrap"
             >
               Get Started
             </button>
             <button
               onClick={() => onUnsave(post.id)}
-              title="Remove from saved"
-              className="w-[40px] h-[40px] flex items-center justify-center text-[#f77f00] hover:text-red-400 transition-colors"
+              aria-label="Remove bookmark"
+              className="p-2 hover:bg-border-light rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
-              <svg width="26" height="28" viewBox="0 0 24 24" fill="currentColor" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+              <svg width="35" height="30" viewBox="0 0 24 24" fill="#f77f00" className="text-primary">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke="#f77f00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
         </div>
-      </div>
 
-      {/* ── Title ── */}
-      <h3 className="text-[#222] text-[17px] font-semibold leading-snug">{post.title}</h3>
+        {/* Title */}
+        <h3 className="text-text-dark font-bold text-lg mb-2">{post.title}</h3>
 
-      {/* ── Tags ── */}
-      {post.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {post.tags.map(t => (
-            <span key={t} className="bg-[#fff4e5] text-black text-[10.5px] font-medium px-3 py-1.5 rounded-full whitespace-nowrap">{t}</span>
-          ))}
-        </div>
-      )}
-
-      {/* ── Details grid ── */}
-      <div className="flex flex-col gap-2 text-[12px]">
-        <div className="flex gap-6">
-          <div className="flex-1"><span className="text-[#18191c] font-normal">Mode : </span><span className="text-[#717171]">{post.mode}</span></div>
-          <div className="flex-1"><span className="text-[#18191c] font-normal">Payment : </span><span className="text-[#717171]">{post.payment}</span></div>
-        </div>
-        <div className="flex gap-6">
-          <div className="flex-1"><span className="text-[#18191c] font-normal">Target audience : </span><span className="text-[#717171]">{post.audience}</span></div>
-          <div className="flex-1"><span className="text-[#18191c] font-normal">Last date to apply : </span><span className="text-[#717171]">{post.lastDate}</span></div>
-        </div>
-      </div>
-
-      {/* ── Image ── */}
-      {post.imageUrl && (
-        <div className="w-full h-[115px] rounded-[5px] overflow-hidden">
-          <img
-            src={post.imageUrl} alt=""
-            className="w-full h-full object-cover"
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-        </div>
-      )}
-
-      {/* ── Show more ── */}
-      <button
-        onClick={() => setShowMore(v => !v)}
-        className="text-[#f77f00] text-[13.5px] font-normal text-left hover:underline"
-      >
-        {showMore ? 'Show less' : 'Show more'}
-      </button>
-
-      {/* ── Reactions + comments ── */}
-      <div className="flex items-center justify-between text-[9.5px] font-semibold">
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1">
-            <img src={likeIcon} alt="like" className="w-[17px] h-[17px]" />
-            <img src={heartIcon} alt="heart" className="w-[17px] h-[17px]" />
-            <img src={congratulateIcon} alt="congratulate" className="w-[17px] h-[17px]" />
+        {/* Tags */}
+        {post.tags.length > 0 && (
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {post.badge && (
+              <span className="px-3 py-1 border border-border-default rounded-full text-xs text-text-medium font-medium whitespace-nowrap">
+                {post.badge}
+              </span>
+            )}
+            <span className="text-xs text-text-medium">{post.tags.join(' • ')}</span>
           </div>
-          <span className="text-[#646464]">{post.reactions.toLocaleString()}</span>
+        )}
+
+        {/* Meta grid */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
+          <p className="text-text-medium text-sm"><span className="font-semibold">Mode :</span> <span className="font-normal">{post.mode}</span></p>
+          <p className="text-text-medium text-sm"><span className="font-semibold">Payment :</span> <span className="font-normal">{post.payment}</span></p>
+          <p className="text-text-medium text-sm"><span className="font-semibold">Target audience :</span> <span className="font-normal">{post.audience}</span></p>
+          <p className="text-text-medium text-sm"><span className="font-semibold">Last date to apply :</span> <span className="font-normal">{post.lastDate}</span></p>
         </div>
-        <span className="text-[#6f6f6f]">{post.comments} comments</span>
       </div>
 
-      {/* ── Divider ── */}
-      <div className="h-px bg-[#f2f2f3] -mx-4" />
+      {/* Cover image */}
+      {post.imageUrl && (
+        <img
+          src={post.imageUrl} alt=""
+          className="w-full h-[185px] object-cover"
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+      )}
 
-      {/* ── Action bar ── */}
-      <div className="flex items-center justify-around -mx-1">
-        {[
-          {
-            label: 'Like',
-            icon: (
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
-                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
-              </svg>
-            ),
-            onClick: () => setLiked(v => !v),
-            active: liked,
-          },
-          {
-            label: 'Comment',
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-              </svg>
-            ),
-          },
-          {
-            label: 'Share',
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/>
-              </svg>
-            ),
-          },
-          {
-            label: 'Save',
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
-              </svg>
-            ),
-            onClick: () => onUnsave(post.id),
-          },
-        ].map(({ label, icon, onClick, active }) => (
+      <div className="px-5 py-4">
+        {/* Body text */}
+        {fullItem?.body && (
+          <p className={`text-text-medium text-sm mb-2 leading-relaxed ${showMore ? '' : 'line-clamp-2'}`}>
+            {fullItem.body}
+          </p>
+        )}
+
+        {/* Expanded details — same as /discover page */}
+        {showMore && fullItem && (
+          <div className="mt-3 space-y-4 border-t border-border-light pt-4 mb-3">
+            {fullItem.eligibilityCriteria && fullItem.eligibilityCriteria.length > 0 && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-1">Eligibility criteria</h4>
+                <ul className="list-disc list-inside space-y-0.5">
+                  {fullItem.eligibilityCriteria.map((c, i) => (
+                    <li key={i} className="text-text-medium text-sm leading-relaxed">{c}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {(fullItem.communicationLanguage || fullItem.levelOfParticipant || fullItem.educationalLevel || fullItem.eventOccurrence) && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-2">Additional Details</h4>
+                <div className="space-y-1">
+                  {fullItem.communicationLanguage && <p className="text-text-medium text-sm"><span className="font-medium text-text-dark">Language : </span>{fullItem.communicationLanguage}</p>}
+                  {fullItem.levelOfParticipant && <p className="text-text-medium text-sm"><span className="font-medium text-text-dark">Level of Participation : </span>{fullItem.levelOfParticipant}</p>}
+                  {fullItem.educationalLevel && <p className="text-text-medium text-sm"><span className="font-medium text-text-dark">Educational Level : </span>{fullItem.educationalLevel}</p>}
+                  {fullItem.eventOccurrence && (
+                    <p className="text-text-medium text-sm">
+                      <span className="font-medium text-text-dark">Type : </span>
+                      {fullItem.eventOccurrence === 'one_day' ? 'One-Time Event' : fullItem.eventOccurrence === 'weekly' ? 'Weekly' : fullItem.eventOccurrence === 'custom_multi_day' ? 'Multi-Day' : fullItem.eventOccurrence}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
+            {(fullItem.address || fullItem.onsiteVenue || fullItem.onlineAccess) && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-2">Access Details</h4>
+                <div className="space-y-1">
+                  {(fullItem.address || fullItem.onsiteVenue) && <p className="text-text-medium text-sm"><span className="font-medium text-text-dark">Address : </span>{fullItem.address || fullItem.onsiteVenue}</p>}
+                  {fullItem.onlineAccess && <p className="text-text-medium text-sm"><span className="font-medium text-text-dark">Link : </span>{fullItem.onlineAccess}</p>}
+                </div>
+              </section>
+            )}
+            {fullItem.description && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-1">Description</h4>
+                <p className="text-text-medium text-sm leading-relaxed">{fullItem.description}</p>
+              </section>
+            )}
+          </div>
+        )}
+
+        {/* Show more toggle */}
+        <button
+          onClick={handleShowMore}
+          className="text-primary text-sm font-medium hover:underline mb-3 block"
+        >
+          {showMore ? 'Show less' : 'Show more'}
+        </button>
+
+        {/* Reactions */}
+        <div className="flex items-center justify-between text-sm text-text-muted mb-3">
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-0.5">
+              <img src={likeIcon} alt="like" className="w-5 h-5" />
+              <img src={heartIcon} alt="heart" className="w-5 h-5" />
+              <img src={congratulateIcon} alt="congratulate" className="w-5 h-5" />
+            </div>
+            <span>{reactionCount.toLocaleString()}</span>
+          </div>
           <button
-            key={label}
-            onClick={onClick}
-            className={`flex items-center gap-1.5 text-[10.5px] font-medium py-1 px-2 rounded-md transition-colors ${active ? 'text-[#f77f00]' : 'text-[#575555] hover:text-[#f77f00] hover:bg-[#fff8ee]'}`}
+            onClick={() => setShowComments(v => !v)}
+            className="hover:underline hover:text-[#FF9400] transition-colors"
           >
-            {icon}{label}
+            {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
           </button>
-        ))}
+        </div>
+
+        {/* Action bar */}
+        <div className="flex items-center justify-around border-t border-border-light pt-3">
+          <button
+            onClick={handleLike}
+            className={`flex items-center gap-1.5 text-sm transition-colors py-1 px-2 min-h-[44px] ${liked ? 'text-primary' : 'text-text-muted hover:text-primary'}`}
+          >
+            {liked ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M1 21h4V9H1v12zm23-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L15.17 1 8.59 7.59C8.22 7.95 8 8.45 8 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91L24 10z" fill="#FF9400" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            )}
+            Like
+          </button>
+          <button
+            onClick={() => setShowComments(v => !v)}
+            className={`flex items-center gap-1.5 text-sm hover:text-primary transition-colors py-1 px-2 min-h-[44px] ${showComments ? 'text-primary' : 'text-text-muted'}`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Comment
+          </button>
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex items-center gap-1.5 text-text-muted text-sm hover:text-primary transition-colors py-1 px-2 min-h-[44px]"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" />
+              <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+              <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            Share
+          </button>
+          <button
+            onClick={() => onUnsave(post.id)}
+            className="flex items-center gap-1.5 text-primary text-sm hover:text-orange-600 transition-colors py-1 px-2 min-h-[44px]"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z" />
+            </svg>
+            Saved
+          </button>
+        </div>
       </div>
 
-    </div>
+      {/* Comment section — inside the card, same width */}
+      {showComments && (
+        <CommentSection
+          postId={post.id}
+          postTable="discover_posts"
+          onCommentCountChange={setCommentCount}
+        />
+      )}
+
+      {/* Share modal */}
+      <ShareModal
+        isOpen={showShare}
+        onClose={() => setShowShare(false)}
+        postId={post.id}
+        postTable="discover_posts"
+        authorName={post.userName}
+        authorAvatar={post.userAvatarUrl}
+        postTitle={post.title}
+        postBody=""
+        postImageUrl={post.imageUrl || null}
+      />
+    </article>
   );
 }
 
 // ─── Community Card (matches Figma 301913:18228) ──────────────────────────────
 
-function CommunityCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: string) => void }) {
+interface CommunityCardProps {
+  post: FeedPost;
+  onUnsave: (id: string) => void;
+  isLiked: boolean;
+  likesCount: number;
+  commentsCount: number;
+  onLikeToggle: (postId: string, willLike: boolean) => void;
+  isConnected: boolean;
+  hasSentRequest: boolean;
+  onSendRequest: (userId: string) => void;
+  onOpenPost: (post: FeedPost) => void;
+}
+
+function CommunityCard({
+  post, onUnsave, isLiked, likesCount, commentsCount, onLikeToggle,
+  isConnected, hasSentRequest, onSendRequest, onOpenPost,
+}: CommunityCardProps) {
   const [voted, setVoted] = useState<string | null>(null);
   const [pollCounts, setPollCounts] = useState<Record<string, number>>(() =>
     Object.fromEntries((post.poll_options ?? []).map(o => [o, 0]))
@@ -280,15 +877,29 @@ function CommunityCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: stri
           </div>
         </div>
         <div className="flex items-center gap-3.5">
-          {/* Add person (orange) — acts as unsave */}
-          <button onClick={() => onUnsave(post.id)} title="Remove from saved" className="text-[#f77f00] hover:opacity-75 transition-opacity">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <line x1="19" y1="8" x2="19" y2="14"/>
-              <line x1="22" y1="11" x2="16" y2="11"/>
-            </svg>
-          </button>
+          {/* Add to community — only show if not yet connected */}
+          {!isConnected && post.user && (
+            <button
+              onClick={() => !hasSentRequest && onSendRequest(post.user!.id)}
+              title={hasSentRequest ? 'Request sent' : 'Add to community'}
+              className={`transition-opacity ${hasSentRequest ? 'text-[#9ca3af] cursor-default' : 'text-[#f77f00] hover:opacity-75'}`}
+            >
+              {hasSentRequest ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <polyline points="16 11 18 13 22 9"/>
+                </svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <line x1="19" y1="8" x2="19" y2="14"/>
+                  <line x1="22" y1="11" x2="16" y2="11"/>
+                </svg>
+              )}
+            </button>
+          )}
           {/* 3-dot menu */}
           <button className="text-[#9ca3af] hover:text-[#374151] transition-colors">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -372,24 +983,24 @@ function CommunityCard({ post, onUnsave }: { post: FeedPost; onUnsave: (id: stri
       <div className="flex items-center justify-between">
         {/* Stats */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4757" stroke="none">
+          <button
+            onClick={() => onLikeToggle(post.id, !isLiked)}
+            className="flex items-center gap-1.5 group"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={isLiked ? '#ff4757' : 'none'} stroke={isLiked ? '#ff4757' : '#8e8e8e'} strokeWidth="1.8">
               <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
             </svg>
-            <span className="text-[#8e8e8e] text-[16px]">245</span>
-          </div>
-          <div className="flex items-center gap-1.5">
+            <span className="text-[#8e8e8e] text-[16px]">{likesCount}</span>
+          </button>
+          <button
+            onClick={() => onOpenPost(post)}
+            className="flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e8e" strokeWidth="1.8" strokeLinecap="round">
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
             </svg>
-            <span className="text-[#8e8e8e] text-[16px]">18</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e8e" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
-            </svg>
-            <span className="text-[#8e8e8e] text-[16px]">5</span>
-          </div>
+            <span className="text-[#8e8e8e] text-[16px]">{commentsCount}</span>
+          </button>
         </div>
 
         {/* Green filled bookmark */}
@@ -420,6 +1031,15 @@ export default function SavedCategoryPage() {
 
   const [discoverPosts, setDiscoverPosts] = useState<SavedDiscoverSnapshot[]>([]);
   const [communityPosts, setCommunityPosts] = useState<FeedPost[]>([]);
+  const [learningCourses, setLearningCourses] = useState<SavedLearningSnapshot[]>([]);
+  const [employmentPostings, setEmploymentPostings] = useState<EmployerPosting[]>([]);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [connectedUserIds, setConnectedUserIds] = useState<Set<string>>(new Set());
+  const [sentRequestUserIds, setSentRequestUserIds] = useState<Set<string>>(new Set());
+  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [applyPostId, setApplyPostId] = useState<string | null>(null);
 
@@ -434,7 +1054,39 @@ export default function SavedCategoryPage() {
         .finally(() => setLoading(false));
     } else if (category === 'community') {
       fetchSavedCommunityPosts()
-        .then(setCommunityPosts)
+        .then(async (posts) => {
+          setCommunityPosts(posts);
+          if (posts.length > 0) {
+            const ids = posts.map(p => p.id);
+            const [liked, likesCts, commentCts, saved] = await Promise.all([
+              fetchLikedPostIds().catch(() => new Set<string>()),
+              fetchLikesCounts(ids).catch(() => ({} as Record<string, number>)),
+              fetchCommentCounts(ids).catch(() => ({} as Record<string, number>)),
+              fetchSavedPostIds().catch(() => new Set<string>()),
+            ]);
+            setLikedPostIds(liked);
+            setLikesCounts(likesCts as Record<string, number>);
+            setCommentCounts(commentCts as Record<string, number>);
+            setSavedPostIds(saved);
+          }
+          // Fetch connections and sent requests for the person+ button
+          const [connectionsRes, sentRes] = await Promise.all([
+            fetchConnections().catch(() => ({ connections: [], total: 0 })),
+            fetchSentRequests().catch(() => ({ requests: [] })),
+          ]);
+          setConnectedUserIds(new Set(connectionsRes.connections.map(c => c.id)));
+          setSentRequestUserIds(new Set(sentRes.requests.map(r => r.id)));
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else if (category === 'learning') {
+      fetchSavedLearningCourses()
+        .then(setLearningCourses)
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else if (category === 'employment') {
+      fetchSavedEmploymentPostings()
+        .then(setEmploymentPostings)
         .catch(() => {})
         .finally(() => setLoading(false));
     } else {
@@ -450,6 +1102,45 @@ export default function SavedCategoryPage() {
   function handleCommunityUnsave(id: string) {
     unsavePost(id).catch(() => {});
     setCommunityPosts(prev => prev.filter(p => p.id !== id));
+  }
+
+  function handleLearningUnsave(id: string) {
+    unsaveLearningCourse(id).catch(() => {});
+    setLearningCourses(prev => prev.filter(c => c.id !== id));
+  }
+
+  function handleEmploymentUnsave(id: string) {
+    unsaveEmploymentPosting(id).catch(() => {});
+    setEmploymentPostings(prev => prev.filter(p => p.id !== id));
+  }
+
+  function handlePostLikeToggle(postId: string, willLike: boolean) {
+    setLikedPostIds(prev => {
+      const next = new Set(prev);
+      if (willLike) next.add(postId); else next.delete(postId);
+      return next;
+    });
+    setLikesCounts(prev => ({
+      ...prev,
+      [postId]: Math.max(0, (prev[postId] ?? 0) + (willLike ? 1 : -1)),
+    }));
+    togglePostLike(postId, willLike).catch(() => {});
+  }
+
+  function handleSendRequest(userId: string) {
+    setSentRequestUserIds(prev => new Set([...prev, userId]));
+    sendConnectionRequest(userId).catch(() => {
+      setSentRequestUserIds(prev => { const next = new Set(prev); next.delete(userId); return next; });
+    });
+  }
+
+  function handlePostSaveToggle(postId: string, willSave: boolean) {
+    setSavedPostIds(prev => {
+      const next = new Set(prev);
+      if (willSave) next.add(postId); else next.delete(postId);
+      return next;
+    });
+    if (willSave) savePost(postId).catch(() => {}); else unsavePost(postId).catch(() => {});
   }
 
   function renderContent() {
@@ -473,9 +1164,14 @@ export default function SavedCategoryPage() {
         );
       }
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
           {discoverPosts.map(p => (
-            <DiscoverCard key={p.id} post={p} onUnsave={handleDiscoverUnsave} onGetStarted={setApplyPostId} />
+            <DiscoverCard
+              key={p.id}
+              post={p}
+              onUnsave={handleDiscoverUnsave}
+              onGetStarted={setApplyPostId}
+            />
           ))}
         </div>
       );
@@ -495,7 +1191,59 @@ export default function SavedCategoryPage() {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {communityPosts.map(p => (
-            <CommunityCard key={p.id} post={p} onUnsave={handleCommunityUnsave} />
+            <CommunityCard
+              key={p.id}
+              post={p}
+              onUnsave={handleCommunityUnsave}
+              isLiked={likedPostIds.has(p.id)}
+              likesCount={likesCounts[p.id] ?? 0}
+              commentsCount={commentCounts[p.id] ?? 0}
+              onLikeToggle={handlePostLikeToggle}
+              isConnected={!!p.user && connectedUserIds.has(p.user.id)}
+              hasSentRequest={!!p.user && sentRequestUserIds.has(p.user.id)}
+              onSendRequest={handleSendRequest}
+              onOpenPost={setSelectedPost}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    if (category === 'employment') {
+      if (employmentPostings.length === 0) {
+        return (
+          <div className="grid grid-cols-1">
+            <EmptyState
+              message="No saved jobs"
+              sub="Bookmark any job posting on the Employment Hub and it will appear here."
+            />
+          </div>
+        );
+      }
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+          {employmentPostings.map(p => (
+            <EmploymentCard key={p.id} posting={p} onUnsave={handleEmploymentUnsave} />
+          ))}
+        </div>
+      );
+    }
+
+    if (category === 'learning') {
+      if (learningCourses.length === 0) {
+        return (
+          <div className="grid grid-cols-1">
+            <EmptyState
+              message="No saved courses"
+              sub="Bookmark any course on the Learning Directory and it will appear here."
+            />
+          </div>
+        );
+      }
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+          {learningCourses.map(c => (
+            <LearningCard key={c.id} course={c} onUnsave={handleLearningUnsave} />
           ))}
         </div>
       );
@@ -551,6 +1299,19 @@ export default function SavedCategoryPage() {
           postId={applyPostId}
           postTitle={discoverPosts.find(p => p.id === applyPostId)?.title}
           onClose={() => setApplyPostId(null)}
+        />
+      )}
+
+      {selectedPost && (
+        <PostDetailModal
+          post={selectedPost}
+          isLiked={likedPostIds.has(selectedPost.id)}
+          likesCount={likesCounts[selectedPost.id] ?? 0}
+          onLikeToggle={handlePostLikeToggle}
+          isSaved={savedPostIds.has(selectedPost.id)}
+          onSaveToggle={handlePostSaveToggle}
+          commentsCount={commentCounts[selectedPost.id] ?? 0}
+          onClose={() => setSelectedPost(null)}
         />
       )}
     </div>
