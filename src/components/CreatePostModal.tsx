@@ -111,14 +111,14 @@ export default function CreatePostModal({
         {/* Scrollable content below author row */}
         <div className="flex-1 overflow-y-auto">
           {/* Textarea */}
-          <div className="px-5 pb-3">
+          <div className="px-5 pb-2">
             <textarea
               ref={textRef}
               value={content}
               onChange={e => setContent(e.target.value)}
               placeholder="What do you want to talk about?"
-              className="w-full resize-none text-[#18191c] text-base placeholder-[#9ca3af] focus:outline-none min-h-[120px]"
-              rows={5}
+              className="w-full resize-none text-[#18191c] text-base placeholder-[#9ca3af] focus:outline-none min-h-[40px]"
+              rows={2}
               style={{ fieldSizing: 'content' } as React.CSSProperties}
             />
           </div>
