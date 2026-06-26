@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
@@ -36,7 +36,10 @@ import {
   sendConnectionRequest,
   rejectOrCancelRequest,
   removeConnection,
+  fetchProfileCommunityMembers,
+  type ProfileMember,
 } from '../../services/communityService';
+import { blockUser, unblockUser, fetchIsBlocked } from '../../services/blockService';
 import {
   fetchEndorsementCount,
   fetchIsEndorsed,
@@ -45,7 +48,7 @@ import {
 } from '../../services/endorsementService';
 import WriteReviewModal from '../../components/profile/WriteReviewModal';
 import ReviewsPreviewModal from '../../components/profile/ReviewsPreviewModal';
-import { fetchReviews, deleteReview, type Review } from '../../services/reviewService';
+import { fetchReviews, deleteReview, checkCanReview, type Review } from '../../services/reviewService';
 const postImg1 = 'https://placehold.co/400x300/f5f5f5/cccccc';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
@@ -267,6 +270,148 @@ function AddExperienceModal({ onClose, onSaved, experience }: { onClose: () => v
   );
 }
 
+type MemberFilter = 'all' | 'individual' | 'organization';
+
+function CommunityMembersModal({ profileUserId, onClose }: { profileUserId: string; onClose: () => void }) {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<MemberFilter>('all');
+  const [members, setMembers] = useState<ProfileMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [restricted, setRestricted] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const userType = filter === 'all' ? undefined : filter;
+    fetchProfileCommunityMembers(profileUserId, search || undefined, userType)
+      .then(r => { setMembers(r.members); setRestricted(r.restricted); })
+      .catch(() => { setMembers([]); setRestricted(false); })
+      .finally(() => setLoading(false));
+  }, [profileUserId, search, filter]);
+
+  const filterTabs: { key: MemberFilter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'individual', label: 'People' },
+    { key: 'organization', label: 'Organizations' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-[15px] w-full max-w-lg shadow-xl flex flex-col"
+        style={{ maxHeight: '80vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#d7d7d7]">
+          <h2 className="text-base font-semibold text-[#262626]">Community Members</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#575555] transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-5 pt-4 pb-3">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9199a3]" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+              <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search members..."
+              className="w-full pl-9 pr-4 py-2 text-sm border border-[#d7d7d7] rounded-full focus:outline-none focus:border-[#f77f00] bg-[#f9f9f9]"
+            />
+          </div>
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex gap-2 px-5 pb-3">
+          {filterTabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                filter === tab.key
+                  ? 'bg-[#f77f00] text-white border-[#f77f00]'
+                  : 'bg-white text-[#575555] border-[#d7d7d7] hover:border-[#f77f00] hover:text-[#f77f00]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Member list */}
+        <div className="flex-1 overflow-y-auto px-5 pb-5 divide-y divide-[#f0f0f0]">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <div className="w-6 h-6 border-2 border-[#f77f00] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : restricted ? (
+            <div className="flex flex-col items-center py-10 text-[#9199a3]">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="mb-2 opacity-40">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span className="text-sm font-medium text-[#575555]">Community list is private</span>
+              <span className="text-xs mt-1">Only community members can view this list</span>
+            </div>
+          ) : members.length === 0 ? (
+            <div className="flex flex-col items-center py-10 text-[#9199a3]">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="mb-2 opacity-40">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span className="text-sm">No members found</span>
+            </div>
+          ) : (
+            members.map(member => (
+              <div
+                key={member.id}
+                onClick={() => { navigate(`/profile/${member.id}`); onClose(); }}
+                className="flex items-center gap-3 py-3 cursor-pointer hover:bg-[#fff8ee] -mx-5 px-5 transition-colors"
+              >
+                {/* Avatar */}
+                <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-[#f0f0f0]">
+                  {member.avatar_url ? (
+                    <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-[#ffeacc] text-[#f77f00] text-base font-bold">
+                      {member.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#18191c] truncate">{member.name}</p>
+                  {(member.title || member.company) && (
+                    <p className="text-xs text-[#575555] truncate">
+                      {[member.title, member.company].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                  <span className="inline-block mt-0.5 text-[10px] text-[#9199a3] bg-[#f5f5f5] px-2 py-0.5 rounded-full">
+                    {member.user_type === 'organization' ? 'Organization' : 'Individual'}
+                  </span>
+                </div>
+
+                {/* Arrow */}
+                <svg className="text-[#d7d7d7] flex-shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BadgeIcon() {
   return (
     <div className="w-6 h-6 rounded-full bg-[#ff9400] flex items-center justify-center shadow-md">
@@ -312,6 +457,17 @@ export default function ProfilePage() {
   const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
   const [communityLoading, setCommunityLoading] = useState(false);
   const [viewerMoreOpen, setViewerMoreOpen] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [muteToastVisible, setMuteToastVisible] = useState(false);
+  const [blockDoneToast, setBlockDoneToast] = useState(false);
+  const [unblockDoneToast, setUnblockDoneToast] = useState(false);
+  const [reportDoneToast, setReportDoneToast] = useState(false);
+
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [canReview, setCanReview] = useState<boolean | null>(null);
+  const [showCommunityModal, setShowCommunityModal] = useState(false);
 
   const { profile, loading, saving, toasts, removeToast, saveProfile } = useProfile(userId);
 
@@ -411,6 +567,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (isOwn || !resolvedUserId) return;
+    fetchIsBlocked(resolvedUserId).then(setIsBlocked).catch(() => {});
+    checkCanReview(resolvedUserId).then(r => setCanReview(r.allowed)).catch(() => setCanReview(false));
+  }, [isOwn, resolvedUserId]);
+
+  useEffect(() => {
+    if (isOwn || !resolvedUserId) return;
     setCommunityStatus('none');
     setPendingRequestId(null);
     Promise.all([
@@ -457,6 +619,49 @@ export default function ProfilePage() {
       }
     } catch { /* silently ignore */ }
     finally { setCommunityLoading(false); }
+  };
+
+  const handleRemoveFromCommunity = async () => {
+    if (communityLoading || !resolvedUserId) return;
+    setCommunityLoading(true);
+    try {
+      await removeConnection(resolvedUserId);
+      setCommunityStatus('none');
+      setPendingRequestId(null);
+    } catch {}
+    finally { setCommunityLoading(false); }
+  };
+
+  const handleMuteToggle = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    setMuteToastVisible(true);
+    setTimeout(() => setMuteToastVisible(false), 3000);
+  };
+
+  const handleBlockConfirm = async () => {
+    setShowBlockConfirm(false);
+    if (resolvedUserId) {
+      try { await blockUser(resolvedUserId); } catch {}
+    }
+    setIsBlocked(true);
+    setBlockDoneToast(true);
+    setTimeout(() => setBlockDoneToast(false), 3000);
+  };
+
+  const handleUnblock = async () => {
+    if (resolvedUserId) {
+      try { await unblockUser(resolvedUserId); } catch {}
+    }
+    setIsBlocked(false);
+    setUnblockDoneToast(true);
+    setTimeout(() => setUnblockDoneToast(false), 3000);
+  };
+
+  const handleReportSubmit = () => {
+    setShowReportModal(false);
+    setReportDoneToast(true);
+    setTimeout(() => setReportDoneToast(false), 3000);
   };
 
   const displayedExp = showAllExp ? experiences : experiences.slice(0, 2);
@@ -667,14 +872,14 @@ export default function ProfilePage() {
                             <div className="fixed inset-0 z-40" onClick={() => setViewerMoreOpen(false)} />
                             <div className="absolute left-0 top-[calc(100%+6px)] w-[196px] bg-white border border-[#d6d6d6] rounded-[8px] shadow-lg z-50 py-[2px] overflow-hidden">
                               {[
-                                { label: 'Block', danger: true },
-                                { label: 'Report', danger: true },
-                                { label: 'Mute', danger: false },
-                                { label: 'Remove from community', danger: false },
-                              ].map(({ label, danger }) => (
+                                { label: isBlocked ? 'Unblock' : 'Block', danger: true, onClick: () => { setViewerMoreOpen(false); isBlocked ? handleUnblock() : setShowBlockConfirm(true); } },
+                                { label: 'Report', danger: true, onClick: () => { setViewerMoreOpen(false); setShowReportModal(true); } },
+                                { label: isMuted ? 'Unmute' : 'Mute', danger: false, onClick: () => { setViewerMoreOpen(false); handleMuteToggle(); } },
+                                { label: 'Remove from community', danger: false, onClick: () => { setViewerMoreOpen(false); handleRemoveFromCommunity(); } },
+                              ].map(({ label, danger, onClick }) => (
                                 <button
                                   key={label}
-                                  onClick={() => setViewerMoreOpen(false)}
+                                  onClick={onClick}
                                   className={`w-full flex items-center px-[16px] py-[12px] text-[14px] font-medium text-left hover:bg-[#f8f8f8] transition-colors ${
                                     danger ? 'text-[#c00f0c]' : 'text-[#6b6b6b]'
                                   }`}
@@ -699,7 +904,11 @@ export default function ProfilePage() {
                       { label: 'Achievements', value: String(achievements.length) },
                       { label: 'Community Members', value: String(communityMembersCount) },
                     ].map((s) => (
-                      <button key={s.label} className="flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors">
+                      <button
+                        key={s.label}
+                        onClick={() => { if (s.label === 'Community Members') setShowCommunityModal(true); }}
+                        className={`flex-1 flex flex-col items-center justify-center py-3 px-2 hover:bg-[#fff8ee] transition-colors ${s.label === 'Community Members' ? 'cursor-pointer' : ''}`}
+                      >
                         <span className="text-[#ff9400] text-xl font-bold leading-tight">{s.value}</span>
                         <span className="text-[#18191c] text-[11px] font-medium text-center mt-0.5">{s.label}</span>
                       </button>
@@ -755,7 +964,7 @@ export default function ProfilePage() {
                         <div className="flex items-start gap-2 text-[#5e6670] text-sm">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                           <span><span className="text-[#18191c] font-medium">Profile URL</span><br />
-                            <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-[#5e6670] hover:text-[#ff9400] hover:underline">
+                            <a href={!/^https?:\/\//i.test(profile.website) ? `https://${profile.website}` : profile.website} target="_blank" rel="noopener noreferrer" className="text-[#5e6670] hover:text-[#ff9400] hover:underline">
                               {profile.website.replace(/^https?:\/\//, '')}
                             </a>
                           </span>
@@ -908,7 +1117,14 @@ export default function ProfilePage() {
                           <button onClick={handleDeleteReview} className="h-[40px] px-8 border border-red-400 text-red-500 text-sm font-semibold rounded-full hover:bg-red-50 transition-colors">Delete Review</button>
                         </>
                       ) : (
-                        <button onClick={() => setShowReviewModal(true)} className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">Write A Review</button>
+                        canReview && (
+                          <button
+                            onClick={() => setShowReviewModal(true)}
+                            className="h-[40px] px-8 bg-[#ff9400] text-white text-sm font-semibold rounded-full hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]"
+                          >
+                            Write A Review
+                          </button>
+                        )
                       )}
                     </div>
                   )}
@@ -1082,6 +1298,88 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Community Members Modal */}
+      {showCommunityModal && resolvedUserId && (
+        <CommunityMembersModal profileUserId={resolvedUserId} onClose={() => setShowCommunityModal(false)} />
+      )}
+
+      {/* Block Confirm Modal */}
+      {showBlockConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowBlockConfirm(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-[#18191c] text-base font-bold mb-2">
+              Block {profile ? `${profile.firstName} ${profile.lastName}`.trim() : 'this user'}?
+            </h2>
+            <p className="text-[#5e6670] text-sm mb-6 leading-relaxed">
+              They won't be able to see your profile or find your content on Impactshaala. They won't be notified that you blocked them.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowBlockConfirm(false)}
+                className="h-[38px] px-5 border border-[#e4e5e8] rounded-full text-sm text-[#5e6670] hover:bg-[#f8f8f8] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBlockConfirm}
+                className="h-[38px] px-5 bg-red-500 text-white rounded-full text-sm font-semibold hover:bg-red-600 transition-colors"
+              >
+                Block
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowReportModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#f2f2f3]">
+              <h2 className="text-[#18191c] text-base font-semibold">Report</h2>
+              <button onClick={() => setShowReportModal(false)} className="text-[#9199a3] hover:text-[#18191c]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-[#5e6670] text-sm mb-3">Why are you reporting this profile?</p>
+              {['Harassment or bullying', 'Spam', 'Inappropriate content', 'Fake profile', 'Other'].map((reason) => (
+                <button
+                  key={reason}
+                  onClick={handleReportSubmit}
+                  className="w-full flex items-center justify-between py-3 border-b border-[#f2f2f3] last:border-0 text-sm text-[#18191c] hover:text-[#ff9400] transition-colors text-left"
+                >
+                  {reason}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating toasts */}
+      {muteToastVisible && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#18191c] text-white text-sm font-medium px-5 py-2.5 rounded-full shadow-lg z-50 pointer-events-none">
+          {isMuted ? 'User muted' : 'User unmuted'}
+        </div>
+      )}
+      {blockDoneToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#18191c] text-white text-sm font-medium px-5 py-2.5 rounded-full shadow-lg z-50 pointer-events-none">
+          User blocked
+        </div>
+      )}
+      {unblockDoneToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#18191c] text-white text-sm font-medium px-5 py-2.5 rounded-full shadow-lg z-50 pointer-events-none">
+          User unblocked
+        </div>
+      )}
+      {reportDoneToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#18191c] text-white text-sm font-medium px-5 py-2.5 rounded-full shadow-lg z-50 pointer-events-none">
+          Report submitted. Thank you.
+        </div>
+      )}
 
       {/* Add To Profile modal */}
       {addSectionOpen && (
@@ -1477,7 +1775,7 @@ export default function ProfilePage() {
                     <div className="flex items-stretch w-full border border-[#e4e5e8] rounded-xl overflow-hidden divide-x divide-[#e4e5e8] mt-5 shadow-[0px_1px_4px_rgba(0,0,0,0.06)]">
                       {[
                         { label: 'Endorsements', value: String(endorsementCount) },
-                        { label: 'Reviews', value: '0' },
+                        { label: 'Reviews', value: String(reviews.length) },
                         { label: 'Achievement', value: String(achievements.length) },
                       ].map((s) => (
                         <div key={s.label} className="flex-1 flex flex-col items-center py-3 px-1">

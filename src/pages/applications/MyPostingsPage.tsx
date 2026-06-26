@@ -62,18 +62,18 @@ function LetterAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' 
 function Accordion({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
+    <div className="border border-[#b4b4b4] rounded-[2px]">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between h-[50px] px-[17px] bg-white"
       >
-        <span className="text-[#18191c] font-semibold text-sm">{title}</span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-          className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
-          <path d="M6 9l6 6 6-6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <span className="text-black font-medium text-base">{title}</span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+          className={`shrink-0 transition-transform duration-200 ${open ? '' : 'rotate-180'}`}>
+          <path d="M18 15l-6-6-6 6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && <div className="border-t border-[#e5e7eb]">{children}</div>}
+      {open && <div className="border-t border-[#b4b4b4]">{children}</div>}
     </div>
   );
 }
@@ -404,181 +404,171 @@ export default function MyPostingsPage() {
 
               {/* ── Right: applicant detail panel ── */}
               {selected && (
-                <div className="w-[420px] shrink-0 sticky top-[90px]">
-                  <div className="bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden">
+                <div className="w-[420px] shrink-0 bg-white border border-[#e5e5e5] rounded-lg p-5 self-start sticky top-[90px] flex flex-col gap-5 max-h-[calc(100vh-110px)] overflow-y-auto">
 
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2 p-4 border-b border-[#f3f4f6]">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <LetterAvatar name={selected.name} size="lg" />
-                        <div className="min-w-0">
-                          <p className="text-[#18191c] font-semibold text-[15px] leading-tight">{selected.name}</p>
-                          {selectedPosting?.org_name && (
-                            <p className="text-[#6b7280] text-xs mt-0.5">{selectedPosting.org_name}</p>
-                          )}
-                          {(selectedProfile?.current_location || selectedPosting?.work_mode) && (
-                            <p className="text-[#6b7280] text-xs">
-                              {[selectedProfile?.current_location, selectedPosting?.work_mode ? `( ${selectedPosting.work_mode} )` : '']
-                                .filter(Boolean).join(' ')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
-                        {(['not_a_fit', 'maybe', 'goodfit'] as ApplicationStatus[]).map(s => (
-                          <button
-                            key={s}
-                            disabled={!!statusUpdating}
-                            onClick={() => handleStatus(selected.id, s)}
-                            className={cn(
-                              'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors whitespace-nowrap border',
-                              selected.status === s
-                                ? 'bg-[#f77f00] text-white border-[#f77f00]'
-                                : 'border-[#f77f00] text-[#f77f00] hover:bg-[#fff8ee]',
-                            )}
-                          >
-                            {STATUS_LABELS[s]}
-                          </button>
-                        ))}
-                      </div>
+                  {/* Header: avatar + name + status buttons */}
+                  <div className="flex items-start gap-3 flex-wrap">
+                    <LetterAvatar name={selected.name} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-lg font-semibold text-black leading-tight">{selected.name}</p>
+                      {selectedPosting?.org_name && (
+                        <p className="text-xs text-[#6b7280]">{selectedPosting.org_name}</p>
+                      )}
+                      {(selectedProfile?.current_location || selectedPosting?.work_mode) && (
+                        <p className="text-xs text-[#6b7280]">
+                          {[selectedProfile?.current_location, selectedPosting?.work_mode ? `(${selectedPosting.work_mode})` : '']
+                            .filter(Boolean).join(' ')}
+                        </p>
+                      )}
                     </div>
-
-                    {/* Scrollable body */}
-                    <div className="p-4 space-y-4 max-h-[calc(100vh-240px)] overflow-y-auto">
-
-                      <h3 className="text-[#18191c] font-bold text-base">Profile Overview</h3>
-
-                      {/* Bio */}
-                      {(selectedProfile?.career_goals || selectedProfile?.work_drives_you) && (
-                        <div>
-                          <p className="text-[#9ca3af] text-xs font-semibold mb-1">Bio</p>
-                          <p className="text-[#374151] text-sm leading-relaxed">
-                            {selectedProfile.career_goals || selectedProfile.work_drives_you}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Cover message */}
-                      {selected.message && (
-                        <div>
-                          <p className="text-[#9ca3af] text-xs font-semibold mb-1">Cover Message</p>
-                          <p className="text-[#374151] text-sm leading-relaxed">{selected.message}</p>
-                        </div>
-                      )}
-
-                      {/* Experience */}
-                      {selectedProfile?.looking_for_roles && (
-                        <div>
-                          <p className="text-[#9ca3af] text-xs font-semibold mb-1.5">Experience</p>
-                          <div className="flex flex-col gap-1">
-                            <p className="text-[#18191c] text-sm font-medium">{selectedProfile.looking_for_roles}</p>
-                            {selectedProfile.current_status && (
-                              <p className="text-[#9ca3af] text-xs">{selectedProfile.current_status}</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Education */}
-                      {selectedProfile?.job_industry && (
-                        <div>
-                          <p className="text-[#9ca3af] text-xs font-semibold mb-1.5">Education</p>
-                          <div className="flex flex-col gap-0.5">
-                            <p className="text-[#18191c] text-sm font-medium">{selectedProfile.job_industry}</p>
-                            {selectedProfile.department && (
-                              <p className="text-[#374151] text-xs">{selectedProfile.department}</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Skills */}
-                      {((selectedProfile?.technical_skills?.length ?? 0) > 0 || (selectedProfile?.soft_skills?.length ?? 0) > 0) && (
-                        <div>
-                          <p className="text-[#9ca3af] text-xs font-semibold mb-2">Skills</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {[
-                              ...(selectedProfile?.technical_skills ?? []),
-                              ...(selectedProfile?.soft_skills ?? []),
-                            ].slice(0, 8).map((sk, i) => (
-                              <span key={i} className="text-xs bg-[#fff3e0] text-[#f77f00] px-2.5 py-0.5 rounded-full">
-                                {sk}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {!selectedProfile && !selected.message && (
-                        <p className="text-[#9ca3af] text-sm italic">No additional profile information available.</p>
-                      )}
-
-                      {/* View Profile */}
-                      <button className="w-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold h-9 rounded-full hover:bg-[#fff8ee] transition-colors">
-                        View Profile
-                      </button>
-
-                      {/* Resume accordion */}
-                      <Accordion title="Resume">
-                        {selectedProfile?.resume_url ? (
-                          <div className="flex items-center justify-between px-4 py-3">
-                            <span className="text-[#374151] text-sm">Resume</span>
-                            <a
-                              href={selectedProfile.resume_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[26px] px-3 flex items-center justify-center hover:bg-[#fff8ee] transition-colors"
-                            >
-                              View
-                            </a>
-                          </div>
-                        ) : (
-                          <div className="px-4 py-3 text-sm text-[#9ca3af]">No resume uploaded.</div>
-                        )}
-                      </Accordion>
-
-                      {/* Eligibility accordion */}
-                      <Accordion title="Eligibility">
-                        {(selectedPosting?.eligibility_criteria ?? []).length > 0 ? (
-                          <div className="px-4 py-3 space-y-1">
-                            {selectedPosting!.eligibility_criteria.map((c, i) => (
-                              <div key={i} className="flex items-start gap-2 text-sm text-[#374151]">
-                                <span className="text-[#f77f00] mt-0.5 shrink-0">•</span>
-                                <span>{c}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="px-4 py-3 text-sm text-[#9ca3af]">No eligibility criteria.</div>
-                        )}
-                      </Accordion>
-
-                      {/* Documents accordion */}
-                      <Accordion title="Documents">
-                        {(selectedPosting?.required_documents ?? []).length > 0 ? (
-                          <div>
-                            {selectedPosting!.required_documents.map((doc, i) => (
-                              <div
-                                key={i}
-                                className={cn(
-                                  'flex items-center justify-between px-4 py-3',
-                                  i < selectedPosting!.required_documents.length - 1 ? 'border-b border-[#f3f4f6]' : '',
-                                )}
-                              >
-                                <span className="text-[#374151] text-sm">{doc}</span>
-                                <span className="border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[26px] px-3 flex items-center justify-center">
-                                  View
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="px-4 py-3 text-sm text-[#9ca3af]">No documents required.</div>
-                        )}
-                      </Accordion>
-
+                    <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                      {(['not_a_fit', 'maybe', 'goodfit'] as ApplicationStatus[]).map(s => (
+                        <button
+                          key={s}
+                          disabled={!!statusUpdating}
+                          onClick={() => handleStatus(selected.id, s)}
+                          className={cn(
+                            'h-[30px] px-3 rounded-full text-xs whitespace-nowrap transition-colors border',
+                            selected.status === s
+                              ? 'bg-[#f77f00] text-white border-[#f77f00]'
+                              : 'border-[#f77f00] text-[#f77f00] hover:bg-[#fff8ee]',
+                          )}
+                        >
+                          {STATUS_LABELS[s]}
+                        </button>
+                      ))}
                     </div>
                   </div>
+
+                  <div className="h-px bg-[#e5e5e5]" />
+
+                  {/* Profile info */}
+                  <div className="flex flex-col gap-4">
+                    {(selectedProfile?.career_goals || selectedProfile?.work_drives_you) && (
+                      <div>
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Bio</p>
+                        <p className="text-sm text-black leading-relaxed">
+                          {selectedProfile.career_goals || selectedProfile.work_drives_you}
+                        </p>
+                      </div>
+                    )}
+
+                    {selected.message && (
+                      <div>
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Cover Message</p>
+                        <p className="text-sm text-black leading-relaxed">{selected.message}</p>
+                      </div>
+                    )}
+
+                    {selectedPosting?.work_mode && (
+                      <div>
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Mode</p>
+                        <p className="text-sm text-black">{selectedPosting.work_mode}</p>
+                      </div>
+                    )}
+
+                    {(selectedProfile?.job_industry || selectedProfile?.looking_for_roles) && (
+                      <div>
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Education</p>
+                        {selectedProfile?.job_industry && (
+                          <p className="text-sm font-semibold text-black">{selectedProfile.job_industry}</p>
+                        )}
+                        {selectedProfile?.department && (
+                          <p className="text-xs text-black">{selectedProfile.department}</p>
+                        )}
+                        {selectedProfile?.looking_for_roles && (
+                          <p className="text-xs text-[#6b7280]">{selectedProfile.looking_for_roles}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {((selectedProfile?.technical_skills?.length ?? 0) > 0 || (selectedProfile?.soft_skills?.length ?? 0) > 0) && (
+                      <div>
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-2">Skills</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            ...(selectedProfile?.technical_skills ?? []),
+                            ...(selectedProfile?.soft_skills ?? []),
+                          ].slice(0, 6).map((sk, i) => (
+                            <span key={i} className="text-xs bg-[#fff3e0] text-[#f77f00] px-2 py-0.5 rounded-full">
+                              {sk}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* View Profile */}
+                  <button type="button" className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors w-full">
+                    View Profile
+                  </button>
+
+                  {/* Resume */}
+                  <Accordion title="Resume" defaultOpen>
+                    {selectedProfile?.resume_url ? (
+                      <div className="flex flex-col gap-3 px-[17px] py-3">
+                        <div className="bg-[#e7e7e7] w-full overflow-hidden" style={{ height: 300 }}>
+                          <iframe src={selectedProfile.resume_url} className="w-full h-full" title="Resume Preview" />
+                        </div>
+                        <div className="flex justify-end">
+                          <a
+                            href={selectedProfile.resume_url}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors"
+                          >
+                            Download
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-[17px] py-3 text-sm text-[#9ca3af]">No resume uploaded.</div>
+                    )}
+                  </Accordion>
+
+                  {/* Eligibility */}
+                  <Accordion title="Eligibility">
+                    {(selectedPosting?.eligibility_criteria ?? []).length > 0 ? (
+                      <div className="flex flex-col gap-3 py-3">
+                        {selectedPosting!.eligibility_criteria.map((c, i) => (
+                          <div key={i} className="flex items-start gap-2.5 px-[17px]">
+                            <span className="text-xs text-[#0f172a] flex-1 leading-normal">{c}</span>
+                            <div className="shrink-0 w-3.5 h-3.5 mt-0.5 rounded-[4px] bg-[#ff9400] flex items-center justify-center">
+                              <svg width="8" height="6" viewBox="0 0 10 8" fill="none">
+                                <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-[17px] py-3 text-sm text-[#9ca3af]">No eligibility criteria.</div>
+                    )}
+                  </Accordion>
+
+                  {/* Documents */}
+                  <Accordion title="Documents">
+                    {(selectedPosting?.required_documents ?? []).length > 0 ? (
+                      <div className="flex flex-col gap-3 py-3">
+                        {selectedPosting!.required_documents.map((doc, i) => (
+                          <div key={i} className="flex items-center gap-2.5 px-[17px]">
+                            <span className="text-xs text-[#0f172a] flex-1 truncate">{doc}</span>
+                            <span className="shrink-0 border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[19px] w-[51px] flex items-center justify-center">
+                              View
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-[17px] py-3 text-sm text-[#9ca3af]">No documents required.</div>
+                    )}
+                  </Accordion>
+
                 </div>
               )}
             </div>

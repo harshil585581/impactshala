@@ -422,6 +422,17 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
 
+  // ── Resolve raw DB content → sidebar preview fields ──────────────────────────
+  function resolvePreview(raw: string | null): { lastMessage: string; lastMessageType: ChatItem["lastMessageType"] } {
+    const text = raw ?? "Say hi!";
+    if (text.startsWith("__SHARED_POST__:")) return { lastMessage: "Shared a post", lastMessageType: "text" };
+    if (text === "[image]")    return { lastMessage: "Photo",    lastMessageType: "photo" };
+    if (text === "[file]")     return { lastMessage: "Document", lastMessageType: "document" };
+    if (text === "[audio]")    return { lastMessage: "Audio",    lastMessageType: "audio" };
+    if (text === "[video]")    return { lastMessage: "Video",    lastMessageType: "video" };
+    return { lastMessage: text, lastMessageType: "text" };
+  }
+
   // ── Map API conversation → ChatItem ──────────────────────────────────────────
   function convToChat(c: { id: string; peer_name: string; peer_avatar: string | null; last_message: string | null; last_message_at: string | null }): ChatItem {
     const initials = c.peer_name
@@ -432,8 +443,7 @@ export default function MessagesPage() {
       initials,
       avatarColor: "#f77f00",
       avatarImg: c.peer_avatar ?? undefined,
-      lastMessage: (c.last_message ?? "Say hi!").startsWith("__SHARED_POST__:") ? "Shared a post" : (c.last_message ?? "Say hi!"),
-      lastMessageType: "text",
+      ...resolvePreview(c.last_message),
       time: c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
     };
   }
@@ -490,10 +500,11 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!activeChatId) return;
 
-    function updateSidebarPreview(preview: string, at: string) {
+    function updateSidebarPreview(raw: string, at: string) {
+      const { lastMessage, lastMessageType } = resolvePreview(raw);
       const timeStr = new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setChats((prev) => prev.map((c) =>
-        c.id === activeChatId ? { ...c, lastMessage: preview, time: timeStr } : c
+        c.id === activeChatId ? { ...c, lastMessage, lastMessageType, time: timeStr } : c
       ));
     }
 
@@ -506,12 +517,8 @@ export default function MessagesPage() {
           const incoming = payload.new as DirectMessage;
           // Update sidebar preview for all received messages (sent ones already handled optimistically)
           const rawContent = incoming.content ?? "";
-          const preview = incoming.message_type !== "text"
-            ? `[${incoming.message_type}]`
-            : rawContent.startsWith("__SHARED_POST__:")
-              ? "Shared a post"
-              : rawContent;
-          updateSidebarPreview(preview, incoming.created_at);
+          const previewRaw = incoming.message_type !== "text" ? `[${incoming.message_type}]` : rawContent;
+          updateSidebarPreview(previewRaw, incoming.created_at);
           if (incoming.sender_id === currentUserId) return; // body already added optimistically
           setMessages((prev) => [...prev, dbMsgToLocal(incoming)]);
         }
@@ -746,7 +753,7 @@ export default function MessagesPage() {
       // replace temp id with real id and update conversation list
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: saved.id } : m));
       setChats((prev) => prev.map((c) =>
-        c.id === activeChatId ? { ...c, lastMessage: text.startsWith("__SHARED_POST__:") ? "Shared a post" : text, time: timeStr } : c
+        c.id === activeChatId ? { ...c, ...resolvePreview(text), time: timeStr } : c
       ));
     } catch {
       // remove optimistic message on failure
@@ -909,6 +916,9 @@ export default function MessagesPage() {
         URL.revokeObjectURL(localUrl);
         setMessages((prev) => prev.map((m) =>
           m.id === tempId ? { ...m, id: saved.id, attachmentUrl: url } : m
+        ));
+        setChats((prev) => prev.map((c) =>
+          c.id === activeChatId ? { ...c, ...resolvePreview(`[${msgType}]`), time } : c
         ));
       } catch {
         URL.revokeObjectURL(localUrl);

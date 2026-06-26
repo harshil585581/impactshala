@@ -1,4 +1,12 @@
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
+import { getFreshToken } from '../lib/authToken';
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getFreshToken();
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+}
 
 function getCurrentUserId(): string {
   try { return JSON.parse(localStorage.getItem('user') ?? '{}').id ?? ''; }
@@ -76,18 +84,21 @@ export async function submitReview(
   reviewText: string,
   mediaUrl?: string,
 ): Promise<void> {
-  const reviewerId = getCurrentUserId();
-  if (!reviewerId) throw new Error('Not logged in');
-  await getAuthenticatedSession();
-  const { error } = await supabase.from('user_reviews').upsert(
-    {
-      reviewer_id: reviewerId,
-      reviewed_id: targetUserId,
-      rating,
-      review_text: reviewText,
-      ...(mediaUrl ? { media_url: mediaUrl } : {}),
-    },
-    { onConflict: 'reviewer_id,reviewed_id' }
-  );
-  if (error) throw error;
+  const res = await fetch(`${API_URL}/api/reviews/${targetUserId}`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ rating, review_text: reviewText, media_url: mediaUrl ?? null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'Failed to submit review');
+  }
+}
+
+export async function checkCanReview(targetUserId: string): Promise<{ allowed: boolean; reason?: string }> {
+  const res = await fetch(`${API_URL}/api/reviews/${targetUserId}/can-review`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) return { allowed: false };
+  return res.json();
 }

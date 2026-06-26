@@ -41,8 +41,7 @@ export default function RightPanel() {
         .from('user_reviews')
         .select('*', { count: 'exact', head: true })
         .eq('reviewed_id', storedUser.id)
-        .then(({ count }) => setCredibility(count ?? 0))
-        .catch(() => setCredibility(0));
+        .then(({ count }) => setCredibility(count ?? 0));
     }
   }, [storedUser.id]);
 

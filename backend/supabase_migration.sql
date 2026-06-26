@@ -1134,3 +1134,8 @@ CREATE POLICY "Users can delete own notifications"
   ON notifications FOR DELETE
   TO authenticated
   USING (auth.uid() = user_id);
+
+-- ============================================================
+-- Add deactivated_at column to users table for account deactivation
+-- ============================================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ DEFAULT NULL;
