@@ -1,12 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import EmojiPicker from 'emoji-picker-react';
+import type { EmojiClickData } from 'emoji-picker-react';
 import type { FeedPost } from '../services/postService';
 import { fetchPollData, voteOnPoll, unvoteOnPoll } from '../services/postService';
+import { followUser, unfollowUser, checkIsFollowing } from '../services/followService';
 import likeIcon        from '../assets/images/svg/like.svg';
 import heartIcon       from '../assets/images/svg/heart.svg';
 import congratulateIcon from '../assets/images/svg/congratulate.svg';
 import CommentSection from './CommentSection';
 import ShareModal from './ShareModal';
+// ─── Reactions ────────────────────────────────────────────────────────────────
+const REACTIONS = [
+  { id: 'like',       emoji: '👍', label: 'Like',       color: '#FF9400' },
+  { id: 'love',       emoji: '❤️',  label: 'Love',       color: '#E0245E' },
+  { id: 'celebrate',  emoji: '🎉', label: 'Celebrate',  color: '#F7AF1D' },
+  { id: 'support',    emoji: '🤝', label: 'Support',    color: '#44B4D0' },
+  { id: 'insightful', emoji: '💡', label: 'Insightful', color: '#7B5EA7' },
+  { id: 'funny',      emoji: '😄', label: 'Funny',      color: '#F7A01D' },
+] as const;
+
+
 function GlobeIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="opacity-40"><circle cx="12" cy="12" r="10" stroke="#9199a3" strokeWidth="1.5"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" stroke="#9199a3" strokeWidth="1.5" strokeLinecap="round"/></svg>;
 }
@@ -64,6 +78,7 @@ export default function PostCard({
   onCommentAdded,
   inModal = false,
   onDelete,
+  isFollowing: isFollowingProp,
 }: {
   post: FeedPost;
   isSaved?: boolean;
@@ -75,6 +90,7 @@ export default function PostCard({
   onCommentAdded?: () => void;
   inModal?: boolean;
   onDelete?: (postId: string) => void;
+  isFollowing?: boolean;
 }) {
   const [pollVoteCounts, setPollVoteCounts] = useState<Record<number, number>>({});
   const [pollUserVote, setPollUserVote] = useState<number | null>(null);
@@ -151,7 +167,39 @@ export default function PostCard({
     setPollLoading(false);
   }
 
-  const [liked, setLiked] = useState(isLiked);
+  // string allows both REACTIONS ids and custom emoji characters from the full picker
+  const [reactionType, setReactionType] = useState<string | null>(isLiked ? 'like' : null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [showFullPicker, setShowFullPicker] = useState(false);
+  const pickerTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reactionContainerRef = useRef<HTMLDivElement>(null);
+  const liked = reactionType !== null;
+
+  // Resolve display values — falls back gracefully for custom emojis
+  const activeReaction = REACTIONS.find((r) => r.id === reactionType);
+  const displayEmoji  = activeReaction ? activeReaction.emoji : (reactionType ?? '👍');
+  const displayLabel  = activeReaction ? activeReaction.label : 'React';
+  const displayColor  = activeReaction ? activeReaction.color : '#FF9400';
+
+  function applyReaction(id: string) {
+    const next = reactionType === id ? null : id;
+    setReactionType(next);
+    onLikeToggle?.(post.id, next !== null);
+    setShowPicker(false);
+    setShowFullPicker(false);
+  }
+
+  useEffect(() => {
+    if (!showFullPicker) return;
+    function onOutsideClick(e: MouseEvent) {
+      if (reactionContainerRef.current && !reactionContainerRef.current.contains(e.target as Node)) {
+        setShowFullPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', onOutsideClick);
+    return () => document.removeEventListener('mousedown', onOutsideClick);
+  }, [showFullPicker]);
+
   const [saved, setSaved] = useState(isSaved);
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(commentsCount);
@@ -162,6 +210,31 @@ export default function PostCard({
   const navigate = useNavigate();
   const storedUserId = (() => { try { return JSON.parse(localStorage.getItem('user') ?? '{}').id; } catch { return null; } })();
   const isOwnPost = !!onDelete || (!!post.user?.id && post.user.id === storedUserId);
+
+  const [following, setFollowing] = useState(isFollowingProp ?? false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  useEffect(() => {
+    const authorId = post.user?.id;
+    if (!authorId || isOwnPost || isFollowingProp !== undefined) return;
+    checkIsFollowing(authorId).then(setFollowing).catch(() => {});
+  }, [post.user?.id, isOwnPost, isFollowingProp]);
+
+  async function handleFollowToggle() {
+    const authorId = post.user?.id;
+    if (!authorId || followLoading) return;
+    setFollowLoading(true);
+    const next = !following;
+    setFollowing(next);
+    try {
+      if (next) await followUser(authorId);
+      else await unfollowUser(authorId);
+    } catch {
+      setFollowing(!next);
+    } finally {
+      setFollowLoading(false);
+    }
+  }
 
   const name = getDisplayName(post.user);
 
@@ -250,11 +323,35 @@ export default function PostCard({
             </button>
           )
         ) : !isOwnPost ? (
-          <button className="text-[#FF9400] text-sm font-semibold flex items-center gap-1 hover:opacity-80">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="#FF9400" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-            Follow
+          <button
+            onClick={handleFollowToggle}
+            disabled={followLoading}
+            className={`group/follow text-sm font-semibold flex items-center gap-1 px-3 py-1 rounded-full border transition-all duration-150
+              ${following
+                ? 'border-[#d1d5db] text-[#6b7280] hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                : 'border-[#FF9400] text-[#FF9400] hover:bg-[#fff4e5]'
+              }
+              ${followLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            {following ? (
+              <>
+                <svg className="group-hover/follow:hidden" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <svg className="hidden group-hover/follow:block" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                </svg>
+                <span className="group-hover/follow:hidden">Following</span>
+                <span className="hidden group-hover/follow:inline">Unfollow</span>
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 5v14M5 12h14" stroke="#FF9400" strokeWidth="2.5" strokeLinecap="round" />
+                </svg>
+                Follow
+              </>
+            )}
           </button>
         ) : null}
       </div>
@@ -454,23 +551,150 @@ export default function PostCard({
 
       {/* Actions */}
       <div className="px-2 py-1 flex items-center justify-around border-t border-[#f2f2f3]">
-        <button
-          onClick={() => {
-            const next = !liked;
-            setLiked(next);
-            onLikeToggle?.(post.id, next);
+        {/* Like button with emoji reaction picker */}
+        <div
+          ref={reactionContainerRef}
+          className="relative"
+          onMouseEnter={() => {
+            clearTimeout(pickerTimer.current);
+            pickerTimer.current = setTimeout(() => setShowPicker(true), 350);
           }}
-          className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${liked ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}
+          onMouseLeave={() => {
+            clearTimeout(pickerTimer.current);
+            if (!showFullPicker) {
+              pickerTimer.current = setTimeout(() => setShowPicker(false), 300);
+            }
+          }}
         >
-          {liked ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M1 21h4V9H1v12zm23-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L15.17 1 8.59 7.59C8.22 7.95 8 8.45 8 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1.91L24 10z" fill="#FF9400" />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-          )}
-          Like
-        </button>
+          {/* Quick-reaction pill — always in DOM, animated via CSS transition */}
+          <div
+            className={`absolute bottom-[calc(100%+10px)] left-0 flex items-center gap-0.5 bg-white rounded-full
+              shadow-[0_8px_32px_rgba(0,0,0,0.16)] border border-[#e8e8e8] px-2.5 py-2 z-50 select-none
+              transition-all duration-200 ease-out origin-bottom-left
+              ${showPicker
+                ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                : 'opacity-0 scale-90 translate-y-2 pointer-events-none'
+              }`}
+            style={{ minWidth: 'max-content' }}
+            onMouseEnter={() => clearTimeout(pickerTimer.current)}
+            onMouseLeave={() => {
+              clearTimeout(pickerTimer.current);
+              if (!showFullPicker) {
+                pickerTimer.current = setTimeout(() => setShowPicker(false), 300);
+              }
+            }}
+          >
+            {/* 6 quick reactions with floating tooltip labels */}
+            {REACTIONS.map((r) => (
+              <div key={r.id} className="relative group/btn">
+                {/* Tooltip floating above */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
+                  <div
+                    className="text-[11px] font-bold text-white px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap"
+                    style={{ backgroundColor: r.color }}
+                  >
+                    {r.label}
+                  </div>
+                  <div
+                    className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0"
+                    style={{
+                      borderLeft: '4px solid transparent',
+                      borderRight: '4px solid transparent',
+                      borderTop: `5px solid ${r.color}`,
+                    }}
+                  />
+                </div>
+
+                {/* Emoji button */}
+                <button
+                  onClick={() => applyReaction(r.id)}
+                  className="relative text-[26px] leading-none px-1.5 py-1 rounded-full transition-all duration-150 hover:scale-[1.35] active:scale-105"
+                  style={
+                    reactionType === r.id
+                      ? { backgroundColor: `${r.color}1a`, outline: `2px solid ${r.color}`, outlineOffset: '1px', transform: 'scale(1.18)' }
+                      : {}
+                  }
+                >
+                  {r.emoji}
+                </button>
+              </div>
+            ))}
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-[#e5e7eb] mx-1.5 self-center shrink-0" />
+
+            {/* More reactions button */}
+            <div className="relative group/plus">
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/plus:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
+                <div className="text-[11px] font-bold text-white bg-[#18191c] px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap">
+                  {showFullPicker ? 'Close' : 'More'}
+                </div>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#18191c]" />
+              </div>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowFullPicker((v) => !v); }}
+                className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-150 shrink-0
+                  ${showFullPicker
+                    ? 'bg-[#FF9400] text-white shadow-[0_2px_8px_rgba(255,148,0,0.4)]'
+                    : 'bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e9e9e9] hover:text-[#374151]'
+                  }`}
+              >
+                {showFullPicker ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* Full emoji picker — animated */}
+            <div
+              className={`absolute bottom-full left-0 mb-3 z-[60]
+                transition-all duration-200 ease-out origin-bottom-left
+                ${showFullPicker
+                  ? 'opacity-100 scale-100 pointer-events-auto'
+                  : 'opacity-0 scale-95 pointer-events-none'
+                }`}
+              onClick={(e) => e.stopPropagation()}
+              onMouseEnter={() => clearTimeout(pickerTimer.current)}
+            >
+              <EmojiPicker
+                height={380}
+                width={320}
+                searchPlaceholder="Search emoji…"
+                onEmojiClick={(data: EmojiClickData) => applyReaction(data.emoji)}
+              />
+            </div>
+
+            {/* Caret pointing down to the Like button */}
+            <div className="absolute top-full left-4 w-3 h-1.5 overflow-hidden pointer-events-none">
+              <div className="w-2.5 h-2.5 bg-white border border-[#e8e8e8] rotate-45 -translate-y-[7px] translate-x-[1px]" />
+            </div>
+          </div>
+
+          {/* Like button */}
+          <button
+            onClick={() => applyReaction(reactionType ?? 'like')}
+            className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-all duration-150 hover:bg-gray-50 active:scale-95"
+            style={{ color: liked ? displayColor : '#575555' }}
+          >
+            {liked ? (
+              <span key={reactionType} className="text-[18px] leading-none">{displayEmoji}</span>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            )}
+            {liked ? displayLabel : 'Like'}
+          </button>
+        </div>
         <button
           onClick={() => setShowComments((v) => !v)}
           className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${showComments ? 'text-[#FF9400]' : 'text-[#575555] hover:bg-gray-50'}`}

@@ -1,4 +1,5 @@
 import { getAuthenticatedSession } from '../lib/supabase';
+import { followUser, unfollowUser } from './followService';
 import type { UserProfile, EditProfileForm } from '../types/profile';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -118,7 +119,6 @@ export async function updateProfile(data: Partial<EditProfileForm>): Promise<voi
 }
 
 export async function toggleFollow(userId: string, follow: boolean): Promise<void> {
-  // Placeholder — follow system not yet implemented in backend
-  await new Promise((r) => setTimeout(r, 300));
-  console.log(`${follow ? 'Following' : 'Unfollowing'} user ${userId}`);
+  if (follow) await followUser(userId);
+  else await unfollowUser(userId);
 }

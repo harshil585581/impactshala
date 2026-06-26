@@ -1134,3 +1134,105 @@ CREATE POLICY "Users can delete own notifications"
   ON notifications FOR DELETE
   TO authenticated
   USING (auth.uid() = user_id);
+
+-- ============================================================
+-- User Follows
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_follows (
+  follower_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  following_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (follower_id, following_id)
+);
+
+CREATE INDEX IF NOT EXISTS user_follows_follower_idx  ON user_follows (follower_id);
+CREATE INDEX IF NOT EXISTS user_follows_following_idx ON user_follows (following_id);
+
+ALTER TABLE user_follows ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own follows"
+  ON user_follows FOR ALL
+  TO authenticated
+  USING (auth.uid() = follower_id)
+  WITH CHECK (auth.uid() = follower_id);
+
+-- ============================================================
+-- Group Chats
+-- ============================================================
+CREATE TABLE IF NOT EXISTS group_chats (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         TEXT        NOT NULL,
+  avatar_color TEXT        NOT NULL DEFAULT '#f77f00',
+  created_by   UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+  group_id  UUID NOT NULL REFERENCES group_chats(id) ON DELETE CASCADE,
+  user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role      TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','moderator','member')),
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS group_messages (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id     UUID        NOT NULL REFERENCES group_chats(id) ON DELETE CASCADE,
+  sender_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content      TEXT,
+  message_type TEXT        NOT NULL DEFAULT 'text' CHECK (message_type IN ('text','image','file','audio')),
+  file_url     TEXT,
+  file_name    TEXT,
+  reply_to_id  UUID        REFERENCES group_messages(id) ON DELETE SET NULL,
+  is_edited    BOOLEAN     NOT NULL DEFAULT false,
+  is_deleted   BOOLEAN     NOT NULL DEFAULT false,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS group_members_user_idx    ON group_members (user_id);
+CREATE INDEX IF NOT EXISTS group_messages_group_idx  ON group_messages (group_id, created_at);
+
+ALTER TABLE group_chats    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE group_members  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE group_messages ENABLE ROW LEVEL SECURITY;
+
+-- group_chats: visible to members; created by authenticated users
+CREATE POLICY "Members can view group chats"
+  ON group_chats FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM group_members WHERE group_id = id AND user_id = auth.uid()));
+
+CREATE POLICY "Authenticated users can create groups"
+  ON group_chats FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = created_by);
+
+-- group_members
+CREATE POLICY "Members can view member list"
+  ON group_members FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = group_id AND gm.user_id = auth.uid()));
+
+CREATE POLICY "Owners/admins can add members"
+  ON group_members FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id OR
+    EXISTS (SELECT 1 FROM group_members WHERE group_id = group_members.group_id AND user_id = auth.uid() AND role IN ('owner','admin'))
+  );
+
+CREATE POLICY "Users can leave groups"
+  ON group_members FOR DELETE TO authenticated
+  USING (user_id = auth.uid());
+
+-- group_messages
+CREATE POLICY "Members can read messages"
+  ON group_messages FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM group_members WHERE group_id = group_messages.group_id AND user_id = auth.uid()));
+
+CREATE POLICY "Members can send messages"
+  ON group_messages FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = sender_id AND
+    EXISTS (SELECT 1 FROM group_members WHERE group_id = group_messages.group_id AND user_id = auth.uid())
+  );
+
+CREATE POLICY "Senders can edit/delete their messages"
+  ON group_messages FOR UPDATE TO authenticated
+  USING (auth.uid() = sender_id);
