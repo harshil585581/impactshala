@@ -14,6 +14,25 @@ import {
   type DirectMessage,
 } from "../services/messageService";
 import { fetchConnections, type Connection } from "../services/communityService";
+import { fetchCallLogs, logCall, endCall as endCallDB, type CallLogDB } from "../services/callService";
+import { webrtcCallService, callEndReasonText, type IncomingCallData, type CallState, type CallEndReason } from "../services/webrtcCallService";
+import {
+  fetchUserGroups,
+  fetchGroupMessages,
+  fetchGroupMembers as apiFetchGroupMembers,
+  sendGroupMessage as apiSendGroupMessage,
+  editGroupMessage as apiEditGroupMessage,
+  deleteGroupMessage as apiDeleteGroupMessage,
+  leaveGroup as apiLeaveGroup,
+  createGroup as apiCreateGroup,
+  addGroupMembers as apiAddGroupMembers,
+  deleteGroup as apiDeleteGroup,
+  removeGroupMember as apiRemoveGroupMember,
+  updateGroupName as apiUpdateGroupName,
+  type GroupChat as GroupChatDB,
+  type GroupMessage as GroupMessageDB,
+  type GroupMemberRow as GroupMemberRowDB,
+} from "../services/groupService";
 import { parseSharedPost, type SharedPostPayload } from "../components/ShareModal";
 
 /* ── Shared Post Card (rendered inside message bubbles) ── */
@@ -76,6 +95,7 @@ function SharedPostCard({ data, isSent }: { data: SharedPostPayload; isSent: boo
 
 type ChatItem = {
   id: string;
+  peerId?: string;
   name: string;
   initials?: string;
   avatarColor?: string;
@@ -382,6 +402,37 @@ function nowTimeStr(): string {
   return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${h >= 12 ? "pm" : "am"}`;
 }
 
+const AVATAR_COLORS_POOL = ['#8b5cf6','#f77f00','#6366f1','#ec4899','#0ea5e9','#10b981','#4f46e5','#f59e0b'];
+function colorFromId(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return AVATAR_COLORS_POOL[Math.abs(h) % AVATAR_COLORS_POOL.length];
+}
+
+function dbMemberToLocal(m: GroupMemberRowDB): GroupMember {
+  const u = m.user;
+  const name = u ? [u.first_name, u.last_name].filter(Boolean).join(' ') || u.org_name || 'User' : 'User';
+  const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || 'U';
+  const roleMap: Record<string, GroupMember['role']> = { owner: 'Owner', admin: 'Admin', moderator: 'Moderator' };
+  return { id: m.user_id, name, initials, avatarColor: colorFromId(m.user_id), role: roleMap[m.role] };
+}
+
+function dbGroupToLocal(g: GroupChatDB): Group {
+  const initials = g.name.split(' ').map((w) => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase();
+  return { id: g.id, name: g.name, members: g.member_count, initials, avatarColor: g.avatar_color };
+}
+
+function dbGroupMsgToLocal(m: GroupMessageDB, myId: string): Message {
+  const isSent = m.sender_id === myId;
+  const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (m.is_deleted) return { id: m.id, sender: isSent ? 'me' : 'them', time, deleted: true } as Message & { deleted: true };
+  if (m.message_type === 'audio') return { id: m.id, sender: isSent ? 'me' : 'them', time, audioUrl: m.file_url ?? '', waveform: generateWaveform(), audioDuration: 0 };
+  if (m.message_type === 'image' || m.message_type === 'file') {
+    return { id: m.id, type: 'attachment', sender: isSent ? 'me' : 'them', time, attachmentName: m.file_name ?? 'file', attachmentUrl: m.file_url ?? '', attachmentMime: m.message_type === 'image' ? 'image/jpeg' : 'application/octet-stream' };
+  }
+  return { id: m.id, text: m.content ?? '', sender: isSent ? 'me' : 'them', time, senderName: isSent ? undefined : (m.sender_name ?? 'User') };
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 type Tab = "chats" | "calls" | "users" | "groups";
@@ -407,16 +458,48 @@ export default function MessagesPage() {
   const [addMemberSearch, setAddMemberSearch] = useState("");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [callOverlay, setCallOverlay] = useState<{ name: string; initials: string; avatarColor: string; avatarImg?: string; isVideo?: boolean } | null>(null);
+  const [callOverlay, setCallOverlay] = useState<{ name: string; initials: string; avatarColor: string; avatarImg?: string; isVideo?: boolean; peerId?: string } | null>(null);
   const [callMuted, setCallMuted] = useState(false);
   const [callHeld, setCallHeld] = useState(false);
+  const [callSeconds, setCallSeconds] = useState(0);
+  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  const currentCallIdRef = useRef<string | null>(null);
+  const callStartTimeRef = useRef<number>(0);
+  const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const incomingCallDataRef = useRef<IncomingCallData | null>(null);
+  const callSecondsRef = useRef(0);
+  const [webrtcState, setWebrtcState] = useState<CallState>('idle');
+  const [callEndReason, setCallEndReason] = useState<CallEndReason | null>(null);
+
+  type IncomingCallInfo = {
+    callerId: string;
+    callerName: string;
+    callerInitials: string;
+    callerAvatarColor: string;
+    callerAvatarImg?: string;
+    isVideo: boolean;
+  };
+  const [incomingCall, setIncomingCall] = useState<IncomingCallInfo | null>(null);
+
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [chatSearchIdx, setChatSearchIdx] = useState(0);
   const [showGroupSearch, setShowGroupSearch] = useState(false);
+  const [showGrpHeaderMenu, setShowGrpHeaderMenu] = useState(false);
+  const [grpHeaderMenuPos, setGrpHeaderMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const grpHeaderMenuRef = useRef<HTMLDivElement>(null);
   const [groupSearchQuery, setGroupSearchQuery] = useState("");
   const [groupSearchIdx, setGroupSearchIdx] = useState(0);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupMsgLoading, setGroupMsgLoading] = useState(false);
   const [groupMessages, setGroupMessages] = useState<Record<string, Message[]>>(MOCK_GROUP_CHAT_MESSAGES);
+  const [groupMembers, setGroupMembers] = useState<Record<string, GroupMember[]>>({});
+  const [groupMembersLoading, setGroupMembersLoading] = useState(false);
   const [groupInfoTab, setGroupInfoTab] = useState<"members" | "banned">("members");
   const [memberSearch, setMemberSearch] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -434,11 +517,12 @@ export default function MessagesPage() {
   }
 
   // ── Map API conversation → ChatItem ──────────────────────────────────────────
-  function convToChat(c: { id: string; peer_name: string; peer_avatar: string | null; last_message: string | null; last_message_at: string | null }): ChatItem {
+  function convToChat(c: { id: string; peer_id?: string; peer_name: string; peer_avatar: string | null; last_message: string | null; last_message_at: string | null }): ChatItem {
     const initials = c.peer_name
       .split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
     return {
       id: c.id,
+      peerId: c.peer_id,
       name: c.peer_name,
       initials,
       avatarColor: "#f77f00",
@@ -479,6 +563,207 @@ export default function MessagesPage() {
   }, []);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  const loadGroups = useCallback(async () => {
+    setGroupsLoading(true);
+    try {
+      const g = await fetchUserGroups();
+      setGroups(g.map(dbGroupToLocal));
+    } catch { /* keep empty */ }
+    finally { setGroupsLoading(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { loadGroups(); }, [loadGroups]);
+
+  // Convert DB call log → local CallLog type
+  function dbCallToLocal(log: CallLogDB): CallLog {
+    const myId = currentUserId;
+    const isOutgoing = log.caller_id === myId;
+    const peer = isOutgoing ? log.callee : log.caller;
+    const name = peer ? [peer.first_name, peer.last_name].filter(Boolean).join(' ') || peer.org_name || 'Unknown' : 'Unknown';
+    const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+    const d = new Date(log.started_at);
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return {
+      id: log.id,
+      name,
+      initials,
+      avatarColor: colorFromId(isOutgoing ? log.callee_id : log.caller_id),
+      date,
+      type: isOutgoing ? 'outgoing' : (log.status === 'missed' ? 'missed' : 'outgoing'),
+    };
+  }
+
+  useEffect(() => {
+    fetchCallLogs()
+      .then((logs) => setCallLogs(logs.map(dbCallToLocal)))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Initialise WebRTC call service and wire up all callbacks
+  useEffect(() => {
+    if (!currentUserId) return;
+    webrtcCallService.init(currentUserId, {
+      onStateChange: (state, reason) => {
+        setWebrtcState(state);
+
+        if (state === 'active') {
+          // Timer starts when the call is actually connected
+          callStartTimeRef.current = Date.now();
+          if (callTimerRef.current) clearInterval(callTimerRef.current);
+          callTimerRef.current = setInterval(() => {
+            const secs = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+            callSecondsRef.current = secs;
+            setCallSeconds(secs);
+          }, 1000);
+
+        } else if (state === 'ended') {
+          setCallEndReason(reason ?? null);
+          // Stop timer and log duration to DB
+          if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
+          const callId = currentCallIdRef.current;
+          if (callId) { endCallDB(callId, callSecondsRef.current).catch(() => {}); currentCallIdRef.current = null; }
+
+          // For quick ends (hangup / remote_ended) close overlay immediately;
+          // for declines / busy / timeout show the reason for 2.5 s
+          const isQuick = reason === 'hangup' || reason === 'remote_ended';
+          const close = () => {
+            setCallOverlay(null);
+            setCallEndReason(null);
+            setCallMuted(false);
+            setCallHeld(false);
+            setCallSeconds(0);
+            callSecondsRef.current = 0;
+            webrtcCallService.reset();
+          };
+          if (isQuick) { close(); }
+          else { setTimeout(close, 2500); }
+
+        } else if (state === 'permission_denied') {
+          // Service already stopped streams; overlay stays open showing the error
+        }
+      },
+
+      onIncomingCall: (data) => {
+        // Empty data = another tab took the call — dismiss modal
+        if (!data.callerId) { setIncomingCall(null); incomingCallDataRef.current = null; return; }
+        incomingCallDataRef.current = data;
+        setIncomingCall({
+          callerId:        data.callerId,
+          callerName:      data.callerName,
+          callerInitials:  data.callerInitials,
+          callerAvatarColor: data.callerAvatarColor,
+          callerAvatarImg: data.callerAvatarImg,
+          isVideo:         data.isVideo,
+        });
+      },
+
+      onLocalStream: (stream) => {
+        localStreamRef.current = stream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      },
+
+      onRemoteStream: (stream) => {
+        remoteStreamRef.current = stream;
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream ?? null;
+      },
+    });
+
+    return () => webrtcCallService.destroy();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
+
+  // When state reaches 'active', the call overlay's video element is now visible.
+  // If onRemoteStream fired before the element mounted, attach the saved stream now.
+  useEffect(() => {
+    if (webrtcState === 'active' && remoteVideoRef.current && remoteStreamRef.current) {
+      remoteVideoRef.current.srcObject = remoteStreamRef.current;
+    }
+  }, [webrtcState]);
+
+  async function acceptCall() {
+    const data = incomingCallDataRef.current;
+    if (!data) return;
+    setIncomingCall(null);
+    incomingCallDataRef.current = null;
+    setCallOverlay({ name: data.callerName, initials: data.callerInitials, avatarColor: data.callerAvatarColor, avatarImg: data.callerAvatarImg, isVideo: data.isVideo, peerId: data.callerId });
+    setCallMuted(false);
+    setCallHeld(false);
+    setCallSeconds(0);
+    callSecondsRef.current = 0;
+    await webrtcCallService.acceptCall(data);
+  }
+
+  async function declineCall() {
+    setIncomingCall(null);
+    incomingCallDataRef.current = null;
+    await webrtcCallService.declineCall();
+  }
+
+  // Load group members when active group changes
+  useEffect(() => {
+    if (!activeGroupId) return;
+    setGroupMembersLoading(true);
+    apiFetchGroupMembers(activeGroupId)
+      .then((rows) => setGroupMembers((prev) => ({ ...prev, [activeGroupId]: rows.map(dbMemberToLocal) })))
+      .catch(() => {})
+      .finally(() => setGroupMembersLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId]);
+
+  // Load group messages when active group changes
+  useEffect(() => {
+    if (!activeGroupId) return;
+    setGroupMsgLoading(true);
+    fetchGroupMessages(activeGroupId)
+      .then((msgs) => setGroupMessages((prev) => ({ ...prev, [activeGroupId]: msgs.map((m) => dbGroupMsgToLocal(m, currentUserId)) })))
+      .catch(() => {})
+      .finally(() => setGroupMsgLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId]);
+
+  // Realtime subscription for active group messages
+  useEffect(() => {
+    if (!activeGroupId) return;
+    const channel = supabase
+      .channel(`group_messages:${activeGroupId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'group_messages',
+        filter: `group_id=eq.${activeGroupId}`,
+      }, (payload) => {
+        const incoming = payload.new as GroupMessageDB;
+        if (incoming.sender_id === currentUserId) return; // already added optimistically
+        setGroupMessages((prev) => ({
+          ...prev,
+          [activeGroupId]: [...(prev[activeGroupId] ?? []), dbGroupMsgToLocal(incoming, currentUserId)],
+        }));
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'group_messages',
+        filter: `group_id=eq.${activeGroupId}`,
+      }, (payload) => {
+        const updated = payload.new as GroupMessageDB;
+        setGroupMessages((prev) => ({
+          ...prev,
+          [activeGroupId]: (prev[activeGroupId] ?? []).map((m) =>
+            m.id === updated.id
+              ? (updated.is_deleted
+                  ? { id: m.id, sender: m.sender, time: m.time, deleted: true } as Message & { deleted: true }
+                  : { ...m, text: updated.content ?? m.text, edited: updated.is_edited })
+              : m
+          ),
+        }));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId]);
 
   useEffect(() => {
     fetchConnections().then((r) => setRealUsers(r.connections)).catch(() => {});
@@ -585,13 +870,35 @@ export default function MessagesPage() {
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [newGroupType, setNewGroupType] = useState<"Public" | "Private" | "Password">("Public");
   const [newGroupName, setNewGroupName] = useState("");
+  const [createGroupError, setCreateGroupError] = useState("");
+  const [createGroupLoading, setCreateGroupLoading] = useState(false);
+  const [addMembersLoading, setAddMembersLoading] = useState(false);
+  const [addMembersError, setAddMembersError] = useState("");
 
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [replyToMsg, setReplyToMsg] = useState<Message | null>(null);
 
+  // Group-specific editing / context-menu state
+  const [editingGrpMsgId, setEditingGrpMsgId] = useState<string | null>(null);
+  const [editGrpDraft, setEditGrpDraft] = useState("");
+  const [grpMenuMsgId, setGrpMenuMsgId] = useState<string | null>(null);
+  const [grpMenuPos, setGrpMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [deleteGrpConfirmMsg, setDeleteGrpConfirmMsg] = useState<Message | null>(null);
+  const [replyToGrpMsg, setReplyToGrpMsg] = useState<Message | null>(null);
+  const grpMenuRef = useRef<HTMLDivElement>(null);
+
+  // Group name editing in Info panel
+  const [editingGroupName, setEditingGroupName] = useState(false);
+  const [groupNameDraft, setGroupNameDraft] = useState("");
+  const [groupNameSaving, setGroupNameSaving] = useState(false);
+
+  // Per-group last message preview for sidebar
+  const [groupLastMsg, setGroupLastMsg] = useState<Record<string, { text: string; time: string }>>({});
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const grpFileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const inputEmojiPickerRef = useRef<HTMLDivElement>(null);
   const stickerPanelRef = useRef<HTMLDivElement>(null);
@@ -672,6 +979,26 @@ export default function MessagesPage() {
     if (showStickerPanel) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showStickerPanel]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (grpMenuRef.current && !grpMenuRef.current.contains(e.target as Node)) {
+        setGrpMenuMsgId(null);
+      }
+    }
+    if (grpMenuMsgId) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [grpMenuMsgId]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (grpHeaderMenuRef.current && !grpHeaderMenuRef.current.contains(e.target as Node)) {
+        setShowGrpHeaderMenu(false);
+      }
+    }
+    if (showGrpHeaderMenu) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showGrpHeaderMenu]);
 
   useEffect(() => {
     return () => {
@@ -774,25 +1101,223 @@ export default function MessagesPage() {
     );
   }
 
-  function handleAddMembers() {
-    setShowAddMembers(false);
-    setAddMemberSelected([]);
-    setAddMemberSearch("");
+  async function handleAddMembers() {
+    if (!activeGroupId || addMembersLoading || addMemberSelected.length === 0) return;
+    setAddMembersLoading(true);
+    setAddMembersError("");
+    try {
+      await apiAddGroupMembers(activeGroupId, addMemberSelected);
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === activeGroupId ? { ...g, members: g.members + addMemberSelected.length } : g
+        )
+      );
+      // Refresh member list to show newly added members
+      apiFetchGroupMembers(activeGroupId)
+        .then((rows) => setGroupMembers((prev) => ({ ...prev, [activeGroupId]: rows.map(dbMemberToLocal) })))
+        .catch(() => {});
+      setShowAddMembers(false);
+      setAddMemberSelected([]);
+      setAddMemberSearch("");
+    } catch (err) {
+      setAddMembersError(err instanceof Error ? err.message : "Failed to add members. Try again.");
+    } finally {
+      setAddMembersLoading(false);
+    }
   }
 
-  function handleLeaveGroup() {
+  async function handleLeaveGroup() {
+    const gid = activeGroupId;
     setShowLeaveConfirm(false);
     setShowGroupInfo(false);
     setShowChatInfo(false);
     setActiveGroupId(null);
+    if (gid) {
+      try {
+        await apiLeaveGroup(gid);
+        setGroups((prev) => prev.filter((g) => g.id !== gid));
+      } catch { /* best-effort */ }
+    }
   }
 
-  function handleDeleteGroup() {
+  async function handleDeleteGroup() {
+    const gid = activeGroupId;
     setShowDeleteConfirm(false);
     setShowGroupInfo(false);
     setShowChatInfo(false);
     setActiveGroupId(null);
     setActiveChatId(null);
+    if (gid) {
+      try {
+        await apiDeleteGroup(gid);
+        setGroups((prev) => prev.filter((g) => g.id !== gid));
+      } catch { /* best-effort: group may already be gone */ }
+    }
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    if (!activeGroupId) return;
+    const gid = activeGroupId;
+    try {
+      await apiRemoveGroupMember(gid, memberId);
+      setGroupMembers((prev) => ({
+        ...prev,
+        [gid]: (prev[gid] ?? []).filter((m) => m.id !== memberId),
+      }));
+      setGroups((prev) =>
+        prev.map((g) => g.id === gid ? { ...g, members: Math.max(0, g.members - 1) } : g)
+      );
+    } catch { /* show nothing — non-critical */ }
+  }
+
+  async function saveGroupName() {
+    if (!activeGroupId || !groupNameDraft.trim()) return;
+    const gid = activeGroupId;
+    const name = groupNameDraft.trim();
+    setGroupNameSaving(true);
+    try {
+      await apiUpdateGroupName(gid, name);
+      setGroups((prev) =>
+        prev.map((g) => g.id === gid ? { ...g, name, initials: name.split(' ').map((w) => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() } : g)
+      );
+      setEditingGroupName(false);
+    } catch { /* ignore */ }
+    finally { setGroupNameSaving(false); }
+  }
+
+  // Group file upload — separate from DM file handler
+  function handleGroupFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !activeGroupId) return;
+
+    async function processGroupFile(file: File) {
+      const localUrl = URL.createObjectURL(file);
+      const tempId = `gmsg-temp-${Date.now()}-${Math.random()}`;
+      const gid = activeGroupId!;
+      const time = nowTimeStr();
+      const msgType: 'audio' | 'image' | 'file' = file.type.startsWith('audio/')
+        ? 'audio'
+        : file.type.startsWith('image/')
+        ? 'image'
+        : 'file';
+
+      setGroupMessages((prev) => ({
+        ...prev,
+        [gid]: [
+          ...(prev[gid] ?? []),
+          {
+            id: tempId,
+            type: 'attachment' as const,
+            sender: 'me' as const,
+            time,
+            attachmentName: file.name,
+            attachmentUrl: localUrl,
+            attachmentMime: file.type,
+            ...(msgType === 'audio' ? { waveform: generateWaveform(), audioDuration: 0 } : {}),
+          },
+        ],
+      }));
+
+      try {
+        const { uploadFile: uploadFn } = await import('../services/messageService');
+        const { url, name } = await uploadFn(file);
+        const saved = await apiSendGroupMessage(gid, `[${msgType}]`, {
+          message_type: msgType,
+          file_url: url,
+          file_name: name,
+        });
+        URL.revokeObjectURL(localUrl);
+        setGroupMessages((prev) => ({
+          ...prev,
+          [gid]: (prev[gid] ?? []).map((m) =>
+            m.id === tempId ? { ...m, id: saved.id, attachmentUrl: url } : m
+          ),
+        }));
+        const preview = msgType === 'image' ? '📷 Photo' : msgType === 'audio' ? '🎤 Voice message' : `📎 ${name}`;
+        setGroupLastMsg((prev) => ({ ...prev, [gid]: { text: preview, time } }));
+      } catch {
+        URL.revokeObjectURL(localUrl);
+        setGroupMessages((prev) => ({
+          ...prev,
+          [gid]: (prev[gid] ?? []).filter((m) => m.id !== tempId),
+        }));
+      }
+    }
+
+    Array.from(files).forEach(processGroupFile);
+    e.target.value = '';
+  }
+
+  // Group message context menu
+  function openGrpMenu(e: React.MouseEvent, msgId: string, isSent: boolean) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const left = isSent ? rect.left - 196 : rect.right + 8;
+    const top = Math.min(rect.bottom + 4, window.innerHeight - 200);
+    setGrpMenuPos({ top, left: Math.max(8, left) });
+    setGrpMenuMsgId(grpMenuMsgId === msgId ? null : msgId);
+  }
+
+  async function saveGroupEdit(msgId: string) {
+    const text = editGrpDraft.trim();
+    if (!text || !activeGroupId) return;
+    const gid = activeGroupId;
+    setGroupMessages((prev) => ({
+      ...prev,
+      [gid]: (prev[gid] ?? []).map((m) => m.id === msgId ? { ...m, text, edited: true } : m),
+    }));
+    setEditingGrpMsgId(null);
+    try { await apiEditGroupMessage(msgId, text); } catch { /* UI already updated */ }
+  }
+
+  function deleteGroupMsgForMe(msgId: string) {
+    if (!activeGroupId) return;
+    const gid = activeGroupId;
+    setGroupMessages((prev) => ({
+      ...prev,
+      [gid]: (prev[gid] ?? []).filter((m) => m.id !== msgId),
+    }));
+    setDeleteGrpConfirmMsg(null);
+    setGrpMenuMsgId(null);
+  }
+
+  async function deleteGroupMsgForEveryone(msgId: string) {
+    if (!activeGroupId) return;
+    const gid = activeGroupId;
+    setGroupMessages((prev) => ({
+      ...prev,
+      [gid]: (prev[gid] ?? []).map((m) =>
+        m.id === msgId
+          ? { id: m.id, sender: m.sender, time: m.time, deleted: true }
+          : m
+      ),
+    }));
+    setDeleteGrpConfirmMsg(null);
+    setGrpMenuMsgId(null);
+    if (msgId.startsWith('gmsg-temp-') || msgId.startsWith('gmsg-')) return;
+    try { await apiDeleteGroupMessage(msgId); } catch { /* best-effort */ }
+  }
+
+  async function sendGroupSticker(emoji: string) {
+    if (!activeGroupId) return;
+    const gid = activeGroupId;
+    const tempId = `gmsg-temp-${Date.now()}`;
+    setGroupMessages((prev) => ({
+      ...prev,
+      [gid]: [...(prev[gid] ?? []), { id: tempId, text: emoji, sender: 'me' as const, time: nowTimeStr(), sticker: true }],
+    }));
+    setShowStickerPanel(false);
+    try {
+      const saved = await apiSendGroupMessage(gid, emoji);
+      setGroupMessages((prev) => ({
+        ...prev,
+        [gid]: (prev[gid] ?? []).map((m) => m.id === tempId ? { ...m, id: saved.id } : m),
+      }));
+    } catch {
+      setGroupMessages((prev) => ({
+        ...prev,
+        [gid]: (prev[gid] ?? []).filter((m) => m.id !== tempId),
+      }));
+    }
   }
 
   // ── Chat search navigation ──────────────────────────────────────────────────
@@ -849,35 +1374,58 @@ export default function MessagesPage() {
     setGroupSearchIdx(i => (i + 1) % groupMatchIds.length);
   }
 
-  function sendGroupMessage() {
+  async function sendGroupMessage() {
     if (!activeGroupId) return;
+
+    // Voice message
     if (recordedUrl) {
       if (audioPreviewRef.current) { audioPreviewRef.current.pause(); audioPreviewRef.current.src = ""; }
       const gid = activeGroupId;
+      const tempId = `gmsg-temp-${Date.now()}`;
+      const wf = previewWaveform; const dur = recordedDuration;
       setGroupMessages(prev => ({
         ...prev,
-        [gid]: [...(prev[gid] ?? []), {
-          id: `gmsg-${Date.now()}`,
-          sender: "me" as const,
-          time: nowTime(),
-          audioUrl: recordedUrl,
-          audioDuration: recordedDuration,
-          waveform: previewWaveform,
-        }],
+        [gid]: [...(prev[gid] ?? []), { id: tempId, sender: "me" as const, time: nowTime(), audioUrl: recordedUrl!, waveform: wf, audioDuration: dur }],
       }));
+      const blobUrl = recordedUrl;
       setRecordedUrl(null); setRecordedDuration(0); setPreviewWaveform([]);
       setIsPreviewPlaying(false); setPreviewProgress(0);
+      try {
+        const blob = await fetch(blobUrl).then((r) => r.blob());
+        const file = new File([blob], `voice-${Date.now()}.webm`, { type: blob.type || 'audio/webm' });
+        const { uploadFile: uploadGroupFile } = await import('../services/messageService');
+        const { url } = await uploadGroupFile(file);
+        const saved = await apiSendGroupMessage(gid, '[audio]', { message_type: 'audio', file_url: url, file_name: file.name });
+        setGroupMessages(prev => ({ ...prev, [gid]: (prev[gid] ?? []).map((m) => m.id === tempId ? { ...m, id: saved.id, audioUrl: url } : m) }));
+      } catch {
+        setGroupMessages(prev => ({ ...prev, [gid]: (prev[gid] ?? []).filter((m) => m.id !== tempId) }));
+      }
       return;
     }
+
     const text = draft.trim();
     if (!text) return;
     const gid = activeGroupId;
+    const time = nowTime();
+    const tempId = `gmsg-temp-${Date.now()}`;
+    const replySnap = replyToGrpMsg;
     setGroupMessages(prev => ({
       ...prev,
-      [gid]: [...(prev[gid] ?? []), { id: `gmsg-${Date.now()}`, text, sender: "me" as const, time: nowTime() }],
+      [gid]: [...(prev[gid] ?? []), {
+        id: tempId, text, sender: "me" as const, time,
+        ...(replySnap ? { replyTo: { id: replySnap.id, text: replySnap.text ?? "", sender: replySnap.sender } } : {}),
+      }],
     }));
+    setGroupLastMsg(prev => ({ ...prev, [gid]: { text, time } }));
     setDraft("");
+    setReplyToGrpMsg(null);
     if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
+    try {
+      const saved = await apiSendGroupMessage(gid, text, replySnap ? { reply_to_id: replySnap.id } : undefined);
+      setGroupMessages(prev => ({ ...prev, [gid]: (prev[gid] ?? []).map((m) => m.id === tempId ? { ...m, id: saved.id } : m) }));
+    } catch {
+      setGroupMessages(prev => ({ ...prev, [gid]: (prev[gid] ?? []).filter((m) => m.id !== tempId) }));
+    }
   }
 
   function handleGroupKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -1118,11 +1666,48 @@ export default function MessagesPage() {
     }
   }
 
+  async function startCall(name: string, initials: string, avatarColor: string, isVideo = false, avatarImg?: string, peerId?: string) {
+    if (!peerId) return;
+    setCallOverlay({ name, initials, avatarColor, avatarImg, isVideo, peerId });
+    setCallMuted(false);
+    setCallHeld(false);
+    setCallSeconds(0);
+    callSecondsRef.current = 0;
+
+    // Delegate all WebRTC logic to the service
+    try {
+      await webrtcCallService.initiateCall(peerId, name, initials, avatarColor, avatarImg, isVideo);
+    } catch { /* service already set permission_denied state */ }
+
+    // Log to call history (best-effort)
+    try {
+      const callId = await logCall(peerId, isVideo ? 'video' : 'audio');
+      currentCallIdRef.current = callId;
+      setCallLogs((prev) => [{
+        id: callId, name, initials, avatarColor,
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) + ', ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: 'outgoing',
+      }, ...prev]);
+    } catch { /* non-critical */ }
+  }
+
+  function toggleMute() {
+    const next = !callMuted;
+    webrtcCallService.setAudioMuted(next);
+    setCallMuted(next);
+  }
+
+  async function handleEndCall() {
+    // Service fires onStateChange('ended','hangup') → onStateChange callback handles
+    // timer stop, DB logging, and overlay close
+    await webrtcCallService.endCall('hangup');
+  }
+
   const activeChat = chats.find((c) => c.id === activeChatId);
-  const activeCall = MOCK_CALLS.find((c) => c.id === activeCallId);
-  const activeGroup = MOCK_GROUPS.find((g) => g.id === activeGroupId) ?? null;
+  const activeCall = callLogs.find((c) => c.id === activeCallId);
+  const activeGroup = groups.find((g) => g.id === activeGroupId) ?? null;
   const currentGroupMessages = activeGroupId ? (groupMessages[activeGroupId] ?? []) : [];
-  const filteredGroups = MOCK_GROUPS.filter((g) =>
+  const filteredGroups = groups.filter((g) =>
     g.name.toLowerCase().includes(groupSearch.toLowerCase())
   );
   const filteredUsers = realUsers.filter((u) =>
@@ -1216,11 +1801,11 @@ export default function MessagesPage() {
 
             {/* CALLS */}
             {activeTab === "calls" && (
-              MOCK_CALLS.length === 0 ? (
+              callLogs.length === 0 ? (
                 <CallsEmptyState />
               ) : (
                 <div>
-                  {MOCK_CALLS.map((call) => (
+                  {callLogs.map((call) => (
                     <button
                       key={call.id}
                       onClick={() => { setActiveCallId(call.id); setActiveChatId(null); }}
@@ -1318,19 +1903,39 @@ export default function MessagesPage() {
                     />
                   </div>
                 </div>
-                {filteredGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    onClick={() => setActiveGroupId(group.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors text-left ${activeGroupId === group.id ? "bg-[#fff6ed]" : ""}`}
-                  >
-                    <Avatar initials={group.initials} color={group.avatarColor} size={42} online={group.online} />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[14px] text-[#18191c] truncate">{group.name}</p>
-                      <p className="text-[12px] text-[#9ca3af]">{group.members} Members</p>
+                {groupsLoading ? (
+                  [0, 1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-10 h-10 rounded-full bg-[#f2f2f3] animate-pulse shrink-0" />
+                      <div className="flex-1 flex flex-col gap-2">
+                        <div className="h-3 w-28 bg-[#f2f2f3] animate-pulse rounded" />
+                        <div className="h-2.5 w-20 bg-[#f2f2f3] animate-pulse rounded" />
+                      </div>
                     </div>
-                  </button>
-                ))}
+                  ))
+                ) : filteredGroups.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm text-[#9ca3af]">
+                    {groupSearch ? "No groups match your search." : "No groups yet. Create one with the button above."}
+                  </p>
+                ) : filteredGroups.map((group) => {
+                  const last = groupLastMsg[group.id];
+                  return (
+                    <button
+                      key={group.id}
+                      onClick={() => setActiveGroupId(group.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors text-left ${activeGroupId === group.id ? "bg-[#fff6ed]" : ""}`}
+                    >
+                      <Avatar initials={group.initials} color={group.avatarColor} size={42} online={group.online} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-[14px] text-[#18191c] truncate">{group.name}</p>
+                          {last && <span className="text-[11px] text-[#9ca3af] shrink-0">{last.time}</span>}
+                        </div>
+                        <p className="text-[12px] text-[#9ca3af] truncate">{last ? last.text : `${group.members} Members`}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1354,8 +1959,7 @@ export default function MessagesPage() {
         <div className="flex-1 bg-[#f5f5f5] flex flex-col overflow-hidden">
           {/* Chats: active conversation */}
           {activeTab === "chats" && activeChat && (() => {
-            const chatGroup = MOCK_GROUPS.find(g => g.name === activeChat.name) ?? null;
-            const chatGroupMembers = chatGroup ? (MOCK_GROUP_MEMBERS[chatGroup.id] ?? MOCK_GROUP_MEMBERS.default) : MOCK_GROUP_MEMBERS.default;
+            const chatGroupMembers = (activeChatId ? groupMembers[activeChatId] : null) ?? [];
             const filteredChatMembers = chatGroupMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
             return (
             <div className="flex h-full">
@@ -1369,10 +1973,10 @@ export default function MessagesPage() {
                   <p className="text-[12px] text-[#9ca3af]">{activeChat.time ? `Last seen ${activeChat.time}` : "Community member"}</p>
                 </div>
                 <div className="flex items-center gap-3 text-[#9ca3af]">
-                  <button onClick={() => setCallOverlay({ name: activeChat.name, initials: activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), avatarColor: activeChat.avatarColor ?? "#f77f00", avatarImg: activeChat.avatarImg, isVideo: true })} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Video call">
+                  <button onClick={() => startCall(activeChat.name, activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), activeChat.avatarColor ?? "#f77f00", true, activeChat.avatarImg, activeChat.peerId)} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Video call">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><rect x="1" y="5" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" /></svg>
                   </button>
-                  <button onClick={() => setCallOverlay({ name: activeChat.name, initials: activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), avatarColor: activeChat.avatarColor ?? "#f77f00", avatarImg: activeChat.avatarImg })} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Audio call">
+                  <button onClick={() => startCall(activeChat.name, activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), activeChat.avatarColor ?? "#f77f00", false, activeChat.avatarImg, activeChat.peerId)} className="hover:text-[#f77f00] transition-colors p-1" aria-label="Audio call">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </button>
                   <button onClick={() => { setShowChatSearch(v => !v); setChatSearchQuery(""); }} className={`transition-colors p-1 ${showChatSearch ? "text-[#f77f00]" : "hover:text-[#f77f00]"}`} aria-label="Search">
@@ -1998,13 +2602,15 @@ export default function MessagesPage() {
                 {/* Add Members panel */}
                 {showAddMembers && (
                   <AddMembersPanel
-                    contacts={ALL_CONTACTS}
+                    contacts={realUsers.map((u) => ({ id: u.id, name: u.name, initials: u.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(), avatarColor: colorFromId(u.id) }))}
                     selected={addMemberSelected}
                     search={addMemberSearch}
                     onSearchChange={setAddMemberSearch}
                     onToggle={toggleAddMember}
-                    onBack={() => setShowAddMembers(false)}
+                    onBack={() => { setShowAddMembers(false); setAddMembersError(""); }}
                     onAdd={handleAddMembers}
+                    loading={addMembersLoading}
+                    error={addMembersError}
                   />
                 )}
               </div>
@@ -2021,7 +2627,7 @@ export default function MessagesPage() {
 
           {/* Groups: active group chat — chat area + info sidebar */}
           {activeTab === "groups" && activeGroup && (() => {
-            const members = MOCK_GROUP_MEMBERS[activeGroupId!] ?? MOCK_GROUP_MEMBERS.default;
+            const members = (activeGroupId ? groupMembers[activeGroupId] : null) ?? [];
             const filteredMembers = members.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
             return (
             <div className="flex h-full">
@@ -2051,9 +2657,50 @@ export default function MessagesPage() {
                     <button onClick={() => { setShowGroupSearch(v => !v); setGroupSearchQuery(""); }} className={`transition-colors p-1 ${showGroupSearch ? "text-[#f77f00]" : "hover:text-[#f77f00]"}`} aria-label="Search">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                     </button>
-                    <button className="hover:text-[#f77f00] transition-colors p-1" aria-label="More">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setGrpHeaderMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                          setShowGrpHeaderMenu((v) => !v);
+                        }}
+                        className={`transition-colors p-1 ${showGrpHeaderMenu ? "text-[#f77f00]" : "hover:text-[#f77f00]"}`}
+                        aria-label="More"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
+                      </button>
+                      {showGrpHeaderMenu && grpHeaderMenuPos && (
+                        <div
+                          ref={grpHeaderMenuRef}
+                          className="fixed z-[300] bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.14)] border border-[#e5e7eb] py-1.5 min-w-[200px] overflow-hidden"
+                          style={{ top: grpHeaderMenuPos.top, right: grpHeaderMenuPos.right }}
+                        >
+                          <button onClick={() => { setShowGroupInfo(true); setShowGrpHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors text-left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#9ca3af]"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                            Group Info
+                          </button>
+                          <button onClick={() => { setShowGroupSearch(true); setShowGrpHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors text-left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#9ca3af]"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                            Search in Chat
+                          </button>
+                          <button onClick={() => { setShowAddMembers(true); setShowGrpHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors text-left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#9ca3af]"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/><line x1="19" y1="8" x2="19" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="22" y1="11" x2="16" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                            Add Members
+                          </button>
+                          <div className="h-px bg-[#f3f4f6] my-1" />
+                          <button onClick={() => { setShowLeaveConfirm(true); setShowGrpHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors text-left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#9ca3af]"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><polyline points="16 17 21 12 16 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            Leave Group
+                          </button>
+                          {members.find(m => m.id === currentUserId)?.role === 'Owner' && (
+                            <button onClick={() => { setShowDeleteConfirm(true); setShowGrpHeaderMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors text-left">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-red-400"><polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              Delete Group
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -2092,29 +2739,111 @@ export default function MessagesPage() {
 
                 {/* Messages area */}
                 <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-2">
-                  {currentGroupMessages.length === 0 && (
+                  {groupMsgLoading && (
+                    <div className="flex flex-col gap-3 w-full">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className={`flex ${i % 2 === 0 ? "justify-start" : "justify-end"}`}>
+                          <div className={`h-9 rounded-2xl bg-[#f2f2f3] animate-pulse ${i % 2 === 0 ? "w-48" : "w-36"}`} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!groupMsgLoading && currentGroupMessages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center">
                       <p className="text-[14px] text-[#9ca3af]">No messages yet. Start the conversation!</p>
                     </div>
                   )}
                   {currentGroupMessages.map((msg) => {
                     const isSent = msg.sender === "me";
-                    if (msg.audioUrl) {
+
+                    // Deleted message
+                    if (msg.deleted) {
                       return (
                         <div key={msg.id} className={`flex ${isSent ? "justify-end" : "justify-start"}`}>
-                          <AudioBubble msgId={msg.id} audioUrl={msg.audioUrl} waveform={msg.waveform ?? []} audioDuration={msg.audioDuration ?? 0} isSent={isSent} isPlaying={playingMsgId === msg.id} playProgress={playProgress} onToggle={toggleMsgPlay} />
+                          <div className={`px-4 py-2 rounded-2xl italic text-[13px] text-[#9ca3af] border border-dashed border-[#e5e7eb] ${isSent ? "bg-[#fafafa]" : "bg-white"}`}>
+                            This message was deleted
+                          </div>
                         </div>
                       );
                     }
+
+                    // Shared three-dot button (used by all message types)
+                    const GrpMenuBtn = () => (
+                      <button
+                        onClick={(e) => openGrpMenu(e, msg.id, isSent)}
+                        className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center text-[#9ca3af] hover:text-[#f77f00] hover:border-[#f77f00] transition-colors shrink-0"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+                      </button>
+                    );
+
+                    // Audio message
+                    if (msg.audioUrl) {
+                      return (
+                        <div key={msg.id} className={`flex items-center gap-1.5 group ${isSent ? "justify-end" : "justify-start"}`}>
+                          {!isSent && <GrpMenuBtn />}
+                          <AudioBubble msgId={msg.id} audioUrl={msg.audioUrl} waveform={msg.waveform ?? []} audioDuration={msg.audioDuration ?? 0} isSent={isSent} isPlaying={playingMsgId === msg.id} playProgress={playProgress} onToggle={toggleMsgPlay} />
+                          {isSent && <GrpMenuBtn />}
+                        </div>
+                      );
+                    }
+
+                    // Attachment (image / file)
+                    if (msg.type === "attachment") {
+                      const isImg = msg.attachmentMime?.startsWith("image/");
+                      return (
+                        <div key={msg.id} data-grp-msg-id={msg.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"} group`}>
+                          {!isSent && msg.senderName && <p className="text-[11px] font-medium text-[#9ca3af] mb-0.5 px-1">{msg.senderName}</p>}
+                          <div className={`flex items-center gap-1.5 ${isSent ? "flex-row-reverse" : ""}`}>
+                            <div className={`max-w-[260px] rounded-2xl overflow-hidden ${isSent ? "rounded-tr-sm" : "rounded-tl-sm"}`}>
+                              {isImg ? (
+                                <button onClick={() => setLightboxMsg(msg)} className="block w-full">
+                                  <img src={msg.attachmentUrl} alt={msg.attachmentName} className="max-w-[260px] max-h-[260px] object-cover rounded-2xl" onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.4'; }} />
+                                </button>
+                              ) : (
+                                <a href={msg.attachmentUrl} download={msg.attachmentName} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 px-4 py-3 ${isSent ? "bg-[#ffeacc]" : "bg-white border border-[#e5e7eb]"}`}>
+                                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#f77f00] shrink-0"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5"/><polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5"/></svg>
+                                  <div className="min-w-0">
+                                    <p className="text-[13px] font-medium text-[#18191c] truncate max-w-[160px]">{msg.attachmentName}</p>
+                                    <p className="text-[11px] text-[#9ca3af]">Tap to download</p>
+                                  </div>
+                                </a>
+                              )}
+                            </div>
+                            <GrpMenuBtn />
+                          </div>
+                          <p className="text-[11px] text-[#9ca3af] mt-0.5 px-1">{msg.time}</p>
+                        </div>
+                      );
+                    }
+
+                    // Text / sticker message
                     return (
-                      <div key={msg.id} data-grp-msg-id={msg.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"}`}>
+                      <div key={msg.id} data-grp-msg-id={msg.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"} group`}>
                         {!isSent && msg.senderName && (
                           <p className="text-[11px] font-medium text-[#9ca3af] mb-0.5 px-1">{msg.senderName}</p>
                         )}
-                        <div className={`max-w-[45%] min-w-0 px-4 py-2.5 rounded-2xl ${isSent ? "bg-[#ffeacc] rounded-tr-sm" : "bg-white border border-[#e5e7eb] rounded-tl-sm"}`}>
-                          <p className="text-[14px] text-[#18191c] leading-snug whitespace-pre-wrap" style={{ overflowWrap: "anywhere" }}>{highlightText(msg.text ?? "", groupSearchQuery, groupMatchIds[groupSearchIdx] === msg.id)}</p>
-                          <p className={`text-[11px] mt-0.5 ${isSent ? "text-right" : ""} text-[#9ca3af]`}>{msg.time}</p>
-                        </div>
+                        {editingGrpMsgId === msg.id ? (
+                          <div className="flex items-center gap-2 max-w-[45%]">
+                            <input
+                              autoFocus
+                              value={editGrpDraft}
+                              onChange={(e) => setEditGrpDraft(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveGroupEdit(msg.id); if (e.key === 'Escape') setEditingGrpMsgId(null); }}
+                              className="flex-1 border border-[#f77f00] rounded-xl px-3 py-2 text-[14px] focus:outline-none"
+                            />
+                            <button onClick={() => saveGroupEdit(msg.id)} className="text-[#22c55e] p-1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg></button>
+                            <button onClick={() => setEditingGrpMsgId(null)} className="text-[#9ca3af] p-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                          </div>
+                        ) : (
+                          <div className={`flex items-center gap-1.5 ${isSent ? "flex-row-reverse" : ""}`}>
+                            <div className={`max-w-[55%] min-w-0 px-4 py-2.5 rounded-2xl ${isSent ? "bg-[#ffeacc] rounded-tr-sm" : "bg-white border border-[#e5e7eb] rounded-tl-sm"} ${msg.sticker ? "!bg-transparent !border-none !px-1 !py-1" : ""}`}>
+                              <p className={`leading-snug whitespace-pre-wrap ${msg.sticker ? "text-[40px]" : "text-[14px] text-[#18191c]"}`} style={{ overflowWrap: "anywhere" }}>{highlightText(msg.text ?? "", groupSearchQuery, groupMatchIds[groupSearchIdx] === msg.id)}</p>
+                              {!msg.sticker && <p className={`text-[11px] mt-0.5 ${isSent ? "text-right" : ""} text-[#9ca3af]`}>{msg.time}{msg.edited ? ' · edited' : ''}</p>}
+                            </div>
+                            {!msg.sticker && <GrpMenuBtn />}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -2135,16 +2864,49 @@ export default function MessagesPage() {
                       <p className="text-[13px] font-semibold text-[#374151] mb-2 px-1">Stickers</p>
                       <div className="grid grid-cols-6 gap-1">
                         {["🥰","😂","😎","🥳","😭","🤩","👍","❤️","🙏","🎉","🔥","💯","😅","🤔","😤","🥺","😴","🤯","👋","✨","🎊","💪","🫂","😇"].map((s) => (
-                          <button key={s} onClick={() => { if (!activeGroupId) return; const gid = activeGroupId; setGroupMessages(prev => ({ ...prev, [gid]: [...(prev[gid] ?? []), { id: `gmsg-${Date.now()}`, text: s, sender: "me", time: nowTime(), sticker: true }] })); setShowStickerPanel(false); }} className="w-10 h-10 flex items-center justify-center text-[28px] rounded-xl hover:bg-[#f5f5f5] transition-colors">{s}</button>
+                          <button key={s} onClick={() => sendGroupSticker(s)} className="w-10 h-10 flex items-center justify-center text-[28px] rounded-xl hover:bg-[#f5f5f5] transition-colors">{s}</button>
                         ))}
                       </div>
                     </div>
                   </div>
                 )}
 
+                {/* Group message context menu */}
+                {grpMenuMsgId && grpMenuPos && (() => {
+                  const msg = currentGroupMessages.find(m => m.id === grpMenuMsgId);
+                  if (!msg) return null;
+                  return (
+                    <div ref={grpMenuRef} className="fixed z-[200]" style={{ top: grpMenuPos.top, left: grpMenuPos.left }}>
+                      <MessageContextMenu
+                        msg={msg}
+                        onClose={() => setGrpMenuMsgId(null)}
+                        onEdit={(m) => { setEditingGrpMsgId(m.id); setEditGrpDraft(m.text ?? ""); setGrpMenuMsgId(null); }}
+                        onReply={(m) => { setReplyToGrpMsg(m); setGrpMenuMsgId(null); }}
+                        onDeleteRequest={(m) => { setDeleteGrpConfirmMsg(m); setGrpMenuMsgId(null); }}
+                      />
+                    </div>
+                  );
+                })()}
+
+                {/* Group reply bar */}
+                {replyToGrpMsg && (
+                  <div className="flex items-center gap-3 px-4 py-2 bg-[#fff6ed] border-t border-[#f77f00]/20">
+                    <div className="w-0.5 h-8 bg-[#f77f00] rounded-full shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-semibold text-[#f77f00] mb-0.5">
+                        {replyToGrpMsg.sender === "me" ? "You" : (replyToGrpMsg.senderName ?? "Member")}
+                      </p>
+                      <p className="text-[12px] text-[#9ca3af] truncate">{replyToGrpMsg.text ?? (replyToGrpMsg.audioUrl ? "Voice message" : "Attachment")}</p>
+                    </div>
+                    <button onClick={() => setReplyToGrpMsg(null)} className="shrink-0 text-[#9ca3af] hover:text-[#374151] transition-colors p-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                )}
+
                 {/* Input bar */}
                 <div className="bg-white border-t border-[#e5e7eb] px-4 py-3">
-                  <input ref={fileInputRef} type="file" className="hidden" multiple accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt" onChange={handleFileSelect} />
+                  <input ref={grpFileInputRef} type="file" className="hidden" multiple accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt" onChange={handleGroupFileSelect} />
                   <div className="border border-[#e5e7eb] rounded-2xl overflow-hidden">
                     {!isRecording && !recordedUrl && (
                       <textarea ref={textareaRef} rows={1} value={draft} onChange={(e) => { setDraft(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }} onKeyDown={handleGroupKeyDown} placeholder="Type your message..." className="w-full px-4 pt-3 pb-2 bg-transparent text-[14px] text-[#18191c] placeholder:text-[#9ca3af] focus:outline-none resize-none overflow-hidden leading-relaxed" />
@@ -2170,7 +2932,7 @@ export default function MessagesPage() {
                     <div className="flex items-center justify-between px-3 pb-2.5 pt-1 border-t border-[#f3f4f6]">
                       {recordedUrl ? <p className="text-[12px] text-[#9ca3af] pl-1">Voice message ready</p> : (
                         <div className="flex items-center gap-1 text-[#9ca3af]">
-                          <button onClick={() => fileInputRef.current?.click()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#f5f5f5] hover:text-[#f77f00] transition-colors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
+                          <button onClick={() => grpFileInputRef.current?.click()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#f5f5f5] hover:text-[#f77f00] transition-colors" title="Attach file"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
                           <button onClick={toggleRecording} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isRecording ? "bg-red-50 text-red-500 hover:bg-red-100" : "hover:bg-[#f5f5f5] hover:text-[#f77f00]"}`}>{isRecording ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>}</button>
                           <button onClick={openInputEmojiPicker} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showInputEmoji ? "bg-[#fff6ed] text-[#f77f00]" : "hover:bg-[#f5f5f5] hover:text-[#f77f00]"}`}><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M8 13s1.5 2 4 2 4-2 4-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="9" y1="9" x2="9.01" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></button>
                           <button onClick={openStickerPanel} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showStickerPanel ? "bg-[#fff6ed] text-[#f77f00]" : "hover:bg-[#f5f5f5] hover:text-[#f77f00]"}`}><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2v-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M13 2l7 7M13 2v7h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
@@ -2199,7 +2961,33 @@ export default function MessagesPage() {
                   <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center text-white font-bold text-[28px]" style={{ backgroundColor: activeGroup.avatarColor }}>
                     {activeGroup.initials}
                   </div>
-                  <p className="font-bold text-[16px] text-[#141414] mt-3 text-center leading-snug">{activeGroup.name}</p>
+                  {editingGroupName ? (
+                    <div className="mt-3 flex items-center gap-2 w-full max-w-[240px]">
+                      <input
+                        autoFocus
+                        value={groupNameDraft}
+                        onChange={(e) => setGroupNameDraft(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveGroupName(); if (e.key === 'Escape') setEditingGroupName(false); }}
+                        className="flex-1 text-[15px] font-bold text-[#141414] border-b-2 border-[#f77f00] bg-transparent focus:outline-none text-center"
+                        maxLength={80}
+                      />
+                      <button onClick={saveGroupName} disabled={groupNameSaving} className="text-[#22c55e] hover:text-[#16a34a] shrink-0 p-1 transition-colors">
+                        {groupNameSaving ? <span className="text-[12px]">…</span> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>}
+                      </button>
+                      <button onClick={() => setEditingGroupName(false)} className="text-[#9ca3af] hover:text-[#374151] shrink-0 p-1 transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setGroupNameDraft(activeGroup.name); setEditingGroupName(true); }}
+                      className="mt-3 font-bold text-[16px] text-[#141414] hover:text-[#f77f00] transition-colors text-center leading-snug group flex items-center gap-1.5"
+                      title="Edit group name"
+                    >
+                      {activeGroup.name}
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="text-[#9ca3af] group-hover:text-[#f77f00] shrink-0"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  )}
                   <p className="text-[13px] text-[#9ca3af] mt-0.5">{activeGroup.members} Members</p>
                 </div>
 
@@ -2212,7 +3000,7 @@ export default function MessagesPage() {
                   </button>
                   <button onClick={() => setShowLeaveConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 00-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/></svg>
-                    <span className="text-[15px] text-[#f44649] font-normal">Leave</span>
+                    <span className="text-[15px] text-[#f44649] font-normal">Leave Group</span>
                   </button>
                   <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
@@ -2222,53 +3010,74 @@ export default function MessagesPage() {
 
                 {/* Members tabs */}
                 <div className="flex border-b border-[#e5e7eb] shrink-0">
-                  <button onClick={() => setGroupInfoTab("members")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "members" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>View Members</button>
-                  <button onClick={() => setGroupInfoTab("banned")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "banned" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>Banned Members</button>
+                  <button onClick={() => setGroupInfoTab("members")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "members" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>Members ({members.length})</button>
+                  <button onClick={() => setGroupInfoTab("banned")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "banned" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>Banned</button>
                 </div>
 
                 {/* Members search */}
                 <div className="px-4 py-2.5 shrink-0">
                   <div className="relative">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    <input type="search" value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="Search" className="w-full pl-8 pr-3 py-1.5 rounded-full bg-[#f5f5f5] text-[13px] text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors" />
+                    <input type="search" value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="Search members" className="w-full pl-8 pr-3 py-1.5 rounded-full bg-[#f5f5f5] text-[13px] text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors" />
                   </div>
                 </div>
 
                 {/* Members list */}
                 <div className="flex-1 overflow-y-auto">
                   {groupInfoTab === "members" ? (
-                    filteredMembers.length === 0 ? (
-                      <p className="text-center text-[13px] text-[#9ca3af] py-6">No members found</p>
-                    ) : filteredMembers.map(member => (
-                      <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#f5f5f5] hover:bg-[#fafafa] transition-colors">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-[13px] shrink-0" style={{ backgroundColor: member.avatarColor }}>
-                          {member.initials}
+                    groupMembersLoading ? (
+                      [1,2,3].map(i => (
+                        <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#f5f5f5]">
+                          <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse shrink-0" />
+                          <div className="flex-1 h-4 bg-gray-200 rounded animate-pulse" />
                         </div>
-                        <p className="flex-1 font-medium text-[14px] text-[#141414] truncate">{member.name}</p>
-                        {member.role === "Owner" && (
-                          <span className="shrink-0 bg-[#ff9400] text-white text-[11px] font-normal px-2.5 py-0.5 rounded-full">{member.role}</span>
-                        )}
-                        {(member.role === "Admin" || member.role === "Moderator") && (
-                          <span className="shrink-0 border border-[#ff9400] text-[#ff9400] text-[11px] font-normal px-2.5 py-0.5 rounded-full">{member.role}</span>
-                        )}
-                      </div>
-                    ))
+                      ))
+                    ) : filteredMembers.length === 0 ? (
+                      <p className="text-center text-[13px] text-[#9ca3af] py-6">No members found</p>
+                    ) : filteredMembers.map(member => {
+                      const isOwner = member.role === 'Owner';
+                      const iMe = member.id === currentUserId;
+                      const amOwner = members.find(m => m.id === currentUserId)?.role === 'Owner';
+                      return (
+                        <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#f5f5f5] hover:bg-[#fafafa] transition-colors group">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-[13px] shrink-0" style={{ backgroundColor: member.avatarColor }}>
+                            {member.initials}
+                          </div>
+                          <p className="flex-1 font-medium text-[14px] text-[#141414] truncate">{member.name}{iMe ? ' (You)' : ''}</p>
+                          {isOwner && <span className="shrink-0 bg-[#ff9400] text-white text-[11px] font-normal px-2.5 py-0.5 rounded-full">Owner</span>}
+                          {(member.role === 'Admin' || member.role === 'Moderator') && <span className="shrink-0 border border-[#ff9400] text-[#ff9400] text-[11px] font-normal px-2.5 py-0.5 rounded-full">{member.role}</span>}
+                          {amOwner && !iMe && !isOwner && (
+                            <button
+                              onClick={() => handleRemoveMember(member.id)}
+                              className="shrink-0 opacity-0 group-hover:opacity-100 text-[#9ca3af] hover:text-[#f44649] transition-all p-1"
+                              title="Remove from group"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-center text-[13px] text-[#9ca3af] py-6">No banned members</p>
                   )}
                 </div>
                 </>)}
 
-                {/* Add Members panel */}
+                {/* Add Members panel — filters out existing members */}
                 {showAddMembers && (
                   <AddMembersPanel
-                    contacts={ALL_CONTACTS}
+                    contacts={realUsers
+                      .filter((u) => !(members ?? []).some((m) => m.id === u.id))
+                      .map((u) => ({ id: u.id, name: u.name, initials: u.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(), avatarColor: colorFromId(u.id) }))}
                     selected={addMemberSelected}
                     search={addMemberSearch}
                     onSearchChange={setAddMemberSearch}
                     onToggle={toggleAddMember}
-                    onBack={() => setShowAddMembers(false)}
+                    onBack={() => { setShowAddMembers(false); setAddMembersError(""); }}
                     onAdd={handleAddMembers}
+                    loading={addMembersLoading}
+                    error={addMembersError}
                   />
                 )}
               </div>
@@ -2288,7 +3097,7 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Delete confirm modal */}
+      {/* Delete confirm modal (DM) */}
       {deleteConfirmMsg && (
         <DeleteConfirmModal
           msg={deleteConfirmMsg}
@@ -2296,6 +3105,117 @@ export default function MessagesPage() {
           onDeleteForEveryone={() => deleteForEveryone(deleteConfirmMsg.id)}
           onCancel={() => setDeleteConfirmMsg(null)}
         />
+      )}
+
+      {/* Delete confirm modal (Group message) */}
+      {deleteGrpConfirmMsg && (
+        <div className="fixed inset-0 bg-black/40 z-[500] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-[340px] shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#e5e7eb]">
+              <p className="font-bold text-[17px] text-[#18191c]">Delete Message?</p>
+              <p className="text-[13px] text-[#9ca3af] mt-1">This action cannot be undone.</p>
+            </div>
+            <div className="flex flex-col">
+              <button onClick={() => deleteGroupMsgForMe(deleteGrpConfirmMsg.id)} className="px-6 py-3.5 text-[14px] text-[#374151] hover:bg-[#f9fafb] text-left transition-colors border-b border-[#f3f4f6]">Delete for me</button>
+              <button onClick={() => deleteGroupMsgForEveryone(deleteGrpConfirmMsg.id)} className="px-6 py-3.5 text-[14px] text-[#f44649] font-medium hover:bg-red-50 text-left transition-colors border-b border-[#f3f4f6]">Delete for everyone</button>
+              <button onClick={() => setDeleteGrpConfirmMsg(null)} className="px-6 py-3.5 text-[14px] text-[#9ca3af] hover:bg-[#f9fafb] text-left transition-colors">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Group Modal */}
+      {showNewGroupModal && (
+        <div className="fixed inset-0 bg-black/40 z-[500] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-[420px] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb] shrink-0">
+              <p className="font-bold text-[17px] text-[#18191c]">Create New Group</p>
+              <button onClick={() => { setShowNewGroupModal(false); setNewGroupName(""); setCreateGroupError(""); setAddMemberSelected([]); }} className="text-[#9ca3af] hover:text-[#374151] transition-colors p-1">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {/* Group name */}
+              <div className="px-6 pt-5 pb-4">
+                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Group Name <span className="text-[#f44649]">*</span></label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => { setNewGroupName(e.target.value); setCreateGroupError(""); }}
+                  placeholder="e.g. Design Team, Study Group…"
+                  maxLength={80}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#e5e7eb] text-[14px] text-[#18191c] placeholder:text-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#f77f00]/30 focus:border-[#f77f00] transition-colors"
+                />
+                {createGroupError && <p className="text-[12px] text-[#f44649] mt-1.5">{createGroupError}</p>}
+              </div>
+
+              {/* Members */}
+              <div className="px-6 pb-4">
+                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Add Members ({addMemberSelected.length} selected)</label>
+                <div className="relative mb-3">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  <input type="search" value={addMemberSearch} onChange={(e) => setAddMemberSearch(e.target.value)} placeholder="Search connections…" className="w-full pl-9 pr-4 py-2 rounded-full bg-[#f5f5f5] text-[13px] text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors" />
+                </div>
+                <div className="flex flex-col gap-0 max-h-[240px] overflow-y-auto rounded-xl border border-[#e5e7eb]">
+                  {realUsers
+                    .filter((u) => u.name.toLowerCase().includes(addMemberSearch.toLowerCase()))
+                    .map((u) => {
+                      const initials = u.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+                      const selected = addMemberSelected.includes(u.id);
+                      return (
+                        <button key={u.id} onClick={() => toggleAddMember(u.id)} className={`flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selected ? "bg-[#fff6ed]" : "hover:bg-[#f9fafb]"}`}>
+                          <Avatar initials={initials} img={u.avatar_url ?? undefined} color={colorFromId(u.id)} size={36} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-[14px] text-[#18191c] truncate">{u.name}</p>
+                            <p className="text-[12px] text-[#9ca3af]">{u.title || u.company || 'Community member'}</p>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected ? "bg-[#f77f00] border-[#f77f00]" : "border-[#d1d5db]"}`}>
+                            {selected && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>}
+                          </div>
+                        </button>
+                      );
+                    })
+                  }
+                  {realUsers.filter((u) => u.name.toLowerCase().includes(addMemberSearch.toLowerCase())).length === 0 && (
+                    <p className="text-center text-[13px] text-[#9ca3af] py-6">No connections found</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-[#e5e7eb] flex items-center justify-between gap-3 shrink-0">
+              <button onClick={() => { setShowNewGroupModal(false); setNewGroupName(""); setCreateGroupError(""); setAddMemberSelected([]); setAddMemberSearch(""); }} className="px-5 py-2 rounded-xl border border-[#e5e7eb] text-[14px] text-[#374151] hover:bg-[#f5f5f5] transition-colors">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!newGroupName.trim()) { setCreateGroupError("Group name is required."); return; }
+                  setCreateGroupLoading(true); setCreateGroupError("");
+                  try {
+                    const newGroup = await apiCreateGroup(newGroupName.trim(), addMemberSelected);
+                    setGroups((prev) => [dbGroupToLocal(newGroup), ...prev]);
+                    setActiveGroupId(newGroup.id);
+                    setActiveTab("groups");
+                    setShowNewGroupModal(false);
+                    setNewGroupName("");
+                    setAddMemberSelected([]);
+                    setAddMemberSearch("");
+                  } catch (err) {
+                    setCreateGroupError(err instanceof Error ? err.message : "Failed to create group.");
+                  } finally {
+                    setCreateGroupLoading(false);
+                  }
+                }}
+                disabled={createGroupLoading || !newGroupName.trim()}
+                className="flex-1 px-5 py-2 rounded-xl bg-[#f77f00] text-white text-[14px] font-semibold hover:bg-[#e06c00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {createGroupLoading ? "Creating…" : `Create Group${addMemberSelected.length > 0 ? ` (${addMemberSelected.length + 1})` : ""}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Image lightbox */}
@@ -2350,84 +3270,215 @@ export default function MessagesPage() {
         </div>
       )}
 
+      {/* Incoming call modal */}
+      {incomingCall && (
+        <div className="fixed inset-0 bg-black/50 z-[450] flex items-center justify-center">
+          <div className="bg-white rounded-[28px] w-[340px] flex flex-col items-center gap-5 p-7 shadow-2xl">
+            {/* Pulsing avatar */}
+            <div className="relative flex items-center justify-center w-[110px] h-[110px]">
+              <div className="absolute w-[110px] h-[110px] rounded-full animate-ping opacity-20"
+                style={{ backgroundColor: incomingCall.callerAvatarColor }} />
+              <div className="absolute w-[95px] h-[95px] rounded-full animate-ping opacity-10 [animation-delay:0.4s]"
+                style={{ backgroundColor: incomingCall.callerAvatarColor }} />
+              <div className="w-[80px] h-[80px] rounded-full flex items-center justify-center text-white text-3xl font-bold relative z-10 shadow-lg"
+                style={{ backgroundColor: incomingCall.callerAvatarColor }}>
+                {incomingCall.callerAvatarImg ? (
+                  <img src={incomingCall.callerAvatarImg} alt={incomingCall.callerName} className="w-full h-full object-cover rounded-full" />
+                ) : incomingCall.callerInitials}
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-[22px] text-[#141414]">{incomingCall.callerName}</p>
+              <p className="text-[14px] text-[#9ca3af] mt-1">{incomingCall.isVideo ? "Incoming video call..." : "Incoming call..."}</p>
+            </div>
+            <div className="flex items-center gap-10">
+              {/* Decline */}
+              <div className="flex flex-col items-center gap-1.5">
+                <button
+                  onClick={declineCall}
+                  className="w-[60px] h-[60px] rounded-full bg-[#f44649] flex items-center justify-center hover:bg-[#d93d40] transition-colors shadow-lg"
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                    <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.27 11.36 11.36 0 003.54.56 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1 11.36 11.36 0 00.56 3.54 1 1 0 01-.27 1.11z" transform="rotate(135 12 12)"/>
+                  </svg>
+                </button>
+                <span className="text-[12px] text-[#9ca3af]">Decline</span>
+              </div>
+              {/* Accept */}
+              <div className="flex flex-col items-center gap-1.5">
+                <button
+                  onClick={acceptCall}
+                  className="w-[60px] h-[60px] rounded-full bg-[#22c55e] flex items-center justify-center hover:bg-[#16a34a] transition-colors shadow-lg"
+                >
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 015.13 12.8 19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+                  </svg>
+                </button>
+                <span className="text-[12px] text-[#9ca3af]">Accept</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Calling overlay */}
       {callOverlay && (
-        <div className="fixed inset-0 bg-black/20 z-[400] flex items-center justify-center">
-          <div className="bg-white rounded-[20px] w-[360px] flex flex-col items-center justify-between py-5 shadow-[0px_12px_16px_-4px_rgba(16,24,40,0.08),0px_4px_6px_-2px_rgba(16,24,40,0.03)] border border-[#e8e8e8]" style={{ height: 540 }}>
-            {/* Name + status */}
-            <div className="flex flex-col items-center gap-2 px-4 text-center">
-              <p className="text-[32px] font-medium text-[#141414] leading-[1.2] whitespace-nowrap">{callOverlay.name}</p>
-              <p className="text-[16px] text-[#727272] leading-[1.2]">{callOverlay.isVideo ? "Video Calling" : "Calling"}</p>
-            </div>
+        <div className="fixed inset-0 bg-black/40 z-[400] flex items-center justify-center">
+          <div className="bg-white rounded-[24px] w-[380px] flex flex-col items-center gap-0 shadow-2xl border border-[#e8e8e8] overflow-hidden" style={{ height: 560 }}>
 
-            {/* Avatar */}
-            <div
-              className="w-[160px] h-[160px] rounded-full flex items-center justify-center shrink-0 overflow-hidden"
-              style={{ backgroundColor: callOverlay.avatarImg ? undefined : callOverlay.avatarColor }}
-            >
-              {callOverlay.avatarImg ? (
-                <img src={callOverlay.avatarImg} alt={callOverlay.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-[64px] font-bold text-white leading-none">{callOverlay.initials}</span>
+            {/* Top bar */}
+            <div className="w-full flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
+              <span className="text-[13px] font-semibold text-[#9ca3af] uppercase tracking-wide">
+                {callOverlay.isVideo ? "Video Call" : "Voice Call"}
+              </span>
+              {webrtcState === 'active' && (
+                <span className="text-[15px] font-mono font-bold text-[#f77f00]">
+                  {String(Math.floor(callSeconds / 60)).padStart(2, '0')}:{String(callSeconds % 60).padStart(2, '0')}
+                </span>
               )}
             </div>
 
-            {/* Call action buttons */}
-            <div className="flex items-center justify-center gap-8 py-3">
+            {/* Video / audio / error content */}
+            <div className="flex-1 flex items-center justify-center w-full relative">
+              {webrtcState === 'permission_denied' ? (
+                /* ── Permission denied ── */
+                <div className="flex flex-col items-center gap-3 px-6">
+                  <div className="w-[80px] h-[80px] rounded-full bg-red-100 flex items-center justify-center">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-red-500">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
+                      <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      <circle cx="12" cy="16" r="1" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <p className="text-[13px] text-[#6b7280] text-center leading-relaxed">
+                    {callOverlay.isVideo ? 'Camera and microphone' : 'Microphone'} access was denied.<br/>
+                    Allow access in your browser settings and try again.
+                  </p>
+                </div>
+              ) : callOverlay.isVideo ? (
+                /* ── Video call ── */
+                <div className="relative w-full h-full bg-[#0f0f1a]">
+                  {/* Remote video: visible once active */}
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${webrtcState === 'active' ? 'opacity-100' : 'opacity-0'}`}
+                  />
+                  {/* Waiting placeholder */}
+                  {webrtcState !== 'active' && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                      <div className="w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl font-bold animate-pulse"
+                        style={{ backgroundColor: callOverlay.avatarColor }}>
+                        {callOverlay.initials}
+                      </div>
+                      {webrtcState === 'ended' && callEndReason && (
+                        <span className="text-white/70 text-[13px]">{callEndReasonText(callEndReason)}</span>
+                      )}
+                    </div>
+                  )}
+                  {/* Local camera PIP */}
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="absolute bottom-3 right-3 w-24 h-32 rounded-xl object-cover border-2 border-white/80 shadow-lg bg-black"
+                  />
+                </div>
+              ) : (
+                /* ── Audio call ── */
+                <div className="relative flex items-center justify-center">
+                  {/* Hidden video element plays remote audio */}
+                  <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
+                  {/* Pulsing rings */}
+                  <div className="absolute w-[200px] h-[200px] rounded-full animate-ping opacity-20"
+                    style={{ backgroundColor: callOverlay.avatarColor }} />
+                  <div className="absolute w-[175px] h-[175px] rounded-full animate-ping opacity-10 [animation-delay:0.3s]"
+                    style={{ backgroundColor: callOverlay.avatarColor }} />
+                  <div className="w-[150px] h-[150px] rounded-full flex items-center justify-center shrink-0 overflow-hidden shadow-lg relative z-10"
+                    style={{ backgroundColor: callOverlay.avatarImg ? undefined : callOverlay.avatarColor }}>
+                    {callOverlay.avatarImg ? (
+                      <img src={callOverlay.avatarImg} alt={callOverlay.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[56px] font-bold text-white leading-none">{callOverlay.initials}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Name + status */}
+            <div className="flex flex-col items-center gap-1 pb-2 shrink-0">
+              <p className="text-[22px] font-bold text-[#141414]">{callOverlay.name}</p>
+              <p className={`text-[13px] ${webrtcState === 'ended' && callEndReason && callEndReason !== 'hangup' && callEndReason !== 'remote_ended' ? 'text-[#f44649]' : 'text-[#9ca3af]'}`}>
+                {callHeld ? 'On Hold'
+                  : webrtcState === 'active' ? 'Connected'
+                  : webrtcState === 'connecting' ? 'Connecting...'
+                  : webrtcState === 'ringing' ? 'Ringing...'
+                  : webrtcState === 'permission_denied' ? 'Permission Denied'
+                  : webrtcState === 'ended' && callEndReason ? callEndReasonText(callEndReason)
+                  : 'Calling...'}
+              </p>
+            </div>
+
+            {/* Action buttons — hide while showing end-reason or permission error */}
+            <div className={`flex items-center justify-center gap-6 py-5 shrink-0 ${webrtcState === 'ended' || webrtcState === 'permission_denied' ? 'opacity-0 pointer-events-none' : ''}`}>
               {/* Mute */}
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-1.5">
                 <button
-                  onClick={() => setCallMuted(v => !v)}
-                  className={`w-[56px] h-[56px] rounded-full flex items-center justify-center transition-colors ${callMuted ? "bg-[#f77f00] text-white" : "bg-[#f5f5f5] text-[#374151] hover:bg-[#e5e7eb]"}`}
-                  aria-label="Mute"
+                  onClick={toggleMute}
+                  className={`w-[54px] h-[54px] rounded-full flex items-center justify-center transition-all ${callMuted ? "bg-[#f77f00] text-white shadow-md" : "bg-[#f3f4f6] text-[#374151] hover:bg-[#e5e7eb]"}`}
+                  aria-label={callMuted ? "Unmute" : "Mute"}
                 >
                   {callMuted ? (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                       <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" fill="currentColor"/>
-                      <path d="M19 10v2a7 7 0 01-14 0v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M19 10v2a7 7 0 01-14 0v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   ) : (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                       <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" fill="currentColor"/>
-                      <path d="M19 10v2a7 7 0 01-14 0v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M19 10v2a7 7 0 01-14 0v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       <line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   )}
                 </button>
-                <span className="text-[12px] text-[#727272]">{callMuted ? "Unmute" : "Mute"}</span>
+                <span className="text-[11px] text-[#9ca3af]">{callMuted ? "Unmute" : "Mute"}</span>
               </div>
 
               {/* End call */}
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-1.5">
                 <button
-                  onClick={() => { setCallOverlay(null); setCallMuted(false); setCallHeld(false); }}
-                  className="w-[56px] h-[56px] rounded-full bg-[#f44649] flex items-center justify-center hover:bg-[#d93d40] transition-colors shadow-md"
+                  onClick={handleEndCall}
+                  className="w-[64px] h-[64px] rounded-full bg-[#f44649] flex items-center justify-center hover:bg-[#d93d40] transition-colors shadow-lg"
                   aria-label="End call"
                 >
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
                     <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.11-.27 11.36 11.36 0 003.54.56 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1 11.36 11.36 0 00.56 3.54 1 1 0 01-.27 1.11z" transform="rotate(135 12 12)"/>
                   </svg>
                 </button>
-                <span className="text-[12px] text-[#727272]">End</span>
+                <span className="text-[11px] text-[#9ca3af]">End</span>
               </div>
 
               {/* Hold */}
-              <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center gap-1.5">
                 <button
-                  onClick={() => setCallHeld(v => !v)}
-                  className={`w-[56px] h-[56px] rounded-full flex items-center justify-center transition-colors ${callHeld ? "bg-[#f77f00] text-white" : "bg-[#f5f5f5] text-[#374151] hover:bg-[#e5e7eb]"}`}
-                  aria-label="Hold"
+                  onClick={() => setCallHeld((v) => !v)}
+                  className={`w-[54px] h-[54px] rounded-full flex items-center justify-center transition-all ${callHeld ? "bg-[#f77f00] text-white shadow-md" : "bg-[#f3f4f6] text-[#374151] hover:bg-[#e5e7eb]"}`}
+                  aria-label={callHeld ? "Resume" : "Hold"}
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                     <rect x="6" y="5" width="4" height="14" rx="1.5"/>
                     <rect x="14" y="5" width="4" height="14" rx="1.5"/>
                   </svg>
                 </button>
-                <span className="text-[12px] text-[#727272]">{callHeld ? "Resume" : "Hold"}</span>
+                <span className="text-[11px] text-[#9ca3af]">{callHeld ? "Resume" : "Hold"}</span>
               </div>
             </div>
+
           </div>
         </div>
       )}
@@ -2500,51 +3551,6 @@ export default function MessagesPage() {
       <audio ref={(el) => { sharedAudioRef.current = el; }} className="hidden" />
       <audio ref={(el) => { audioPreviewRef.current = el; }} className="hidden" />
 
-      {/* New Group Modal */}
-      {showNewGroupModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-[480px] p-8 relative">
-            <button
-              onClick={() => setShowNewGroupModal(false)}
-              className="absolute top-5 right-5 text-[#9ca3af] hover:text-[#18191c] transition-colors"
-              aria-label="Close"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-            </button>
-            <h2 className="text-[20px] font-bold text-[#18191c] text-center mb-6">New Group</h2>
-            <div className="mb-5">
-              <p className="text-[13px] font-semibold text-[#374151] mb-2">Type</p>
-              <div className="flex gap-2">
-                {(["Public", "Private", "Password"] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setNewGroupType(type)}
-                    className={`flex-1 py-2 rounded-full text-[13px] font-semibold border transition-colors ${newGroupType === type ? "bg-[#f77f00] text-white border-[#f77f00]" : "bg-white text-[#374151] border-[#e5e7eb] hover:border-[#f77f00]"}`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="mb-6">
-              <p className="text-[13px] font-semibold text-[#374151] mb-2">Name</p>
-              <input
-                type="text"
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="Enter the group name"
-                className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 text-[14px] text-[#18191c] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#f77f00] transition-colors"
-              />
-            </div>
-            <button
-              onClick={() => setShowNewGroupModal(false)}
-              className="w-full py-3 bg-[#f77f00] text-white font-bold rounded-full hover:bg-[#e06c00] transition-colors text-[15px]"
-            >
-              Create Group
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -3088,6 +4094,8 @@ function AddMembersPanel({
   onToggle,
   onBack,
   onAdd,
+  loading = false,
+  error = "",
 }: {
   contacts: Contact[];
   selected: string[];
@@ -3096,6 +4104,8 @@ function AddMembersPanel({
   onToggle: (id: string) => void;
   onBack: () => void;
   onAdd: () => void;
+  loading?: boolean;
+  error?: string;
 }) {
   const filtered = contacts.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -3172,11 +4182,18 @@ function AddMembersPanel({
 
       {/* Add button */}
       <div className="px-4 py-3 border-t border-[#f5f5f5] shrink-0">
+        {error && <p className="text-[12px] text-red-500 mb-2 text-center">{error}</p>}
         <button
           onClick={onAdd}
-          disabled={selected.length === 0}
-          className="w-full py-3 bg-[#f77f00] text-white font-bold rounded-full text-[15px] hover:bg-[#e06c00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={selected.length === 0 || loading}
+          className="w-full py-3 bg-[#f77f00] text-white font-bold rounded-full text-[15px] hover:bg-[#e06c00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
+          {loading && (
+            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+          )}
           {selected.length === 0 ? "Add Members" : `Add ${selected.length} Member${selected.length > 1 ? "s" : ""}`}
         </button>
       </div>
