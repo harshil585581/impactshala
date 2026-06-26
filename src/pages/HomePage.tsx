@@ -95,6 +95,7 @@ export default function HomePage() {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
@@ -219,6 +220,7 @@ export default function HomePage() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loadMore]);
+
 
   function closeAndRefresh(setter: (v: boolean) => void) {
     return () => {
@@ -391,7 +393,7 @@ export default function HomePage() {
           </div>
 
           {/* Right Panel */}
-          <div className="hidden xl:block w-[340px] shrink-0 sticky top-[84px] self-start">
+          <div className="hidden xl:block w-[340px] shrink-0 self-start sticky top-[35px]">
             <RightPanel />
           </div>
         </div>

@@ -48,7 +48,6 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
     educationLevel: data.education_level,
     instituteName: data.institute_name,
     orgName: data.org_name,
-    // Organization-specific
     sector: data.sector,
     eduLevelsOffered: data.edu_levels_offered ?? [],
     applicableIndustries: data.applicable_industries ?? [],

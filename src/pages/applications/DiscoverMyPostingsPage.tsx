@@ -49,25 +49,19 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse bg-[#f2f2f3] rounded ${className ?? ''}`} />;
 }
 
-function Chevron({ open }: { open: boolean }) {
+function CollapseSection({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-      className={cn('shrink-0 transition-transform duration-200', open ? '' : 'rotate-180')}>
-      <path d="M18 15l-6-6-6 6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CollapseSection({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
+    <div className="border border-[#b4b4b4] rounded-[2px]">
       <button type="button" onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between h-[50px] border border-[#b4b4b4] rounded-sm px-4">
+        className="w-full flex items-center justify-between h-[50px] px-[17px] bg-white">
         <span className="text-base font-medium text-black">{title}</span>
-        <Chevron open={open} />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+          className={cn('shrink-0 transition-transform duration-200', open ? '' : 'rotate-180')}>
+          <path d="M18 15l-6-6-6 6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
-      {open && <div className="border border-[#b4b4b4] border-t-0 rounded-b-sm">{children}</div>}
+      {open && <div className="border-t border-[#b4b4b4]">{children}</div>}
     </div>
   );
 }
@@ -469,28 +463,51 @@ export default function DiscoverMyPostingsPage() {
                   </button>
 
                   {/* Resume */}
-                  <CollapseSection title="Resume">
+                  <CollapseSection title="Resume" defaultOpen>
                     {selectedApp.seeker_profile?.resume_url ? (
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <span className="text-xs text-[#0f172a]">Resume</span>
-                        <a href={selectedApp.seeker_profile.resume_url} target="_blank" rel="noopener noreferrer"
-                          className="border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[24px] w-[51px] flex items-center justify-center hover:bg-[#fff8ee] transition-colors">
-                          View
-                        </a>
+                      <div className="flex flex-col gap-3 px-[17px] py-3">
+                        <div className="bg-[#e7e7e7] w-full overflow-hidden" style={{ height: 300 }}>
+                          <iframe
+                            src={selectedApp.seeker_profile.resume_url}
+                            className="w-full h-full"
+                            title="Resume Preview"
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <a
+                            href={selectedApp.seeker_profile.resume_url}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors"
+                          >
+                            Download
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </a>
+                        </div>
                       </div>
                     ) : (
-                      <p className="px-4 py-3 text-xs text-[#9f9f9f] italic">No resume uploaded</p>
+                      <p className="px-[17px] py-3 text-xs text-[#9f9f9f] italic">No resume uploaded</p>
                     )}
                   </CollapseSection>
 
                   {/* Eligibility */}
                   <CollapseSection title="Eligibility">
                     {(selectedPost?.eligibilityCriteria ?? []).length === 0 ? (
-                      <p className="px-4 py-3 text-xs text-[#9f9f9f] italic">No eligibility criteria</p>
+                      <p className="px-[17px] py-3 text-xs text-[#9f9f9f] italic">No eligibility criteria</p>
                     ) : (
-                      <div className="divide-y divide-[#f2f2f3]">
+                      <div className="flex flex-col gap-3 py-3">
                         {selectedPost!.eligibilityCriteria.map((c, i) => (
-                          <p key={i} className="px-4 py-2 text-xs text-[#0f172a]">{c}</p>
+                          <div key={i} className="flex items-start gap-2.5 px-[17px]">
+                            <span className="text-xs text-[#0f172a] flex-1 leading-normal">{c}</span>
+                            <div className="shrink-0 w-3.5 h-3.5 mt-0.5 rounded-[4px] bg-[#ff9400] flex items-center justify-center">
+                              <svg width="8" height="6" viewBox="0 0 10 8" fill="none">
+                                <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -499,14 +516,14 @@ export default function DiscoverMyPostingsPage() {
                   {/* Documents */}
                   <CollapseSection title="Documents">
                     {!selectedApp.document_data?.length ? (
-                      <p className="px-4 py-3 text-xs text-[#9f9f9f] italic">No documents uploaded</p>
+                      <p className="px-[17px] py-3 text-xs text-[#9f9f9f] italic">No documents uploaded</p>
                     ) : (
-                      <div className="divide-y divide-[#f2f2f3] py-1">
+                      <div className="flex flex-col gap-3 py-3">
                         {selectedApp.document_data.map((doc, i) => (
-                          <div key={i} className="flex items-center justify-between px-4 py-2.5">
-                            <span className="text-xs text-[#0f172a] flex-1 truncate pr-3">{doc.name}</span>
+                          <div key={i} className="flex items-center gap-2.5 px-[17px]">
+                            <span className="text-xs text-[#0f172a] flex-1 truncate">{doc.name}</span>
                             <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                              className="shrink-0 border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[24px] w-[51px] flex items-center justify-center hover:bg-[#fff8ee] transition-colors">
+                              className="shrink-0 border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[19px] w-[51px] flex items-center justify-center hover:bg-[#fff8ee] transition-colors">
                               View
                             </a>
                           </div>

@@ -24,6 +24,12 @@ const ROUTE_TO_SUB_ITEM: Record<string, string> = {
   "/applications/learning-directory": "Learning Directory",
 };
 
+const INDIVIDUAL_SETTINGS_SUB_ITEMS = [
+  { label: "Tags & Mentions", section: "tags-mentions" },
+  { label: "Blocked Accounts", section: "blocked-accounts" },
+  { label: "Accounts & Privacy", section: "accounts-privacy" },
+];
+
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,11 +40,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isOnHomeRoute = location.pathname === "/home";
   const isOnCommunityRoute = location.pathname === "/community";
   const isOnEmploymentRoute = location.pathname.startsWith("/employment-hub");
+  const isOnSettingsRoute = location.pathname.startsWith("/settings");
   const [appExpanded, setAppExpanded] = useState(isOnAppsRoute);
+  const [settingsExpanded, setSettingsExpanded] = useState(isOnSettingsRoute);
   const [showHelp, setShowHelp] = useState(false);
+  const isOrgAccount = (() => { try { return JSON.parse(localStorage.getItem("user") ?? "{}").user_type === "organization"; } catch { return false; } })();
+  const settingsSubItems = [
+    ...INDIVIDUAL_SETTINGS_SUB_ITEMS,
+    ...(isOrgAccount ? [{ label: "Admin Panel", section: "admin-panel" }] : []),
+  ];
   const [activeSubItem, setActiveSubItem] = useState(
     ROUTE_TO_SUB_ITEM[location.pathname] ?? "Discover",
   );
+
+  const activeSettingsSection = isOnSettingsRoute
+    ? new URLSearchParams(location.search).get("section") ?? "tags-mentions"
+    : "";
 
   useEffect(() => {
     if (isOnAppsRoute) {
@@ -48,6 +65,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   }, [location.pathname, isOnAppsRoute]);
 
+  useEffect(() => {
+    if (isOnSettingsRoute) setSettingsExpanded(true);
+  }, [isOnSettingsRoute]);
+
   function handleAppClick() {
     setAppExpanded((v) => !v);
     navigate("/applications");
@@ -56,6 +77,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   function handleSubItem(label: string, route: string) {
     setActiveSubItem(label);
     navigate(route);
+    onClose();
+  }
+
+  function handleSettingsClick() {
+    setSettingsExpanded((v) => !v);
+    if (!isOnSettingsRoute) {
+      navigate("/settings?section=tags-mentions");
+    }
+  }
+
+  function handleSettingsSubItem(section: string) {
+    navigate(`/settings?section=${section}`);
     onClose();
   }
 
@@ -73,7 +106,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside
         className={`
           fixed top-[64px] sm:top-[72px] lg:top-[78px] left-0 bottom-0 w-[280px] bg-white border-r border-[#f2f2f3]
-          flex flex-col z-20 transition-transform duration-300 ease-in-out overflow-y-auto
+          flex flex-col z-20 transition-transform duration-300 ease-in-out overflow-y-auto overflow-x-hidden
           lg:translate-x-0
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
         `}
@@ -286,76 +319,85 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="h-px bg-[#f2f2f3] mx-0 my-3" />
 
         {/* Settings Section */}
-        <div className="flex flex-col gap-4 mb-3">
-          <div className="px-7">
+        <div className="flex flex-col gap-1 mb-3">
+          <div className="px-7 mb-2">
             <span className="text-[#202430] text-[12px] font-semibold tracking-[0.56px] opacity-50 uppercase">
               Settings
             </span>
           </div>
-          <div className="flex flex-col gap-0">
-            <NavItem
-              icon={
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="shrink-0"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="3"
-                    stroke="#7c8493"
-                    strokeWidth="1.5"
-                  />
+
+          {/* Settings accordion */}
+          <div>
+            <div
+              onClick={handleSettingsClick}
+              className="relative flex items-center w-full cursor-pointer group"
+            >
+              {isOnSettingsRoute && (
+                <div className="absolute left-0 w-1.5 h-8 bg-[#f77f00] rounded-r-full z-10" />
+              )}
+              <div
+                className={`flex items-center gap-4 py-2.5 transition-all duration-200 ${
+                  isOnSettingsRoute
+                    ? "bg-[#ffeacc] rounded-full mx-4 px-5 w-[calc(100%-32px)]"
+                    : "w-full pl-11 pr-4 hover:bg-gray-50 rounded-xl mx-0"
+                }`}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                  <circle cx="12" cy="12" r="3" stroke={isOnSettingsRoute ? "#ff9400" : "#7c8493"} strokeWidth="1.5" />
                   <path
                     d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
-                    stroke="#7c8493"
+                    stroke={isOnSettingsRoute ? "#ff9400" : "#7c8493"}
                     strokeWidth="1.5"
                   />
                 </svg>
-              }
-              label="Settings"
-            />
-            <NavItem
-              icon={
+                <span className={`text-[15px] font-medium flex-1 ${isOnSettingsRoute ? "text-[#ff9400]" : "text-[#7c8493]"}`}>
+                  Settings
+                </span>
                 <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="shrink-0"
+                  width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  className={`transition-transform duration-200 ${settingsExpanded ? "rotate-180" : ""}`}
                 >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="#7c8493"
-                    strokeWidth="1.5"
-                  />
-                  <path
-                    d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"
-                    stroke="#7c8493"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <line
-                    x1="12"
-                    y1="17"
-                    x2="12.01"
-                    y2="17"
-                    stroke="#7c8493"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
+                  <path d="M6 9l6 6 6-6" stroke={isOnSettingsRoute ? "#ff9400" : "#7c8493"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              }
-              label="Help Center"
-              onClick={() => setShowHelp(true)}
-            />
+              </div>
+            </div>
+
+            {settingsExpanded && (
+              <div className="flex flex-col mt-0.5">
+                {settingsSubItems.map((item) => {
+                  const isActive = activeSettingsSection === item.section;
+                  return (
+                    <div
+                      key={item.section}
+                      onClick={() => handleSettingsSubItem(item.section)}
+                      className={`flex items-center gap-2 w-[calc(100%-8px)] pl-10 pr-4 py-2.5 cursor-pointer transition-colors rounded-lg mx-1 ${
+                        isActive ? "bg-[#fff3e0]" : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0 opacity-40">
+                        <path d="M9 18l6-6-6-6" stroke={isActive ? "#f77f00" : "#7c8493"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className={`text-[14px] font-medium ${isActive ? "text-[#f77f00]" : "text-[#7c8493]"}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          <NavItem
+            icon={
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                <circle cx="12" cy="12" r="10" stroke="#7c8493" strokeWidth="1.5" />
+                <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" stroke="#7c8493" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="12" y1="17" x2="12.01" y2="17" stroke="#7c8493" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            }
+            label="Help Center"
+            onClick={() => setShowHelp(true)}
+          />
         </div>
 
       </aside>
@@ -389,10 +431,10 @@ function NavItem({
       {/* Link Content Container */}
       <div
         className={`
-          flex items-center gap-4 w-full py-2.5 transition-all duration-200
+          flex items-center gap-4 py-2.5 transition-all duration-200
           ${active 
-            ? "bg-[#ffeacc] rounded-full mx-4 px-5" 
-            : "pl-11 pr-4 hover:bg-gray-50 rounded-xl mx-0"
+            ? "bg-[#ffeacc] rounded-full mx-4 px-5 w-[calc(100%-32px)]" 
+            : "w-full pl-11 pr-4 hover:bg-gray-50 rounded-xl mx-0"
           }
         `}
       >

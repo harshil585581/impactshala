@@ -82,7 +82,7 @@ export default function CreatePostModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[560px] flex flex-col max-h-[90vh]" style={{ clipPath: 'none' }}>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[680px] flex flex-col max-h-[85vh] min-h-[420px]" style={{ clipPath: 'none' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#f2f2f3]">
           <h2 className="text-[#18191c] font-bold text-lg">Create a post</h2>
@@ -117,8 +117,8 @@ export default function CreatePostModal({
               value={content}
               onChange={e => setContent(e.target.value)}
               placeholder="What do you want to talk about?"
-              className="w-full resize-none text-[#18191c] text-base placeholder-[#9ca3af] focus:outline-none min-h-[40px]"
-              rows={2}
+              className="w-full resize-none text-[#18191c] text-base placeholder-[#9ca3af] focus:outline-none min-h-[120px]"
+              rows={5}
               style={{ fieldSizing: 'content' } as React.CSSProperties}
             />
           </div>

@@ -1,11 +1,13 @@
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+import json
+import urllib.request
+from datetime import datetime, timezone, timedelta
 from typing import Any, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException, Query, UploadFile, File, Form
+from fastapi import FastAPI, Header, HTTPException, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 from supabase import Client, create_client
@@ -71,6 +73,20 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
+class DeactivateAccountRequest(BaseModel):
+    password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    sign_out_all: bool = False
+
+
 class ResendRequest(BaseModel):
     email: str
 
@@ -110,6 +126,12 @@ class ProfileUpdate(BaseModel):
     services: Optional[List[str]] = None
     industries: Optional[List[Any]] = None
 
+    # Settings
+    tag_permission: Optional[str] = None
+    mention_permission: Optional[str] = None
+    review_permission: Optional[List[str]] = None
+    community_visibility: Optional[str] = None
+
 
 def get_user_id(authorization: str) -> str:
     """Extract and validate user from Bearer token."""
@@ -139,8 +161,55 @@ async def resend_verification(data: ResendRequest):
     return {"message": "Verification email resent"}
 
 
+def _parse_user_agent(ua: str) -> tuple[str, str]:
+    """Return (browser, os) from a User-Agent string."""
+    u = ua.lower()
+    if "edg/" in u or "edge/" in u:
+        browser = "Edge"
+    elif "chrome/" in u:
+        browser = "Chrome"
+    elif "firefox/" in u:
+        browser = "Firefox"
+    elif "safari/" in u:
+        browser = "Safari"
+    elif "opera/" in u or "opr/" in u:
+        browser = "Opera"
+    else:
+        browser = "Unknown Browser"
+
+    if "windows" in u:
+        os_name = "Windows"
+    elif "android" in u:
+        os_name = "Android"
+    elif "iphone" in u or "ipad" in u:
+        os_name = "iOS"
+    elif "mac os" in u:
+        os_name = "Mac OS"
+    elif "linux" in u:
+        os_name = "Linux"
+    else:
+        os_name = "Unknown OS"
+
+    return browser, os_name
+
+
+def _get_location(ip: str) -> str:
+    """Return 'City, Region, Country' for an IP address using ip-api.com (free, no key)."""
+    if not ip or ip in ("127.0.0.1", "::1"):
+        return "Local"
+    try:
+        url = f"http://ip-api.com/json/{ip}?fields=status,city,regionName,country"
+        with urllib.request.urlopen(url, timeout=2) as resp:
+            data = json.loads(resp.read())
+        if data.get("status") == "success":
+            return ", ".join(p for p in [data.get("city"), data.get("regionName"), data.get("country")] if p)
+    except Exception:
+        pass
+    return ip
+
+
 @app.post("/api/login")
-async def login(data: LoginRequest):
+async def login(data: LoginRequest, request: Request):
     try:
         auth_response = supabase.auth.sign_in_with_password({
             "email": data.email,
@@ -155,15 +224,52 @@ async def login(data: LoginRequest):
     user_id = auth_response.user.id
 
     profile = supabase_admin.table("users").select(
-        "user_type, role, first_name, last_name, org_name"
+        "user_type, role, first_name, last_name, org_name, deactivated_at"
     ).eq("id", user_id).execute()
 
     profile_data = profile.data[0] if profile.data else {}
+
+    deactivated_at_str = profile_data.get("deactivated_at")
+    if deactivated_at_str:
+        try:
+            deactivated_at = datetime.fromisoformat(deactivated_at_str.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            if now - deactivated_at < timedelta(hours=24):
+                raise HTTPException(
+                    status_code=403,
+                    detail="This account has been deactivated. You can log in and reactivate it after 24 hours of deactivation."
+                )
+            else:
+                # Reactivate!
+                supabase_admin.table("users").update({"deactivated_at": None}).eq("id", user_id).execute()
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    # Record login session
+    session_id = str(uuid.uuid4())
+    ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or (request.client.host if request.client else "")
+    ua = request.headers.get("User-Agent", "")
+    browser, os_name = _parse_user_agent(ua)
+    location = _get_location(ip)
+    try:
+        supabase_admin.table("user_sessions").insert({
+            "id": session_id,
+            "user_id": user_id,
+            "ip_address": ip,
+            "browser": browser,
+            "os": os_name,
+            "location": location,
+        }).execute()
+    except Exception:
+        pass  # session tracking is best-effort; don't fail login
 
     return {
         "message": "Login successful",
         "access_token": auth_response.session.access_token,
         "refresh_token": auth_response.session.refresh_token,
+        "session_id": session_id,
         "user": {
             "id": user_id,
             "email": auth_response.user.email,
@@ -174,6 +280,32 @@ async def login(data: LoginRequest):
             "org_name": profile_data.get("org_name"),
         },
     }
+
+
+@app.get("/api/sessions")
+async def get_sessions(authorization: str = Header(None)):
+    """Return all login sessions for the current user."""
+    user_id = get_user_id(authorization)
+    rows = supabase_admin.table("user_sessions").select(
+        "id, ip_address, browser, os, location, created_at, last_seen_at"
+    ).eq("user_id", user_id).order("created_at", desc=True).execute()
+    return {"sessions": rows.data or []}
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: str, authorization: str = Header(None)):
+    """Delete a specific session (sign out from that device)."""
+    user_id = get_user_id(authorization)
+    supabase_admin.table("user_sessions").delete().eq("id", session_id).eq("user_id", user_id).execute()
+    return {"ok": True}
+
+
+@app.delete("/api/sessions")
+async def delete_all_sessions(authorization: str = Header(None)):
+    """Delete all sessions for the current user (sign out of all devices)."""
+    user_id = get_user_id(authorization)
+    supabase_admin.table("user_sessions").delete().eq("user_id", user_id).execute()
+    return {"ok": True}
 
 
 @app.post("/api/signup/individual")
@@ -252,11 +384,14 @@ async def get_resume_url(authorization: str = Header(None)):
 @app.get("/api/profile/{user_id}")
 async def get_public_profile(user_id: str, authorization: str = Header(None)):
     """Return a public profile for any user by ID (requires auth)."""
-    get_user_id(authorization)  # verify caller is logged in
+    caller_id = get_user_id(authorization)  # verify caller is logged in
     result = supabase_admin.table("users").select("*").eq("id", user_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return result.data[0]
+    profile = result.data[0]
+    if profile.get("deactivated_at") and user_id != caller_id:
+        raise HTTPException(status_code=404, detail="Profile not found or deactivated")
+    return profile
 
 
 @app.patch("/api/profile")
@@ -272,6 +407,103 @@ async def update_profile(data: ProfileUpdate, authorization: str = Header(None))
     if not result.data:
         raise HTTPException(status_code=500, detail="No rows updated — user row may be missing in public.users")
     return result.data[0]
+
+
+@app.post("/api/account/delete")
+async def delete_account(data: DeleteAccountRequest, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    
+    # Fetch user's email from database to verify password
+    user_data = supabase_admin.table("users").select("email").eq("id", user_id).execute()
+    if not user_data.data:
+        raise HTTPException(status_code=404, detail="User profile not found")
+    email = user_data.data[0]["email"]
+    
+    # Verify password by trying to log in
+    try:
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": data.password,
+        })
+    except Exception:
+        raise HTTPException(status_code=400, detail="Incorrect password")
+        
+    if not auth_response.user or not auth_response.session:
+        raise HTTPException(status_code=400, detail="Incorrect password")
+        
+    # Delete the user from auth.users (ON DELETE CASCADE deletes other tables)
+    try:
+        supabase_admin.auth.admin.delete_user(id=user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete user account: {str(e)}")
+        
+    return {"message": "Account deleted successfully"}
+
+
+@app.post("/api/account/deactivate")
+async def deactivate_account(data: DeactivateAccountRequest, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    
+    # Fetch user's email from database to verify password
+    user_data = supabase_admin.table("users").select("email").eq("id", user_id).execute()
+    if not user_data.data:
+        raise HTTPException(status_code=404, detail="User profile not found")
+    email = user_data.data[0]["email"]
+    
+    # Verify password by trying to log in
+    try:
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": data.password,
+        })
+    except Exception:
+        raise HTTPException(status_code=400, detail="Incorrect password")
+        
+    if not auth_response.user or not auth_response.session:
+        raise HTTPException(status_code=400, detail="Incorrect password")
+        
+    # Mark user as deactivated by setting deactivated_at timestamp
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        result = supabase_admin.table("users").update({"deactivated_at": now_iso}).eq("id", user_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to deactivate user: {str(e)}")
+        
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to deactivate user profile")
+        
+    return {"message": "Account deactivated successfully"}
+
+
+@app.post("/api/account/change-password")
+async def change_password(data: ChangePasswordRequest, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+
+    user_data = supabase_admin.table("users").select("email").eq("id", user_id).execute()
+    if not user_data.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    email = user_data.data[0]["email"]
+
+    # Verify current password
+    try:
+        auth_resp = supabase.auth.sign_in_with_password({"email": email, "password": data.current_password})
+    except Exception:
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if not auth_resp.user:
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+
+    try:
+        supabase_admin.auth.admin.update_user_by_id(user_id, {"password": data.new_password})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update password: {str(e)}")
+
+    if data.sign_out_all:
+        supabase_admin.table("user_sessions").delete().eq("user_id", user_id).execute()
+
+    return {"message": "Password changed successfully"}
 
 
 @app.post("/api/upload/profile-image")
@@ -383,8 +615,8 @@ async def list_courses(
     mode: Optional[str] = None,
 ):
     query = supabase_admin.table("learning_courses").select(
-        "*, user:users(first_name, last_name, org_name, avatar_url)"
-    ).eq("status", "published")
+        "*, user:users(first_name, last_name, org_name, avatar_url, deactivated_at)"
+    ).is_("user.deactivated_at", "null").eq("status", "published")
 
     if program_level:
         query = query.eq("program_level", program_level)
@@ -738,9 +970,10 @@ async def discover_feed(
 
     query = (
         supabase_admin.table("discover_posts")
-        .select("*, users!discover_posts_user_id_fkey(first_name, last_name, org_name, avatar_url, role, title, company)")
+        .select("*, users!discover_posts_user_id_fkey(first_name, last_name, org_name, avatar_url, role, title, company, deactivated_at)")
         .eq("post_type", post_type)
         .eq("visibility", "public")
+        .is_("users.deactivated_at", "null")
         .order("created_at", desc=True)
     )
     if category:
@@ -1179,6 +1412,36 @@ async def get_connections(
 
     users_map = {u["id"]: u for u in (users_result.data or [])}
 
+    # Batch-fetch social proof counts so the share card shows correct numbers
+    achievement_counts: dict[str, int] = {}
+    endorsement_counts: dict[str, int] = {}
+    review_counts: dict[str, int] = {}
+    if peer_ids:
+        try:
+            for row in (supabase_admin.table("personal_achievements").select(
+                "user_id"
+            ).in_("user_id", peer_ids).execute().data or []):
+                uid = row["user_id"]
+                achievement_counts[uid] = achievement_counts.get(uid, 0) + 1
+        except Exception:
+            pass
+        try:
+            for row in (supabase_admin.table("user_endorsements").select(
+                "endorsed_id"
+            ).in_("endorsed_id", peer_ids).execute().data or []):
+                uid = row["endorsed_id"]
+                endorsement_counts[uid] = endorsement_counts.get(uid, 0) + 1
+        except Exception:
+            pass
+        try:
+            for row in (supabase_admin.table("user_reviews").select(
+                "reviewed_id"
+            ).in_("reviewed_id", peer_ids).execute().data or []):
+                uid = row["reviewed_id"]
+                review_counts[uid] = review_counts.get(uid, 0) + 1
+        except Exception:
+            pass
+
     connections = []
     for row in rows.data:
         peer_id = row["addressee_id"] if row["requester_id"] == user_id else row["requester_id"]
@@ -1188,11 +1451,120 @@ async def get_connections(
         formatted = _format_user(peer)
         formatted["connection_id"] = row["id"]
         formatted["connected_at"] = row["created_at"]
+        formatted["endorsement_count"] = endorsement_counts.get(peer_id, 0)
+        formatted["review_count"] = review_counts.get(peer_id, 0)
+        formatted["achievement_count"] = achievement_counts.get(peer_id, 0)
         if q and q.lower() not in formatted["name"].lower():
             continue
         connections.append(formatted)
 
     return {"connections": connections, "total": len(connections)}
+
+
+@app.get("/api/community/members/{profile_user_id}")
+async def get_profile_community_members(
+    profile_user_id: str,
+    q: Optional[str] = None,
+    user_type: Optional[str] = None,
+    authorization: str = Header(None),
+):
+    """Return accepted community members for any user's profile page, respecting community_visibility."""
+    requester_id = get_user_id(authorization)
+
+    # Fetch profile user's community_visibility setting
+    profile_row = supabase_admin.table("users").select("community_visibility").eq("id", profile_user_id).execute()
+    visibility = "everyone"
+    if profile_row.data:
+        visibility = profile_row.data[0].get("community_visibility") or "everyone"
+
+    # Enforce visibility unless the requester is the profile owner
+    if requester_id != profile_user_id and visibility != "everyone":
+        # Check if requester is a direct community member of the profile user
+        direct_conn = supabase_admin.table("community_connections").select("id").eq(
+            "status", "accepted"
+        ).or_(
+            f"and(requester_id.eq.{profile_user_id},addressee_id.eq.{requester_id}),and(requester_id.eq.{requester_id},addressee_id.eq.{profile_user_id})"
+        ).execute()
+        if not direct_conn.data:
+            return {"members": [], "total": 0, "restricted": True}
+
+    rows = supabase_admin.table("community_connections").select(
+        "id, requester_id, addressee_id, created_at"
+    ).eq("status", "accepted").or_(
+        f"requester_id.eq.{profile_user_id},addressee_id.eq.{profile_user_id}"
+    ).order("created_at", desc=True).execute()
+
+    if not rows.data:
+        return {"members": [], "total": 0, "restricted": False}
+
+    peer_ids = [
+        r["addressee_id"] if r["requester_id"] == profile_user_id else r["requester_id"]
+        for r in rows.data
+    ]
+
+    query = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, title, role, company, avatar_url, cover_url, user_type"
+    ).in_("id", peer_ids)
+    if user_type:
+        query = query.eq("user_type", user_type)
+    users_result = query.execute()
+
+    users_map = {u["id"]: u for u in (users_result.data or [])}
+
+    members = []
+    for row in rows.data:
+        peer_id = row["addressee_id"] if row["requester_id"] == profile_user_id else row["requester_id"]
+        peer = users_map.get(peer_id)
+        if not peer:
+            continue
+        formatted = _format_user(peer)
+        formatted["user_type"] = peer.get("user_type") or "individual"
+        if q and q.lower() not in formatted["name"].lower():
+            continue
+        members.append(formatted)
+
+    return {"members": members, "total": len(members), "restricted": False}
+
+
+@app.get("/api/mentions/search")
+async def search_mentionable_users(
+    q: Optional[str] = None,
+    authorization: str = Header(None),
+):
+    """Return connections that allow being mentioned/tagged (respects mention_permission and tag_permission)."""
+    user_id = get_user_id(authorization)
+
+    rows = supabase_admin.table("community_connections").select(
+        "id, requester_id, addressee_id"
+    ).eq("status", "accepted").or_(
+        f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
+    ).execute()
+
+    if not rows.data:
+        return {"users": []}
+
+    peer_ids = [
+        r["addressee_id"] if r["requester_id"] == user_id else r["requester_id"]
+        for r in rows.data
+    ]
+
+    users_result = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, title, role, company, avatar_url, mention_permission, tag_permission"
+    ).in_("id", peer_ids).execute()
+
+    result = []
+    for u in (users_result.data or []):
+        mention_perm = u.get("mention_permission") or "everyone"
+        tag_perm = u.get("tag_permission") or "everyone"
+        # Exclude users who have opted out of both mentions and tags
+        if mention_perm == "none" and tag_perm == "none":
+            continue
+        formatted = _format_user(u)
+        if q and q.lower() not in formatted["name"].lower():
+            continue
+        result.append(formatted)
+
+    return {"users": result}
 
 
 @app.get("/api/community/pending")
@@ -1263,72 +1635,150 @@ async def get_sent_requests(authorization: str = Header(None)):
 
 @app.get("/api/community/suggestions")
 async def get_suggestions(authorization: str = Header(None)):
-    """Return users who are not yet connected or pending with the current user."""
+    """
+    Return ranked connection suggestions using a LinkedIn-style scoring algorithm.
+
+    Scoring weights:
+      - Mutual connections : +10 per shared connection
+      - Same company       : +8
+      - Same role          : +8
+      - Same work sector   : +6
+      - Same location      : +5
+      - Shared skills      : +3 each (capped at +15)
+      - Endorsements       : +1 each (capped at +3)
+      - Reviews            : +1 each (capped at +2)
+    """
     user_id = get_user_id(authorization)
 
+    # ── 1. Current user's profile attributes for comparison ──────────────────
+    me_result = supabase_admin.table("users").select(
+        "role, company, work_sector, location, skills"
+    ).eq("id", user_id).execute()
+    me = me_result.data[0] if me_result.data else {}
+    me_role     = (me.get("role") or "").lower().strip()
+    me_company  = (me.get("company") or "").lower().strip()
+    me_sector   = (me.get("work_sector") or "").lower().strip()
+    me_location = (me.get("location") or "").lower().strip()
+    me_skills   = {s.lower() for s in (me.get("skills") or [])}
+
+    # ── 2. All existing connections / pending relationships ───────────────────
     existing = supabase_admin.table("community_connections").select(
-        "requester_id, addressee_id"
+        "requester_id, addressee_id, status"
     ).or_(
         f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
     ).execute()
 
-    excluded_ids = {user_id}
+    excluded_ids: set[str] = {user_id}
+    first_degree_ids: set[str] = set()
     for row in (existing.data or []):
         excluded_ids.add(row["requester_id"])
         excluded_ids.add(row["addressee_id"])
+        if row["status"] == "accepted":
+            peer = row["addressee_id"] if row["requester_id"] == user_id else row["requester_id"]
+            first_degree_ids.add(peer)
 
+    # ── 3. 2nd-degree graph: count mutual connections per candidate ───────────
+    # Walk all connections that involve any of my 1st-degree peers and count
+    # how many times each non-excluded person appears as the "other" side.
+    mutual_counts: dict[str, int] = {}
+    if first_degree_ids:
+        peer_list = list(first_degree_ids)
+        peer_conn_rows = supabase_admin.table("community_connections").select(
+            "requester_id, addressee_id"
+        ).eq("status", "accepted").or_(
+            f"requester_id.in.({','.join(peer_list)}),addressee_id.in.({','.join(peer_list)})"
+        ).execute()
+
+        for row in (peer_conn_rows.data or []):
+            r, a = row["requester_id"], row["addressee_id"]
+            if r in first_degree_ids and a not in excluded_ids:
+                mutual_counts[a] = mutual_counts.get(a, 0) + 1
+            if a in first_degree_ids and r not in excluded_ids:
+                mutual_counts[r] = mutual_counts.get(r, 0) + 1
+
+    # ── 4. Candidate pool ─────────────────────────────────────────────────────
     all_users = supabase_admin.table("users").select(
-        "id, first_name, last_name, org_name, title, role, company, avatar_url, cover_url"
-    ).limit(50).execute()
+        "id, first_name, last_name, org_name, title, role, company, "
+        "work_sector, location, skills, avatar_url, cover_url"
+    ).limit(300).execute()
 
-    # Collect candidate IDs first
-    candidate_ids = [u["id"] for u in (all_users.data or []) if u["id"] not in excluded_ids]
+    candidates = [u for u in (all_users.data or []) if u["id"] not in excluded_ids]
+    candidate_ids = [u["id"] for u in candidates]
 
-    # Batch-fetch achievement, endorsement, and review counts for all candidates
+    # ── 5. Batch-fetch social proof counts ────────────────────────────────────
     achievement_counts: dict[str, int] = {}
     endorsement_counts: dict[str, int] = {}
     review_counts: dict[str, int] = {}
     if candidate_ids:
         try:
-            ach_rows = supabase_admin.table("personal_achievements").select(
+            for row in (supabase_admin.table("personal_achievements").select(
                 "user_id"
-            ).in_("user_id", candidate_ids).execute()
-            for row in (ach_rows.data or []):
+            ).in_("user_id", candidate_ids).execute().data or []):
                 uid = row["user_id"]
                 achievement_counts[uid] = achievement_counts.get(uid, 0) + 1
         except Exception:
             pass
         try:
-            end_rows = supabase_admin.table("user_endorsements").select(
+            for row in (supabase_admin.table("user_endorsements").select(
                 "endorsed_id"
-            ).in_("endorsed_id", candidate_ids).execute()
-            for row in (end_rows.data or []):
+            ).in_("endorsed_id", candidate_ids).execute().data or []):
                 uid = row["endorsed_id"]
                 endorsement_counts[uid] = endorsement_counts.get(uid, 0) + 1
         except Exception:
             pass
         try:
-            rev_rows = supabase_admin.table("user_reviews").select(
+            for row in (supabase_admin.table("user_reviews").select(
                 "reviewed_id"
-            ).in_("reviewed_id", candidate_ids).execute()
-            for row in (rev_rows.data or []):
+            ).in_("reviewed_id", candidate_ids).execute().data or []):
                 uid = row["reviewed_id"]
                 review_counts[uid] = review_counts.get(uid, 0) + 1
         except Exception:
             pass
 
-    suggestions = []
-    for u in (all_users.data or []):
-        if u["id"] in excluded_ids:
-            continue
-        formatted = _format_user(u)
+    # ── 6. Score and rank ─────────────────────────────────────────────────────
+    scored: list[dict] = []
+    for u in candidates:
         uid = u["id"]
-        formatted["endorsement_count"] = endorsement_counts.get(uid, 0)
-        formatted["review_count"] = review_counts.get(uid, 0)
-        formatted["achievement_count"] = achievement_counts.get(uid, 0)
-        suggestions.append(formatted)
+        score = 0
 
-    return {"suggestions": suggestions}
+        # Mutual connections — strongest signal
+        mutual = mutual_counts.get(uid, 0)
+        score += mutual * 10
+
+        # Same company
+        if me_company and (u.get("company") or "").lower().strip() == me_company:
+            score += 8
+
+        # Same role
+        if me_role and (u.get("role") or "").lower().strip() == me_role:
+            score += 8
+
+        # Same work sector
+        if me_sector and (u.get("work_sector") or "").lower().strip() == me_sector:
+            score += 6
+
+        # Same location
+        if me_location and (u.get("location") or "").lower().strip() == me_location:
+            score += 5
+
+        # Shared skills (3 pts each, capped at 15)
+        u_skills = {s.lower() for s in (u.get("skills") or [])}
+        score += min(len(me_skills & u_skills) * 3, 15)
+
+        # Small credibility boost
+        score += min(endorsement_counts.get(uid, 0), 3)
+        score += min(review_counts.get(uid, 0), 2)
+
+        formatted = _format_user(u)
+        formatted["endorsement_count"]  = endorsement_counts.get(uid, 0)
+        formatted["review_count"]       = review_counts.get(uid, 0)
+        formatted["achievement_count"]  = achievement_counts.get(uid, 0)
+        formatted["mutual_connections"] = mutual
+        formatted["_score"]             = score
+        scored.append(formatted)
+
+    scored.sort(key=lambda x: x.pop("_score"), reverse=True)
+    return {"suggestions": scored[:50]}
 
 
 class ConnectionRequestBody(BaseModel):
@@ -1408,6 +1858,177 @@ async def remove_connection(peer_id: str, authorization: str = Header(None)):
 
 
 # ============================================================
+# Block Endpoints
+# ============================================================
+
+@app.post("/api/block/{target_id}")
+async def block_user(target_id: str, authorization: str = Header(None)):
+    """Block a user."""
+    user_id = get_user_id(authorization)
+
+    if target_id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot block yourself")
+
+    existing = supabase_admin.table("blocks").select("id").eq("blocker_id", user_id).eq("blocked_id", target_id).execute()
+    if existing.data:
+        return {"message": "Already blocked"}
+
+    result = supabase_admin.table("blocks").insert({
+        "blocker_id": user_id,
+        "blocked_id": target_id,
+    }).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to block user")
+
+    return {"message": "User blocked"}
+
+
+@app.delete("/api/block/{target_id}")
+async def unblock_user(target_id: str, authorization: str = Header(None)):
+    """Unblock a user."""
+    user_id = get_user_id(authorization)
+
+    supabase_admin.table("blocks").delete().eq("blocker_id", user_id).eq("blocked_id", target_id).execute()
+
+    return {"message": "User unblocked"}
+
+
+@app.get("/api/blocks")
+async def get_blocked_users(authorization: str = Header(None)):
+    """Get all users blocked by the current user."""
+    user_id = get_user_id(authorization)
+
+    blocks = supabase_admin.table("blocks").select("blocked_id").eq("blocker_id", user_id).execute()
+
+    if not blocks.data:
+        return {"blocked": []}
+
+    blocked_ids = [b["blocked_id"] for b in blocks.data]
+
+    users = supabase_admin.table("users").select("id, user_type, first_name, last_name, org_name").in_("id", blocked_ids).execute()
+
+    result = []
+    for u in users.data:
+        if u.get("user_type") == "organization":
+            name = u.get("org_name") or "Unknown Organisation"
+        else:
+            name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or "Unknown"
+        result.append({
+            "id": u["id"],
+            "name": name,
+            "user_type": u.get("user_type", "individual"),
+        })
+
+    return {"blocked": result}
+
+
+@app.get("/api/block/{target_id}/status")
+async def get_block_status(target_id: str, authorization: str = Header(None)):
+    """Check if the current user has blocked a specific user."""
+    user_id = get_user_id(authorization)
+
+    result = supabase_admin.table("blocks").select("id").eq("blocker_id", user_id).eq("blocked_id", target_id).execute()
+
+    return {"is_blocked": bool(result.data)}
+
+
+@app.get("/api/blocks/blocked-me")
+async def get_users_who_blocked_me(authorization: str = Header(None)):
+    """Return list of user IDs who have blocked the current user."""
+    user_id = get_user_id(authorization)
+
+    result = supabase_admin.table("blocks").select("blocker_id").eq("blocked_id", user_id).execute()
+
+    return {"blocked_by": [r["blocker_id"] for r in (result.data or [])]}
+
+
+def _is_either_blocked(user_a: str, user_b: str) -> bool:
+    """Return True if either user has blocked the other."""
+    result = supabase_admin.table("blocks").select("id").or_(
+        f"and(blocker_id.eq.{user_a},blocked_id.eq.{user_b}),and(blocker_id.eq.{user_b},blocked_id.eq.{user_a})"
+    ).execute()
+    return bool(result.data)
+
+
+# ============================================================
+# Review Endpoints
+# ============================================================
+
+class SubmitReviewRequest(BaseModel):
+    rating: int
+    review_text: str
+    media_url: Optional[str] = None
+
+
+@app.post("/api/reviews/{target_id}")
+async def submit_review(target_id: str, data: SubmitReviewRequest, authorization: str = Header(None)):
+    """Submit a review for a user, enforcing that user's review_permission setting."""
+    reviewer_id = get_user_id(authorization)
+
+    if reviewer_id == target_id:
+        raise HTTPException(status_code=400, detail="Cannot review yourself")
+
+    # Fetch target user's review_permission
+    target = supabase_admin.table("users").select("review_permission").eq("id", target_id).execute()
+    if not target.data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    review_perm = target.data[0].get("review_permission") or ["everyone"]
+
+    # If community-only and "everyone" is NOT in permissions, check connection
+    if "everyone" not in review_perm:
+        connection = supabase_admin.table("community_connections").select("id").eq("status", "accepted").or_(
+            f"and(requester_id.eq.{reviewer_id},addressee_id.eq.{target_id}),"
+            f"and(requester_id.eq.{target_id},addressee_id.eq.{reviewer_id})"
+        ).execute()
+        if not connection.data:
+            raise HTTPException(status_code=403, detail="This user only allows reviews from their community members.")
+
+    # Upsert the review
+    result = supabase_admin.table("user_reviews").upsert(
+        {
+            "reviewer_id": reviewer_id,
+            "reviewed_id": target_id,
+            "rating": data.rating,
+            "review_text": data.review_text,
+            **({"media_url": data.media_url} if data.media_url else {}),
+        },
+        on_conflict="reviewer_id,reviewed_id",
+    ).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to submit review")
+
+    return {"message": "Review submitted"}
+
+
+@app.get("/api/reviews/{target_id}/can-review")
+async def can_review(target_id: str, authorization: str = Header(None)):
+    """Check if the current user is allowed to review the target user."""
+    reviewer_id = get_user_id(authorization)
+
+    target = supabase_admin.table("users").select("review_permission").eq("id", target_id).execute()
+    if not target.data:
+        return {"allowed": False, "reason": "User not found"}
+
+    review_perm = target.data[0].get("review_permission") or ["everyone"]
+
+    if "everyone" in review_perm:
+        return {"allowed": True}
+
+    connection = supabase_admin.table("community_connections").select("id").eq("status", "accepted").or_(
+        f"and(requester_id.eq.{reviewer_id},addressee_id.eq.{target_id}),"
+        f"and(requester_id.eq.{target_id},addressee_id.eq.{reviewer_id})"
+    ).execute()
+
+    if connection.data:
+        return {"allowed": True}
+
+    return {"allowed": False, "reason": "This user only allows reviews from their community members."}
+
+
+# ============================================================
 # Messaging Endpoints
 # ============================================================
 
@@ -1449,9 +2070,18 @@ async def list_conversations(authorization: str = Header(None)):
     if not rows.data:
         return {"conversations": []}
 
+    # Get all block relationships involving this user (both directions)
+    blocks_res = supabase_admin.table("blocks").select("blocker_id, blocked_id").or_(
+        f"blocker_id.eq.{user_id},blocked_id.eq.{user_id}"
+    ).execute()
+    blocked_peers: set = set()
+    for b in (blocks_res.data or []):
+        blocked_peers.add(b["blocker_id"] if b["blocked_id"] == user_id else b["blocked_id"])
+
     peer_ids = [
         r["participant_2"] if r["participant_1"] == user_id else r["participant_1"]
         for r in rows.data
+        if (r["participant_2"] if r["participant_1"] == user_id else r["participant_1"]) not in blocked_peers
     ]
 
     users_res = supabase_admin.table("users").select(
@@ -1462,6 +2092,8 @@ async def list_conversations(authorization: str = Header(None)):
     conversations = []
     for row in rows.data:
         peer_id = row["participant_2"] if row["participant_1"] == user_id else row["participant_1"]
+        if peer_id in blocked_peers:
+            continue
         peer = users_map.get(peer_id, {})
         peer_name = (
             f"{peer.get('first_name') or ''} {peer.get('last_name') or ''}".strip()
@@ -1490,6 +2122,8 @@ async def get_or_create_conversation(
     user_id = get_user_id(authorization)
     if data.addressee_id == user_id:
         raise HTTPException(status_code=400, detail="Cannot message yourself")
+    if _is_either_blocked(user_id, data.addressee_id):
+        raise HTTPException(status_code=403, detail="Cannot message this user")
     conv = _get_or_create_conversation(user_id, data.addressee_id)
     return {"id": conv["id"]}
 
@@ -1531,6 +2165,10 @@ async def send_message(
     c = conv.data[0]
     if user_id not in (c["participant_1"], c["participant_2"]):
         raise HTTPException(status_code=403, detail="Not a participant")
+
+    peer_id = c["participant_2"] if c["participant_1"] == user_id else c["participant_1"]
+    if _is_either_blocked(user_id, peer_id):
+        raise HTTPException(status_code=403, detail="Cannot message this user")
 
     payload = {
         "conversation_id": conv_id,

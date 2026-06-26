@@ -103,6 +103,12 @@ function PersonCard({
           {subtitle && (
             <p className="text-[#9199a3] text-xs text-center mt-0.5 line-clamp-2 leading-snug">{subtitle}</p>
           )}
+          {(person.mutual_connections ?? 0) > 0 && (
+            <p className="text-[#9199a3] text-[10px] text-center mt-1 leading-none">
+              <span className="text-[#f77f00] font-semibold">{person.mutual_connections}</span>
+              {" "}mutual connection{person.mutual_connections !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
 
         {/* Stats row */}

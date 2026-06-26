@@ -98,7 +98,7 @@ export default function UserPostsPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
-      <TopBar onMenuClick={() => setSidebarOpen(true)} />
+      <TopBar onMenuToggle={() => setSidebarOpen(true)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="max-w-2xl mx-auto px-4 pt-6 pb-10">

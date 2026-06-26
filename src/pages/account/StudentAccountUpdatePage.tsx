@@ -266,12 +266,25 @@ export default function StudentAccountUpdatePage() {
     if (profile.languages) setLanguages(profile.languages);
   }, [profile]);
 
-  const progressMap: Record<Tab, number> = {
-    profile: 25,
-    more: 50,
-    contact: 75,
-    complete: 100,
-  };
+  // Live progress: count filled fields across all 3 tabs
+  const filledCount = [
+    !!avatarUrl,
+    !!coverUrl,
+    !!educationLevel,
+    !!instituteName,
+    !!bio.trim(),
+    interests.length > 0,
+    !!resumeUrl,
+    !!website.trim(),
+    socialLinks.some((l) => !!l.url.trim()),
+    reachFor.length > 0,
+    !!location.trim(),
+    !!phone.trim(),
+    !!email.trim(),
+    !!languages.trim(),
+  ].filter(Boolean).length;
+
+  const progress = tab === "complete" ? 100 : Math.min(Math.round((filledCount / 14) * 100), 99);
 
   const TABS: { id: Tab; label: string }[] = [
     { id: "profile", label: "Profile Info" },
@@ -451,13 +464,13 @@ export default function StudentAccountUpdatePage() {
               <div className="flex items-center justify-between text-sm sm:text-base mb-3">
                 <span className="text-[#767f8c]">Setup Progress</span>
                 <span className="text-[#f77f00] font-medium">
-                  {progressMap[tab]}% Completed
+                  {progress}% Completed
                 </span>
               </div>
               <div className="w-full h-[9px] bg-[#e7f0fa] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#f77f00] rounded-full transition-all duration-500"
-                  style={{ width: `${progressMap[tab]}%` }}
+                  style={{ width: `${progress}%` }}
                 />
               </div>
             </div>

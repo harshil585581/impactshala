@@ -81,6 +81,7 @@ export default function LoginPage() {
           ...data.user,
           access_token: data.access_token,
           refresh_token: data.refresh_token,
+          session_id: data.session_id,
         }),
       );
       await supabase.auth.setSession({

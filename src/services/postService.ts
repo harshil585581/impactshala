@@ -1,10 +1,27 @@
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
+import { fetchConnections } from './communityService';
+import { fetchBlockedMeIds, fetchBlockedUsers } from './blockService';
 
 export type PostVisibility = 'public' | 'community';
 
 function getUserId(): string {
   const stored = JSON.parse(localStorage.getItem('user') ?? '{}');
   return stored?.id ?? '';
+}
+
+function maskDeactivatedUser(user: any) {
+  if (user && user.deactivated_at) {
+    return {
+      ...user,
+      first_name: "Impactshaala",
+      last_name: "Member",
+      org_name: "Impactshaala Member",
+      avatar_url: null,
+      title: null,
+      company: null,
+    };
+  }
+  return user;
 }
 
 async function uploadFile(file: File, userId: string): Promise<string> {
@@ -190,11 +207,38 @@ export async function fetchFeedPosts(
   const from = page * FEED_PAGE_SIZE;
   const to = from + FEED_PAGE_SIZE - 1;
 
+  const myId = getUserId();
+
+  // Fetch connections and block lists concurrently
+  const [connectionsResult, blockedMeIds, myBlockedUsers] = await Promise.all([
+    fetchConnections().catch(() => ({ connections: [] as { id: string }[] })),
+    fetchBlockedMeIds().catch(() => [] as string[]),
+    fetchBlockedUsers().catch(() => [] as { id: string }[]),
+  ]);
+
+  const connectedIds = connectionsResult.connections.map(c => c.id);
+
+  // Build set of user IDs whose posts should be hidden
+  const hiddenIds = new Set([
+    ...blockedMeIds,
+    ...myBlockedUsers.map(u => u.id),
+  ]);
+
+  // Community posts are visible only from self or connections
+  const communityIds = [...new Set([myId, ...connectedIds])].filter(Boolean);
+  const visFilter = communityIds.length > 0
+    ? `visibility.eq.public,and(visibility.eq.community,user_id.in.(${communityIds.join(',')}))`
+    : 'visibility.eq.public';
+
+  // Fetch extra to account for filtered-out blocked posts
+  const fetchTo = to + hiddenIds.size * 2;
+
   let query = supabase
     .from('posts')
-    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
+    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, deactivated_at, experiences(role, company, is_current))')
+    .or(visFilter)
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .range(from, fetchTo);
 
   if (filter === 'media') query = query.in('post_type', ['photo', 'video']);
   else if (filter === 'polls') query = query.in('post_type', ['poll', 'question']);
@@ -202,18 +246,29 @@ export async function fetchFeedPosts(
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as FeedPost[];
+
+  return ((data ?? []) as unknown as FeedPost[])
+    .map(p => ({
+      ...p,
+      user: p.user ? maskDeactivatedUser(p.user) : null
+    }))
+    .filter(p => !p.user?.id || !hiddenIds.has(p.user.id))
+    .slice(0, FEED_PAGE_SIZE);
 }
 
 export async function fetchPostById(postId: string): Promise<FeedPost | null> {
   await getAuthenticatedSession();
   const { data, error } = await supabase
     .from('posts')
-    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
+    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, deactivated_at, experiences(role, company, is_current))')
     .eq('id', postId)
     .single();
   if (error) return null;
-  return data as unknown as FeedPost;
+  const post = data as unknown as FeedPost;
+  if (post && post.user) {
+    post.user = maskDeactivatedUser(post.user);
+  }
+  return post;
 }
 
 export async function togglePostLike(postId: string, like: boolean): Promise<void> {
@@ -315,10 +370,13 @@ export async function fetchUserPosts(userId: string): Promise<FeedPost[]> {
   await getAuthenticatedSession();
   const { data, error } = await supabase
     .from('posts')
-    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, experiences(role, company, is_current))')
+    .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, deactivated_at, experiences(role, company, is_current))')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as FeedPost[];
+  return ((data ?? []) as unknown as FeedPost[]).map(p => ({
+    ...p,
+    user: p.user ? maskDeactivatedUser(p.user) : null
+  }));
 }

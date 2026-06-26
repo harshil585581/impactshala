@@ -49,18 +49,18 @@ function Accordion({
 }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
+    <div className="border border-[#b4b4b4] rounded-[2px]">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between h-[50px] px-[17px] bg-white"
       >
-        <span className="text-[#18191c] font-semibold text-sm">{title}</span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-          className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
-          <path d="M6 9l6 6 6-6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <span className="text-black font-medium text-base">{title}</span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+          className={`shrink-0 transition-transform duration-200 ${open ? '' : 'rotate-180'}`}>
+          <path d="M18 15l-6-6-6 6" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && <div className="border-t border-[#e5e7eb]">{children}</div>}
+      {open && <div className="border-t border-[#b4b4b4]">{children}</div>}
     </div>
   );
 }
@@ -97,37 +97,25 @@ function DocumentsList({ paths, requiredDocs }: { paths: string[]; requiredDocs:
     return () => { cancelled = true; };
   }, [paths.join(',')]);
 
-  if (loading) return <div className="px-4 py-3 text-sm text-[#9ca3af]">Loading…</div>;
-  if (!urls.length) return <div className="px-4 py-3 text-sm text-[#9ca3af]">No documents submitted.</div>;
+  if (loading) return <div className="px-[17px] py-3 text-sm text-[#9ca3af]">Loading…</div>;
+  if (!urls.length) return <div className="px-[17px] py-3 text-sm text-[#9ca3af]">No documents submitted.</div>;
   return (
-    <div>
+    <div className="flex flex-col gap-3 py-3">
       {urls.map((doc, i) => (
-        <div
-          key={i}
-          className={cn(
-            'flex items-center justify-between px-4 py-3',
-            i < urls.length - 1 ? 'border-b border-[#f3f4f6]' : '',
-          )}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 text-[#f77f00]">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span className="text-[#374151] text-sm truncate">{doc.name}</span>
-          </div>
+        <div key={i} className="flex items-center gap-2.5 px-[17px]">
+          <span className="text-xs text-[#0f172a] flex-1 truncate">{doc.name}</span>
           {doc.href ? (
             <a
               href={doc.href}
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="shrink-0 ml-2 border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[26px] px-3 flex items-center justify-center hover:bg-[#fff8ee] transition-colors"
+              className="shrink-0 border border-[#f77f00] text-[#f77f00] text-xs rounded-full h-[19px] w-[51px] flex items-center justify-center hover:bg-[#fff8ee] transition-colors"
             >
               View
             </a>
           ) : (
-            <span className="shrink-0 ml-2 text-xs text-[#9ca3af]">Unavailable</span>
+            <span className="shrink-0 text-xs text-[#9ca3af]">N/A</span>
           )}
         </div>
       ))}
@@ -425,87 +413,79 @@ export default function LearningDirectoryMyApplicationsPage() {
 
                   {/* ── Right: applicant detail panel ── */}
                   {selected && (
-                    <div className="w-[420px] shrink-0 sticky top-[90px]">
-                      <div className="bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden">
+                    <div className="w-[420px] shrink-0 bg-white border border-[#e5e5e5] rounded-lg p-5 self-start sticky top-[90px] flex flex-col gap-5 max-h-[calc(100vh-110px)] overflow-y-auto">
 
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-2 p-4 border-b border-[#f3f4f6]">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <LetterAvatar name={selected.applicant_name} size="lg" />
-                            <div className="min-w-0">
-                              <p className="text-[#18191c] font-semibold text-[15px] leading-tight">
-                                {selected.applicant_name}
-                              </p>
-                              <p className="text-[#6b7280] text-xs mt-0.5 truncate">
-                                {selected.applicant_email}
-                              </p>
-                              {selected.applicant_mobile && (
-                                <p className="text-[#6b7280] text-xs">{selected.applicant_mobile}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Body */}
-                        <div className="p-4 space-y-4 max-h-[calc(100vh-240px)] overflow-y-auto">
-                          <h3 className="text-[#18191c] font-bold text-base">Profile Overview</h3>
-
-                          {/* Cover message */}
-                          <div>
-                            <p className="text-[#9ca3af] text-xs font-semibold mb-1">Cover Message</p>
-                            {selected.message ? (
-                              <p className="text-[#374151] text-sm leading-relaxed">{selected.message}</p>
-                            ) : (
-                              <p className="text-[#9ca3af] text-sm italic">No message provided.</p>
-                            )}
-                          </div>
-
-                          {/* Applied date */}
-                          <div>
-                            <p className="text-[#9ca3af] text-xs font-semibold mb-0.5">Applied</p>
-                            <p className="text-[#374151] text-sm">
-                              {new Date(selected.created_at).toLocaleDateString('en-IN', {
-                                day: 'numeric', month: 'short', year: 'numeric',
-                              })}
-                            </p>
-                          </div>
-
-                          {/* View Profile */}
-                          <button className="w-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold h-9 rounded-full hover:bg-[#fff8ee] transition-colors">
-                            View Profile
-                          </button>
-
-                          {/* Accordions */}
-                          <Accordion title="Resume">
-                            <div className="px-4 py-3 text-sm text-[#9ca3af]">No resume uploaded.</div>
-                          </Accordion>
-
-                          <Accordion title="Eligibility">
-                            {(selectedCourse?.eligibility_criteria ?? []).length > 0 ? (
-                              <div className="px-4 py-3 space-y-1">
-                                {selectedCourse!.eligibility_criteria.map((c, i) => (
-                                  <div key={i} className="flex items-start gap-2 text-sm text-[#374151]">
-                                    <span className="text-[#f77f00] mt-0.5 shrink-0">•</span>
-                                    <span>{c}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="px-4 py-3 text-sm text-[#9ca3af]">No eligibility criteria set.</div>
-                            )}
-                          </Accordion>
-
-                          <Accordion
-                            title={`Documents (${(selected.document_urls ?? []).length})`}
-                            defaultOpen={(selected.document_urls ?? []).length > 0}
-                          >
-                            <DocumentsList
-                              paths={selected.document_urls ?? []}
-                              requiredDocs={selectedCourse?.required_documents ?? []}
-                            />
-                          </Accordion>
+                      {/* Header: avatar + name */}
+                      <div className="flex items-start gap-3">
+                        <LetterAvatar name={selected.applicant_name} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-lg font-semibold text-black leading-tight">{selected.applicant_name}</p>
+                          <p className="text-xs text-[#6b7280] truncate">{selected.applicant_email}</p>
+                          {selected.applicant_mobile && (
+                            <p className="text-xs text-[#6b7280]">{selected.applicant_mobile}</p>
+                          )}
                         </div>
                       </div>
+
+                      <div className="h-px bg-[#e5e5e5]" />
+
+                      {/* Profile info */}
+                      <div className="flex flex-col gap-4">
+                        {selected.message && (
+                          <div>
+                            <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Cover Message</p>
+                            <p className="text-sm text-black leading-relaxed">{selected.message}</p>
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Applied</p>
+                          <p className="text-sm text-black">
+                            {new Date(selected.created_at).toLocaleDateString('en-IN', {
+                              day: 'numeric', month: 'short', year: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* View Profile */}
+                      <button type="button" className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors w-full">
+                        View Profile
+                      </button>
+
+                      {/* Resume */}
+                      <Accordion title="Resume" defaultOpen>
+                        <div className="px-[17px] py-3 text-sm text-[#9ca3af]">No resume uploaded.</div>
+                      </Accordion>
+
+                      {/* Eligibility */}
+                      <Accordion title="Eligibility">
+                        {(selectedCourse?.eligibility_criteria ?? []).length > 0 ? (
+                          <div className="flex flex-col gap-3 py-3">
+                            {selectedCourse!.eligibility_criteria.map((c, i) => (
+                              <div key={i} className="flex items-start gap-2.5 px-[17px]">
+                                <span className="text-xs text-[#0f172a] flex-1 leading-normal">{c}</span>
+                                <div className="shrink-0 w-3.5 h-3.5 mt-0.5 rounded-[4px] bg-[#ff9400] flex items-center justify-center">
+                                  <svg width="8" height="6" viewBox="0 0 10 8" fill="none">
+                                    <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="px-[17px] py-3 text-sm text-[#9ca3af]">No eligibility criteria set.</div>
+                        )}
+                      </Accordion>
+
+                      {/* Documents */}
+                      <Accordion title="Documents">
+                        <DocumentsList
+                          paths={selected.document_urls ?? []}
+                          requiredDocs={selectedCourse?.required_documents ?? []}
+                        />
+                      </Accordion>
+
                     </div>
                   )}
                 </div>

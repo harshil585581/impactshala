@@ -12,7 +12,7 @@ import {
   PAGE_SIZE,
   type PostComment,
 } from '../services/commentService';
-import { fetchConnections, type Connection } from '../services/communityService';
+import { searchMentionableUsers, type CommunityUser } from '../services/communityService';
 
 /* ── helpers ── */
 function relativeTime(dateStr: string): string {
@@ -66,9 +66,9 @@ function MentionDropdown({
   loading,
   onSelect,
 }: {
-  users: Connection[];
+  users: CommunityUser[];
   loading: boolean;
-  onSelect: (user: Connection) => void;
+  onSelect: (user: CommunityUser) => void;
 }) {
   if (!loading && users.length === 0) return null;
   return (
@@ -468,7 +468,7 @@ export default function CommentSection({ postId, postTable = 'posts', onCommentC
   const [error, setError] = useState<string | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionUsers, setMentionUsers] = useState<Connection[]>([]);
+  const [mentionUsers, setMentionUsers] = useState<CommunityUser[]>([]);
   const [mentionLoading, setMentionLoading] = useState(false);
   const [mentionStart, setMentionStart] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -500,8 +500,8 @@ export default function CommentSection({ postId, postTable = 'posts', onCommentC
     if (mentionQuery === null) { setMentionUsers([]); return; }
     setMentionLoading(true);
     const t = setTimeout(() => {
-      fetchConnections(mentionQuery || undefined)
-        .then(res => setMentionUsers(res.connections.slice(0, 6)))
+      searchMentionableUsers(mentionQuery || undefined)
+        .then(res => setMentionUsers(res.users.slice(0, 6)))
         .catch(() => setMentionUsers([]))
         .finally(() => setMentionLoading(false));
     }, 200);
@@ -517,7 +517,7 @@ export default function CommentSection({ postId, postTable = 'posts', onCommentC
     else setMentionQuery(null);
   }
 
-  function handleMentionSelect(user: Connection) {
+  function handleMentionSelect(user: CommunityUser) {
     const el = inputRef.current;
     const cursor = el?.selectionStart ?? inputText.length;
     const slug = user.name.replace(/\s+/g, '_');

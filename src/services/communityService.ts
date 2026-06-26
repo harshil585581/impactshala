@@ -20,6 +20,7 @@ export type CommunityUser = {
   endorsement_count?: number;
   review_count?: number;
   achievement_count?: number;
+  mutual_connections?: number;
 };
 
 export type Connection = CommunityUser & {
@@ -97,4 +98,34 @@ export async function removeConnection(peerId: string): Promise<void> {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to remove connection");
+}
+
+export interface ProfileMember {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  avatar_url: string | null;
+  user_type: string;
+}
+
+export async function fetchProfileCommunityMembers(
+  profileUserId: string,
+  q?: string,
+  userType?: string,
+): Promise<{ members: ProfileMember[]; total: number; restricted: boolean }> {
+  const url = new URL(`${API_URL}/api/community/members/${profileUserId}`);
+  if (q) url.searchParams.set('q', q);
+  if (userType) url.searchParams.set('user_type', userType);
+  const res = await fetch(url.toString(), { headers: await authHeaders() });
+  if (!res.ok) return { members: [], total: 0, restricted: false };
+  return res.json();
+}
+
+export async function searchMentionableUsers(q?: string): Promise<{ users: CommunityUser[] }> {
+  const url = new URL(`${API_URL}/api/mentions/search`);
+  if (q) url.searchParams.set("q", q);
+  const res = await fetch(url.toString(), { headers: await authHeaders() });
+  if (!res.ok) return { users: [] };
+  return res.json();
 }

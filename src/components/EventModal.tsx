@@ -29,6 +29,14 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
   const [postError, setPostError] = useState<string | null>(null);
   const coverFileRef = useRef<File | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const startDateRef = useRef<HTMLInputElement>(null);
+  const startTimeRef = useRef<HTMLInputElement>(null);
+  const endDateRef = useRef<HTMLInputElement>(null);
+  const endTimeRef = useRef<HTMLInputElement>(null);
+
+  function openPicker(ref: React.RefObject<HTMLInputElement | null>) {
+    try { ref.current?.showPicker(); } catch { ref.current?.click(); }
+  }
 
   if (!isOpen) return null;
 
@@ -376,12 +384,13 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
               </label>
               <div className="relative">
                 <input
+                  ref={startDateRef}
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white"
+                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" onClick={() => openPicker(startDateRef)}>
                   {calendarIcon}
                 </span>
               </div>
@@ -392,12 +401,13 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
               </label>
               <div className="relative">
                 <input
+                  ref={startTimeRef}
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white"
+                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" onClick={() => openPicker(startTimeRef)}>
                   {clockIcon}
                 </span>
               </div>
@@ -425,13 +435,14 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
               </label>
               <div className="relative">
                 <input
+                  ref={endDateRef}
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   disabled={!addEndDateTime}
-                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white disabled:opacity-40"
+                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white disabled:opacity-40 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" onClick={() => addEndDateTime && openPicker(endDateRef)}>
                   {calendarIcon}
                 </span>
               </div>
@@ -442,13 +453,14 @@ export default function EventModal({ isOpen, onClose, userAvatar }: Props) {
               </label>
               <div className="relative">
                 <input
+                  ref={endTimeRef}
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   disabled={!addEndDateTime}
-                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white disabled:opacity-40"
+                  className="w-full border border-[#e5e7eb] rounded-xl px-4 py-3 pr-10 text-sm text-[#18191c] outline-none focus:border-[#f77f00] transition-colors appearance-none bg-white disabled:opacity-40 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" onClick={() => addEndDateTime && openPicker(endTimeRef)}>
                   {clockIcon}
                 </span>
               </div>

@@ -1136,6 +1136,9 @@ CREATE POLICY "Users can delete own notifications"
   USING (auth.uid() = user_id);
 
 -- ============================================================
+-- Add deactivated_at column to users table for account deactivation
+-- ============================================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ DEFAULT NULL;
 -- User Follows
 -- ============================================================
 CREATE TABLE IF NOT EXISTS user_follows (

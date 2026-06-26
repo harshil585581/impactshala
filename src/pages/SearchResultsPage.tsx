@@ -290,7 +290,9 @@ export default function SearchResultsPage() {
           </div>
 
           {/* Right sidebar — same as home page */}
-          <RightPanel />
+          <div className="hidden xl:block w-[340px] shrink-0 self-start sticky top-[35px]">
+            <RightPanel />
+          </div>
         </div>
       </div>
     </div>

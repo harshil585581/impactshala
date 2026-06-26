@@ -38,6 +38,10 @@ export interface ProfileData {
   education_level?: string;
   institute_name?: string;
   resume_url?: string;
+  tag_permission?: string;
+  mention_permission?: string;
+  review_permission?: string[];
+  community_visibility?: string;
 }
 
 export async function fetchMyProfile(): Promise<ProfileData> {
@@ -98,3 +102,40 @@ export async function saveProfile(data: Partial<ProfileData>): Promise<ProfileDa
   }
   return res.json();
 }
+
+export async function deleteAccount(password: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/account/delete`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'Failed to delete account');
+  }
+}
+
+export async function deactivateAccount(password: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/account/deactivate`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'Failed to deactivate account');
+  }
+}
+
+export async function changePassword(currentPassword: string, newPassword: string, signOutAll: boolean): Promise<void> {
+  const res = await fetch(`${API_URL}/api/account/change-password`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword, sign_out_all: signOutAll }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? 'Failed to change password');
+  }
+}
+

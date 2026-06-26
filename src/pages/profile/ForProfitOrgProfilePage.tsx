@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
 import EditProfileModal from '../../components/profile/EditProfileModal';
@@ -24,6 +24,14 @@ import { fetchCommunityMembersCount } from '../../services/endorsementService';
 import WriteReviewModal from '../../components/profile/WriteReviewModal';
 import ReviewsPreviewModal from '../../components/profile/ReviewsPreviewModal';
 import { fetchReviews, deleteReview, type Review } from '../../services/reviewService';
+import {
+  fetchConnections,
+  fetchSentRequests,
+  sendConnectionRequest,
+  rejectOrCancelRequest,
+  removeConnection,
+} from '../../services/communityService';
+import { blockUser, unblockUser, fetchIsBlocked } from '../../services/blockService';
 
 const postImg1 = 'https://placehold.co/400x300/f5f5f5/cccccc';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -156,6 +164,7 @@ function OrgSectorLabel({ sector }: { sector?: string }) {
 
 export default function ForProfitOrgProfilePage() {
   const { userId = 'me' } = useParams<{ userId?: string }>();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
@@ -177,8 +186,16 @@ export default function ForProfitOrgProfilePage() {
   const [editIndExpIndex, setEditIndExpIndex] = useState<number | null>(null);
   const [brochureUploading, setBrochureUploading] = useState(false);
   const brochureInputRef = useRef<HTMLInputElement>(null);
+  const [communityStatus, setCommunityStatus] = useState<'none' | 'pending' | 'connected'>('none');
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [viewerMoreOpen, setViewerMoreOpen] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
-  const { profile, loading, saving, toasts, removeToast, saveProfile, follow, reload } = useProfile(userId);
+  const { profile, loading, saving, toasts, removeToast, saveProfile, reload } = useProfile(userId);
 
   const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
   const isOwn = userId === 'me' || userId === storedUser.id;
@@ -246,6 +263,72 @@ export default function ForProfitOrgProfilePage() {
   useEffect(() => { loadPosts(); }, [resolvedUserId]);
   useEffect(() => { loadCollabAccomplishments(); }, [resolvedUserId]);
   useEffect(() => { loadReviews(); }, [resolvedUserId]);
+
+  useEffect(() => {
+    if (isOwn || !resolvedUserId) return;
+    fetchIsBlocked(resolvedUserId).then(setIsBlocked).catch(() => {});
+  }, [isOwn, resolvedUserId]);
+
+  useEffect(() => {
+    if (isOwn || !resolvedUserId) return;
+    setCommunityStatus('none');
+    setPendingRequestId(null);
+    Promise.all([
+      fetchConnections().catch(() => ({ connections: [] as any[] })),
+      fetchSentRequests().catch(() => ({ requests: [] as any[] })),
+    ]).then(([connData, sentData]) => {
+      const isConnected = connData.connections.some((c: any) => c.id === resolvedUserId);
+      if (isConnected) { setCommunityStatus('connected'); return; }
+      const pending = sentData.requests.find((r: any) => r.id === resolvedUserId);
+      if (pending) { setCommunityStatus('pending'); setPendingRequestId(pending.request_id); }
+    }).catch(() => {});
+  }, [isOwn, resolvedUserId]);
+
+  const handleCommunityAction = async () => {
+    if (communityLoading || !resolvedUserId) return;
+    setCommunityLoading(true);
+    try {
+      if (communityStatus === 'none') {
+        await sendConnectionRequest(resolvedUserId);
+        setCommunityStatus('pending');
+      } else if (communityStatus === 'pending' && pendingRequestId) {
+        await rejectOrCancelRequest(pendingRequestId);
+        setCommunityStatus('none');
+        setPendingRequestId(null);
+      } else if (communityStatus === 'connected') {
+        await removeConnection(resolvedUserId);
+        setCommunityStatus('none');
+      }
+    } catch {}
+    finally { setCommunityLoading(false); }
+  };
+
+  const handleRemoveFromCommunity = async () => {
+    if (communityLoading || !resolvedUserId) return;
+    setCommunityLoading(true);
+    try {
+      await removeConnection(resolvedUserId);
+      setCommunityStatus('none');
+      setPendingRequestId(null);
+    } catch {}
+    finally { setCommunityLoading(false); }
+  };
+
+  const handleBlockConfirm = async () => {
+    setShowBlockConfirm(false);
+    if (resolvedUserId) {
+      try { await blockUser(resolvedUserId); } catch {}
+    }
+    setIsBlocked(true);
+  };
+
+  const handleUnblock = async () => {
+    if (resolvedUserId) {
+      try { await unblockUser(resolvedUserId); } catch {}
+    }
+    setIsBlocked(false);
+  };
+
   const handleDeleteReview = async () => {
     if (!resolvedUserId || !confirm('Delete your review?')) return;
     try { await deleteReview(resolvedUserId); loadReviews(); } catch {}
@@ -423,16 +506,88 @@ export default function ForProfitOrgProfilePage() {
                     </>
                   ) : (
                     <>
-                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        Add to Community
+                      {/* Add to Community / Request Sent / Remove from Community */}
+                      <button
+                        onClick={handleCommunityAction}
+                        disabled={communityLoading}
+                        className={`flex items-center gap-2 px-6 py-2 text-sm font-semibold rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                          communityStatus === 'connected'
+                            ? 'bg-[rgba(167,85,255,0.18)] text-[#6656cd] hover:bg-[rgba(167,85,255,0.28)]'
+                            : communityStatus === 'pending'
+                            ? 'bg-[#f1f2f4] text-[#9199a3] hover:bg-[#e4e5e8]'
+                            : 'bg-[rgba(167,85,255,0.1)] text-[#6656cd] hover:bg-[rgba(167,85,255,0.18)]'
+                        }`}
+                      >
+                        {communityStatus === 'connected' ? (
+                          <>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                              <path d="M20 8l-3 3-1.5-1.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            </svg>
+                            In Community
+                          </>
+                        ) : communityStatus === 'pending' ? (
+                          <>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+                            </svg>
+                            Request Sent
+                          </>
+                        ) : (
+                          <>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                              <line x1="22" y1="6" x2="16" y2="6" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                              <line x1="19" y1="3" x2="19" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                            Add to Community
+                          </>
+                        )}
                       </button>
-                      <button className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
+
+                      {/* Message */}
+                      <button
+                        onClick={() => navigate('/messages', { state: { userId: resolvedUserId, userName: profile?.orgName || profile?.firstName || '', userAvatar: profile?.avatarUrl } })}
+                        className="flex items-center gap-2 px-6 py-2 bg-[rgba(167,85,255,0.1)] text-[#6656cd] text-sm font-semibold rounded-full hover:bg-[rgba(167,85,255,0.18)] transition-colors"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                        </svg>
                         Message
                       </button>
-                      <button onClick={follow}
-                        className="h-[34px] px-4 border border-[#e4e5e8] text-[#18191c] text-xs font-medium rounded-full hover:border-[#ff9400] hover:text-[#ff9400] transition-colors">
-                        {profile?.isFollowing ? 'Following' : '+ Follow'}
-                      </button>
+
+                      {/* Three-dots dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setViewerMoreOpen((v) => !v)}
+                          className="w-[38px] h-[38px] rounded-full border border-[#e4e5e8] flex items-center justify-center text-[#9199a3] hover:bg-[#f3f4f6] hover:border-[#9199a3] transition-colors"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
+                          </svg>
+                        </button>
+                        {viewerMoreOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setViewerMoreOpen(false)} />
+                            <div className="absolute left-0 top-[calc(100%+6px)] w-[196px] bg-white border border-[#d6d6d6] rounded-[8px] shadow-lg z-50 py-[2px] overflow-hidden">
+                              {[
+                                { label: isBlocked ? 'Unblock' : 'Block', danger: true, onClick: () => { setViewerMoreOpen(false); isBlocked ? handleUnblock() : setShowBlockConfirm(true); } },
+                                { label: 'Report', danger: true, onClick: () => { setViewerMoreOpen(false); setShowReportModal(true); } },
+                                { label: isMuted ? 'Unmute' : 'Mute', danger: false, onClick: () => { setViewerMoreOpen(false); setIsMuted((v) => !v); } },
+                                ...(communityStatus === 'connected' ? [{ label: 'Remove from community', danger: false, onClick: () => { setViewerMoreOpen(false); handleRemoveFromCommunity(); } }] : []),
+                              ].map(({ label, danger, onClick }) => (
+                                <button
+                                  key={label}
+                                  onClick={onClick}
+                                  className={`w-full flex items-center px-[16px] py-[12px] text-[14px] font-medium text-left hover:bg-[#f8f8f8] transition-colors ${danger ? 'text-[#c00f0c]' : 'text-[#6b6b6b]'}`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -1063,6 +1218,34 @@ export default function ForProfitOrgProfilePage() {
       })()}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Block confirmation modal */}
+      {showBlockConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowBlockConfirm(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[#18191c] text-lg font-bold mb-2">Block this user?</h3>
+            <p className="text-[#5e6670] text-sm mb-5">They won't be able to see your profile or contact you.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowBlockConfirm(false)} className="h-[40px] px-6 border border-[#e4e5e8] text-[#18191c] text-sm font-medium rounded-full hover:bg-[#f8f8f8] transition-colors">Cancel</button>
+              <button onClick={handleBlockConfirm} className="h-[40px] px-6 bg-[#c00f0c] text-white text-sm font-semibold rounded-full hover:bg-[#a80d0a] transition-colors">Block</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowReportModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[#18191c] text-lg font-bold mb-2">Report this profile?</h3>
+            <p className="text-[#5e6670] text-sm mb-5">We'll review your report and take appropriate action.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowReportModal(false)} className="h-[40px] px-6 border border-[#e4e5e8] text-[#18191c] text-sm font-medium rounded-full hover:bg-[#f8f8f8] transition-colors">Cancel</button>
+              <button onClick={() => setShowReportModal(false)} className="h-[40px] px-6 bg-[#c00f0c] text-white text-sm font-semibold rounded-full hover:bg-[#a80d0a] transition-colors">Report</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
