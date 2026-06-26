@@ -14,6 +14,7 @@ type Props = {
   onGetStarted?: () => void;
   onExpand?: (id: string) => void;
   isExpanded?: boolean;
+  isApplied?: boolean;
 };
 
 export default function DiscoverCard({
@@ -23,6 +24,7 @@ export default function DiscoverCard({
   onGetStarted,
   onExpand,
   isExpanded,
+  isApplied = false,
 }: Props) {
   const [showMore, setShowMore] = useState(false);
   const [liked, setLiked] = useState(item.isLiked ?? false);
@@ -80,14 +82,21 @@ export default function DiscoverCard({
 
           {/* Right: Get Started + bookmark */}
           <div className="flex items-center gap-2 shrink-0 pt-1">
-            {onGetStarted && (
+            {isApplied ? (
+              <button
+                disabled
+                className="px-4 py-2 border border-[#ff9400] text-[#ff9400] text-sm font-semibold rounded-full opacity-60 cursor-not-allowed min-h-[44px] whitespace-nowrap"
+              >
+                Applied
+              </button>
+            ) : onGetStarted ? (
               <button
                 onClick={onGetStarted}
                 className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-full hover:bg-orange-600 transition-colors min-h-[44px] whitespace-nowrap"
               >
                 Get Started
               </button>
-            )}
+            ) : null}
             <button
               onClick={() => onBookmark(item.id)}
               aria-label={isBookmarked ? "Remove bookmark" : "Bookmark"}

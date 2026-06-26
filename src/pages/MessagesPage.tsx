@@ -1959,8 +1959,6 @@ export default function MessagesPage() {
         <div className="flex-1 bg-[#f5f5f5] flex flex-col overflow-hidden">
           {/* Chats: active conversation */}
           {activeTab === "chats" && activeChat && (() => {
-            const chatGroupMembers = (activeChatId ? groupMembers[activeChatId] : null) ?? [];
-            const filteredChatMembers = chatGroupMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase()));
             return (
             <div className="flex h-full">
               {/* ── Chat column ── */}
@@ -1969,7 +1967,12 @@ export default function MessagesPage() {
               <div className="bg-white border-b border-[#e5e7eb] px-5 py-3.5 flex items-center gap-3 shrink-0">
                 <Avatar initials={activeChat.initials} color={activeChat.avatarColor} img={activeChat.avatarImg} size={40} />
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-[15px] text-[#18191c]">{activeChat.name}</p>
+                  <button
+                    onClick={() => setShowChatInfo((v) => !v)}
+                    className="font-bold text-[15px] text-[#18191c] hover:text-[#f77f00] transition-colors text-left truncate max-w-full"
+                  >
+                    {activeChat.name}
+                  </button>
                   <p className="text-[12px] text-[#9ca3af]">{activeChat.time ? `Last seen ${activeChat.time}` : "Community member"}</p>
                 </div>
                 <div className="flex items-center gap-3 text-[#9ca3af]">
@@ -2535,84 +2538,53 @@ export default function MessagesPage() {
               </div>{/* end flex-col chat column */}
 
               {/* ── Chat Info sidebar ── */}
-              {showChatInfo && chatGroup && (
+              {showChatInfo && activeChat && (
               <div className="w-[340px] shrink-0 bg-white border-l border-[#e5e7eb] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="bg-white border-b border-[#f5f5f5] h-[64px] flex items-center gap-3 px-4 shrink-0">
                   <button onClick={() => setShowChatInfo(false)} className="text-[#9ca3af] hover:text-[#374151] transition-colors p-1 shrink-0" aria-label="Close">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
-                  <p className="font-bold text-[20px] text-[#141414]">Group Info</p>
+                  <p className="font-bold text-[20px] text-[#141414]">User Info</p>
                 </div>
                 {/* Profile */}
-                <div className="flex flex-col items-center px-5 pt-7 pb-5 border-b border-[#f5f5f5]">
-                  <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center font-bold text-[28px]" style={{ backgroundColor: chatGroup.avatarColor, color: "#fff" }}>
-                    {chatGroup.initials}
-                  </div>
-                  <p className="font-bold text-[16px] text-[#141414] mt-3 text-center leading-snug">{chatGroup.name}</p>
-                  <p className="text-[13px] text-[#9ca3af] mt-0.5">{chatGroup.members} Members</p>
+                <div className="flex flex-col items-center px-5 pt-7 pb-5 border-b border-[#f5f5f5] shrink-0">
+                  <Avatar initials={activeChat.initials} color={activeChat.avatarColor} img={activeChat.avatarImg} size={88} />
+                  <p className="font-bold text-[16px] text-[#141414] mt-3 text-center leading-snug">{activeChat.name}</p>
+                  <p className="text-[13px] text-[#9ca3af] mt-0.5">{activeChat.time ? `Last seen ${activeChat.time}` : "Community member"}</p>
                 </div>
-                {/* Actions — hidden when Add Members panel is open */}
-                {!showAddMembers && (<>
-                <div className="border-b border-[#f5f5f5]">
-                  <button onClick={() => { setShowAddMembers(true); setAddMemberSelected([]); setAddMemberSearch(""); }} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#fff6ed] transition-colors text-left">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f77f00] shrink-0"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/><circle cx="19" cy="8" r="3.5" fill="white"/><line x1="19" y1="6" x2="19" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="17" y1="8" x2="21" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    <span className="text-[15px] text-[#ff9400]">Add Members</span>
-                  </button>
-                  <button onClick={() => setShowLeaveConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 00-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/></svg>
-                    <span className="text-[15px] text-[#f44649]">Leave</span>
-                  </button>
-                  <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center gap-3 px-5 py-3 hover:bg-red-50 transition-colors text-left">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#f44649] shrink-0"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
-                    <span className="text-[15px] text-[#f44649] font-normal">Delete and Exit</span>
-                  </button>
-                </div>
-                {/* Members tabs */}
-                <div className="flex border-b border-[#e5e7eb] shrink-0">
-                  <button onClick={() => setGroupInfoTab("members")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "members" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>View Members</button>
-                  <button onClick={() => setGroupInfoTab("banned")} className={`flex-1 py-2.5 text-[13px] font-medium transition-colors border-b-2 ${groupInfoTab === "banned" ? "text-[#f77f00] border-[#f77f00]" : "text-[#9ca3af] border-transparent hover:text-[#374151]"}`}>Banned Members</button>
-                </div>
-                {/* Members search */}
-                <div className="px-4 py-2.5 shrink-0">
-                  <div className="relative">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    <input type="search" value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="Search" className="w-full pl-8 pr-3 py-1.5 rounded-full bg-[#f5f5f5] text-[13px] text-[#374151] placeholder:text-[#9ca3af] focus:outline-none focus:ring-1 focus:ring-[#f77f00] transition-colors" />
-                  </div>
-                </div>
-                {/* Members list */}
-                <div className="flex-1 overflow-y-auto">
-                  {groupInfoTab === "members" ? (
-                    filteredChatMembers.length === 0 ? (
-                      <p className="text-center text-[13px] text-[#9ca3af] py-6">No members found</p>
-                    ) : filteredChatMembers.map(member => (
-                      <div key={member.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#f5f5f5] hover:bg-[#fafafa] transition-colors">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-[13px] shrink-0" style={{ backgroundColor: member.avatarColor }}>{member.initials}</div>
-                        <p className="flex-1 font-medium text-[14px] text-[#141414] truncate">{member.name}</p>
-                        {member.role === "Owner" && <span className="shrink-0 bg-[#ff9400] text-white text-[11px] px-2.5 py-0.5 rounded-full">{member.role}</span>}
-                        {(member.role === "Admin" || member.role === "Moderator") && <span className="shrink-0 border border-[#ff9400] text-[#ff9400] text-[11px] px-2.5 py-0.5 rounded-full">{member.role}</span>}
+                {/* Actions */}
+                <div className="flex-1 overflow-y-auto py-4">
+                  <div className="px-5 mb-4">
+                    <p className="text-xs font-semibold text-[#9ca3af] uppercase tracking-wider mb-2">Private Chat</p>
+                    <div className="bg-[#f9fafb] border border-[#ececec] rounded-2xl p-4 flex flex-col gap-2.5">
+                      <div className="flex items-center gap-2.5 text-[#5e6670] text-sm">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[#ff9400] shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                        <span>Encrypted & Secure</span>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-center text-[13px] text-[#9ca3af] py-6">No banned members</p>
-                  )}
-                </div>
-                </>)}
+                      <p className="text-xs text-[#9ca3af] leading-relaxed">
+                        Messages in this conversation are stored securely and only accessible by you and {activeChat.name}.
+                      </p>
+                    </div>
+                  </div>
 
-                {/* Add Members panel */}
-                {showAddMembers && (
-                  <AddMembersPanel
-                    contacts={realUsers.map((u) => ({ id: u.id, name: u.name, initials: u.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(), avatarColor: colorFromId(u.id) }))}
-                    selected={addMemberSelected}
-                    search={addMemberSearch}
-                    onSearchChange={setAddMemberSearch}
-                    onToggle={toggleAddMember}
-                    onBack={() => { setShowAddMembers(false); setAddMembersError(""); }}
-                    onAdd={handleAddMembers}
-                    loading={addMembersLoading}
-                    error={addMembersError}
-                  />
-                )}
+                  <div className="border-t border-[#f5f5f5] pt-2">
+                    <button
+                      onClick={() => startCall(activeChat.name, activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), activeChat.avatarColor ?? "#f77f00", false, activeChat.avatarImg, activeChat.peerId)}
+                      className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#fff6ed] transition-colors text-left"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#ff9400] shrink-0"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      <span className="text-[15px] text-[#374151] font-medium">Voice Call</span>
+                    </button>
+                    <button
+                      onClick={() => startCall(activeChat.name, activeChat.initials ?? activeChat.name.slice(0,2).toUpperCase(), activeChat.avatarColor ?? "#f77f00", true, activeChat.avatarImg, activeChat.peerId)}
+                      className="w-full flex items-center gap-3 px-5 py-3 hover:bg-[#fff6ed] transition-colors text-left"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#ff9400] shrink-0"><polygon points="23 7 16 12 23 17 23 7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><rect x="1" y="5" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" /></svg>
+                      <span className="text-[15px] text-[#374151] font-medium">Video Call</span>
+                    </button>
+                  </div>
+                </div>
               </div>
               )}
 

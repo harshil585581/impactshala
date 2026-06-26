@@ -1275,6 +1275,11 @@ async def get_my_discover_posts(authorization: Optional[str] = Header(None)):
     result = supabase_admin.table("discover_posts").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
     posts = []
     for row in (result.data or []):
+        try:
+            cnt = supabase_admin.table("discover_applications").select("id", count="exact").eq("post_id", row["id"]).execute()
+            applicant_count = cnt.count or 0
+        except Exception:
+            applicant_count = 0
         posts.append({
             "id": row["id"],
             "title": row.get("title") or "",
@@ -1287,8 +1292,129 @@ async def get_my_discover_posts(authorization: Optional[str] = Header(None)):
             "documentsRequired": row.get("documents_required") or [],
             "status": "active",
             "createdAt": row.get("created_at") or "",
+            "applicant_count": applicant_count,
         })
     return posts
+
+
+@app.get("/api/discover/my-applications")
+async def get_my_discover_applications(authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    result = supabase_admin.table("discover_applications").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    apps = result.data or []
+    enhanced = []
+    for app in apps:
+        app_data = dict(app)
+        try:
+            p = supabase_admin.table("discover_posts").select(
+                "id, title, domain, nature, address, delivery_mode, user_id"
+            ).eq("id", app["post_id"]).execute()
+            if p.data:
+                post = p.data[0]
+                app_data["post"] = {
+                    "title": post.get("title") or "",
+                    "domain": post.get("domain") or "",
+                    "nature": post.get("nature") or "",
+                    "address": post.get("address") or "",
+                    "delivery_mode": post.get("delivery_mode") or "",
+                }
+                try:
+                    u = supabase_admin.table("users").select(
+                        "first_name, last_name, org_name"
+                    ).eq("id", post["user_id"]).execute()
+                    if u.data:
+                        app_data["post_creator"] = u.data[0]
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        enhanced.append(app_data)
+    return enhanced
+
+
+@app.get("/api/employment/postings/{posting_id}/applications")
+async def get_employment_posting_applications(posting_id: str, authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)
+    post_check = supabase_admin.table("employment_hub_postings").select("user_id").eq("id", posting_id).execute()
+    if not post_check.data or post_check.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    result = supabase_admin.table("employment_applications").select("*").eq("posting_id", posting_id).order("applied_at", desc=True).execute()
+    apps = result.data or []
+    enhanced = []
+    for app in apps:
+        app_data = dict(app)
+        applicant_id = app.get("applicant_id")
+        if applicant_id:
+            try:
+                u = supabase_admin.table("users").select("avatar_url, first_name, last_name, org_name, resume_url").eq("id", applicant_id).execute()
+                if u.data:
+                    profile = dict(u.data[0])
+                    # Generate a signed URL for the resume so the employer can view it
+                    raw_resume = profile.pop("resume_url", None)
+                    if raw_resume:
+                        try:
+                            bucket_marker = "/documents/"
+                            if bucket_marker in raw_resume:
+                                resume_path = raw_resume.split(bucket_marker, 1)[1].split("?")[0]
+                            else:
+                                resume_path = raw_resume.split("?")[0]
+                            signed = supabase_admin.storage.from_("documents").create_signed_url(resume_path, 3600)
+                            profile["resume_signed_url"] = signed.get("signedURL") or signed.get("signed_url") or None
+                        except Exception:
+                            profile["resume_signed_url"] = None
+                    else:
+                        profile["resume_signed_url"] = None
+                    app_data["user_profile"] = profile
+            except Exception:
+                pass
+            try:
+                sp = supabase_admin.table("job_seeker_profiles").select(
+                    "career_goals, work_drives_you, current_location, job_industry, department, technical_skills, soft_skills, resume_url, institute_name, education_level, documents_required"
+                ).eq("user_id", applicant_id).execute()
+                if sp.data:
+                    app_data["seeker_profile"] = sp.data[0]
+            except Exception:
+                pass
+            try:
+                exp = supabase_admin.table("experiences").select(
+                    "role, company, emp_type, start_month, start_year, end_month, end_year, is_current, location"
+                ).eq("user_id", applicant_id).order("is_current", desc=True).order("start_year", desc=True).execute()
+                app_data["experiences"] = exp.data or []
+            except Exception:
+                app_data["experiences"] = []
+            try:
+                edu = supabase_admin.table("educations").select(
+                    "school, level, field_of_study, start_date, end_date"
+                ).eq("user_id", applicant_id).order("start_date", desc=True).execute()
+                app_data["educations"] = edu.data or []
+            except Exception:
+                app_data["educations"] = []
+        enhanced.append(app_data)
+    return enhanced
+
+
+@app.delete("/api/employment/applications/{app_id}/withdraw")
+async def withdraw_employment_application(app_id: str, authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    app_check = supabase_admin.table("employment_applications").select("applicant_id").eq("id", app_id).execute()
+    if not app_check.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if app_check.data[0].get("applicant_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    supabase_admin.table("employment_applications").delete().eq("id", app_id).execute()
+    return {"ok": True}
+
+
+@app.delete("/api/discover/applications/{app_id}/withdraw")
+async def withdraw_discover_application(app_id: str, authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)  # type: ignore[arg-type]
+    app_check = supabase_admin.table("discover_applications").select("user_id").eq("id", app_id).execute()
+    if not app_check.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if app_check.data[0].get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    supabase_admin.table("discover_applications").delete().eq("id", app_id).execute()
+    return {"ok": True}
 
 
 @app.get("/api/discover/posts/{post_id}/applications")
@@ -1304,19 +1430,48 @@ async def get_discover_post_applications(post_id: str, authorization: Optional[s
         app_data = dict(app)
         if app.get("user_id"):
             try:
-                u = supabase_admin.table("users").select("avatar_url, first_name, last_name, org_name").eq("id", app["user_id"]).execute()
+                u = supabase_admin.table("users").select("avatar_url, first_name, last_name, org_name, resume_url").eq("id", app["user_id"]).execute()
                 if u.data:
-                    app_data["user_profile"] = u.data[0]
+                    profile = dict(u.data[0])
+                    raw_resume = profile.pop("resume_url", None)
+                    if raw_resume:
+                        try:
+                            bucket_marker = "/documents/"
+                            if bucket_marker in raw_resume:
+                                resume_path = raw_resume.split(bucket_marker, 1)[1].split("?")[0]
+                            else:
+                                resume_path = raw_resume.split("?")[0]
+                            signed = supabase_admin.storage.from_("documents").create_signed_url(resume_path, 3600)
+                            profile["resume_signed_url"] = signed.get("signedURL") or signed.get("signed_url") or None
+                        except Exception:
+                            profile["resume_signed_url"] = None
+                    else:
+                        profile["resume_signed_url"] = None
+                    app_data["user_profile"] = profile
             except Exception:
                 pass
             try:
                 sp = supabase_admin.table("job_seeker_profiles").select(
-                    "career_goals, work_drives_you, current_location, job_industry, department, technical_skills, soft_skills, resume_url, institute_name, education_level"
+                    "career_goals, work_drives_you, current_location, job_industry, department, technical_skills, soft_skills, institute_name, education_level"
                 ).eq("user_id", app["user_id"]).execute()
                 if sp.data:
                     app_data["seeker_profile"] = sp.data[0]
             except Exception:
                 pass
+            try:
+                exp = supabase_admin.table("experiences").select(
+                    "role, company, emp_type, start_month, start_year, end_month, end_year, is_current, location"
+                ).eq("user_id", app["user_id"]).order("is_current", desc=True).order("start_year", desc=True).execute()
+                app_data["experiences"] = exp.data or []
+            except Exception:
+                app_data["experiences"] = []
+            try:
+                edu = supabase_admin.table("educations").select(
+                    "school, level, field_of_study, start_date, end_date"
+                ).eq("user_id", app["user_id"]).order("start_date", desc=True).execute()
+                app_data["educations"] = edu.data or []
+            except Exception:
+                app_data["educations"] = []
         enhanced.append(app_data)
     return enhanced
 

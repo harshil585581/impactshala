@@ -23,6 +23,7 @@ import {
   unsaveEmploymentPosting,
 } from '../../services/savedService';
 import type { Toast } from '../../types/profile';
+import { fetchMyProfile } from '../../services/accountService';
 import ToastContainer from '../../components/ui/Toast';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1324,7 +1325,7 @@ function ApplyModal({
   onClose: () => void;
   addToast: (type: 'success' | 'error' | 'info', msg: string) => void;
 }) {
-  const [step, setStep] = useState<ApplyStep>(1);
+  const [step, setStep] = useState<ApplyStep>(2);
   const [form, setForm] = useState<ApplyForm>({ name: '', email: '', mobile: '' });
   const [eligChecked, setEligChecked] = useState<boolean[]>([]);
   const [docFiles, setDocFiles] = useState<(File | null)[]>([]);
@@ -1336,6 +1337,20 @@ function ApplyModal({
     setDocFiles((posting.required_documents ?? []).map(() => null));
   }, [posting]);
 
+  useEffect(() => {
+    fetchMyProfile()
+      .then((profile) => {
+        const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+        setForm((f) => ({ ...f, name: fullName || f.name, email: profile.email || f.email }));
+      })
+      .catch(() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          if (stored.email) setForm((f) => ({ ...f, email: stored.email }));
+        } catch {}
+      });
+  }, []);
+
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }
@@ -1346,7 +1361,13 @@ function ApplyModal({
 
   async function handleSubmit() {
     try {
-      await submitApplication(posting.id, { ...form, message: message || undefined });
+      const docNames = posting.required_documents ?? [];
+      await submitApplication(
+        posting.id,
+        { ...form, message: message || undefined },
+        docFiles,
+        docNames,
+      );
       addToast('success', 'Application submitted successfully!');
       onClose();
     } catch (err) {

@@ -14,6 +14,7 @@ import HelpBox from "../components/discover/HelpBox";
 import PromoCard from "../components/discover/PromoCard";
 import CreatePostDropdown from "../components/discover/CreatePostDropdown";
 import ApplyModal from "../components/discover/ApplyModal";
+import { fetchMyDiscoverApplications } from "../services/discoverService";
 
 export default function DiscoverPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,6 +22,7 @@ export default function DiscoverPage() {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [applyPostId, setApplyPostId] = useState<string | null>(null);
   const [linkedPost, setLinkedPost] = useState<DiscoverItem | null>(null);
+  const [appliedPostIds, setAppliedPostIds] = useState<Set<string>>(new Set());
   const linkedPostRef = useRef<HTMLDivElement>(null);
 
   const [searchParams] = useSearchParams();
@@ -43,6 +45,17 @@ export default function DiscoverPage() {
       setTimeout(() => linkedPostRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     }
   }, [linkedPost]);
+
+  // For individual users: load which posts they've already applied to
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
+    if (storedUser?.user_type === 'organization') return;
+    fetchMyDiscoverApplications()
+      .then((apps) => {
+        setAppliedPostIds(new Set(apps.map((a) => a.post_id)));
+      })
+      .catch(() => {});
+  }, []);
 
   const {
     tab,
@@ -139,10 +152,11 @@ export default function DiscoverPage() {
                     item={linkedPost}
                     onBookmark={setBookmarked}
                     isBookmarked={bookmarkedIds.has(linkedPost.id)}
+                    isApplied={appliedPostIds.has(linkedPost.id)}
                     onGetStarted={
                       linkedPost.type === "seeker"
                         ? () => handleExpand(linkedPost.id)
-                        : () => setApplyPostId(linkedPost.id)
+                        : appliedPostIds.has(linkedPost.id) ? undefined : () => setApplyPostId(linkedPost.id)
                     }
                     onExpand={linkedPost.type === "seeker" ? handleExpand : undefined}
                     isExpanded={expandedCardId === linkedPost.id}
@@ -183,10 +197,11 @@ export default function DiscoverPage() {
                       item={item}
                       onBookmark={setBookmarked}
                       isBookmarked={bookmarkedIds.has(item.id)}
+                      isApplied={tab === "providers" && appliedPostIds.has(item.id)}
                       onGetStarted={
                         tab === "seekers"
                           ? () => handleExpand(item.id)
-                          : () => setApplyPostId(item.id)
+                          : appliedPostIds.has(item.id) ? undefined : () => setApplyPostId(item.id)
                       }
                       onExpand={tab === "seekers" ? handleExpand : undefined}
                       isExpanded={expandedCardId === item.id}
@@ -242,6 +257,7 @@ export default function DiscoverPage() {
             eligibilityCriteria={post?.eligibilityCriteria}
             documentsRequired={post?.documentsRequired}
             onClose={() => setApplyPostId(null)}
+            onSuccess={(id) => setAppliedPostIds((prev) => new Set([...prev, id]))}
           />
         );
       })()}
