@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import TopBar from '../../components/TopBar';
 import Sidebar from '../../components/Sidebar';
 import {
@@ -85,6 +85,8 @@ const PAGE_SIZE = 5;
 export default function DiscoverMyPostingsPage() {
   useRequireAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preSelectPostId = searchParams.get('postId');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [posts, setPosts] = useState<DiscoverMyPost[]>([]);
@@ -102,7 +104,10 @@ export default function DiscoverMyPostingsPage() {
     fetchMyDiscoverPosts()
       .then((data) => {
         setPosts(data);
-        if (data.length > 0) setSelectedPost(data[0]);
+        if (data.length > 0) {
+          const preSelected = preSelectPostId ? data.find((p) => p.id === preSelectPostId) : null;
+          setSelectedPost(preSelected ?? data[0]);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -191,21 +196,6 @@ export default function DiscoverMyPostingsPage() {
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
         <div className="px-4 sm:px-6 py-6 max-w-[1200px] mx-auto gap-6">
 
-          {/* Post selector */}
-          {posts.length > 1 && (
-            <div className="mb-4 flex items-center gap-2 flex-wrap">
-              {posts.map((p) => (
-                <button key={p.id} type="button" onClick={() => setSelectedPost(p)}
-                  className={cn('h-9 px-4 rounded-full text-sm font-medium border transition-colors',
-                    selectedPost?.id === p.id
-                      ? 'bg-[#f77f00] text-white border-[#f77f00]'
-                      : 'border-[#e5e5e5] text-[#6b7280] hover:border-[#f77f00] hover:text-[#f77f00]')}>
-                  {p.title || 'Untitled Post'}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Post header */}
           {loading ? (
             <div className="bg-white border border-[#e5e5e5] px-6 py-5 space-y-2">
@@ -216,7 +206,7 @@ export default function DiscoverMyPostingsPage() {
           ) : selectedPost ? (
             <div className="bg-white border border-[#e5e5e5] px-6 py-5 flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-[28px] font-semibold text-black leading-tight mb-1">
+                <h1 className="text-[20px] font-semibold text-black leading-tight mb-1">
                   {selectedPost.title}
                 </h1>
                 {tags.length > 0 && (
@@ -286,14 +276,14 @@ export default function DiscoverMyPostingsPage() {
                         <div className="flex items-start gap-4">
                           <Avatar name={app.name} url={avatarUrl} size={56} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-[22px] font-semibold text-black leading-tight">{app.name}</p>
+                            <p className="text-[16px] font-semibold text-black leading-tight">{app.name}</p>
                             {appTags.length > 0 && (
-                              <p className="text-sm text-[#49454f] mt-0.5">{appTags.join(' • ')}</p>
+                              <p className="text-xs text-[#49454f] mt-0.5">{appTags.join(' • ')}</p>
                             )}
                             {locationStr && (
-                              <p className="text-sm text-[#6e6e6e] mt-0.5">{locationStr}</p>
+                              <p className="text-xs text-[#6e6e6e] mt-0.5">{locationStr}</p>
                             )}
-                            <p className="text-sm text-[#6e6e6e] font-semibold mt-2">
+                            <p className="text-xs text-[#6e6e6e] font-semibold mt-1">
                               Applied {timeAgo(app.created_at)}
                             </p>
                           </div>
@@ -421,25 +411,43 @@ export default function DiscoverMyPostingsPage() {
                       </div>
                     )}
 
-                    {selectedPost?.deliveryMode && (
+                    {(selectedApp.experiences?.length ?? 0) > 0 && (
                       <div>
-                        <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Mode</p>
-                        <p className="text-sm text-black">{selectedPost.deliveryMode}</p>
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-2">Experience</p>
+                        <div className="flex flex-col gap-3">
+                          {selectedApp.experiences!.map((exp, i) => {
+                            const start = [exp.start_month, exp.start_year].filter(Boolean).join(' ');
+                            const end = exp.is_current ? 'Present' : [exp.end_month, exp.end_year].filter(Boolean).join(' ');
+                            const period = [start, end].filter(Boolean).join(' - ');
+                            return (
+                              <div key={i}>
+                                <p className="text-sm font-semibold text-black">{exp.role} at {exp.company}</p>
+                                {period && <p className="text-xs text-[#6e6e6e] mt-0.5">{period}</p>}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
-                    {(selectedApp.seeker_profile?.job_industry || selectedApp.seeker_profile?.institute_name) && (
+                    {(selectedApp.educations?.length ?? 0) > 0 && (
                       <div>
-                        <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Education</p>
-                        {selectedApp.seeker_profile.institute_name && (
-                          <p className="text-sm font-semibold text-black">{selectedApp.seeker_profile.institute_name}</p>
-                        )}
-                        {selectedApp.seeker_profile.job_industry && (
-                          <p className="text-xs text-black">{selectedApp.seeker_profile.job_industry}</p>
-                        )}
-                        {selectedApp.seeker_profile.department && (
-                          <p className="text-xs text-[#6e6e6e]">{selectedApp.seeker_profile.department}</p>
-                        )}
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-2">Education</p>
+                        <div className="flex flex-col gap-3">
+                          {selectedApp.educations!.map((edu, i) => {
+                            const degree = [edu.level, edu.field_of_study].filter(Boolean).join(', ');
+                            const startYear = edu.start_date ? edu.start_date.split('-')[0] : null;
+                            const endYear = edu.end_date ? edu.end_date.split('-')[0] : null;
+                            const period = startYear && endYear ? `${startYear} - ${endYear}` : startYear ?? endYear ?? '';
+                            return (
+                              <div key={i}>
+                                <p className="text-sm font-semibold text-black">{edu.school}</p>
+                                {degree && <p className="text-xs text-black mt-0.5">{degree}</p>}
+                                {period && <p className="text-xs text-[#6e6e6e] mt-0.5">{period}</p>}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
@@ -458,24 +466,26 @@ export default function DiscoverMyPostingsPage() {
 
                   {/* View Profile */}
                   <button type="button"
-                    className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors w-full">
+                    onClick={() => selectedApp.user_id && navigate(`/profile/${selectedApp.user_id}`)}
+                    disabled={!selectedApp.user_id}
+                    className="border border-[#f77f00] text-[#f77f00] text-sm font-medium shrink-0 py-[12px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors w-full disabled:opacity-50">
                     View Profile
                   </button>
 
-                  {/* Resume */}
+                  {/* Resume — from applicant's profile (users.resume_url → signed URL) */}
                   <CollapseSection title="Resume" defaultOpen>
-                    {selectedApp.seeker_profile?.resume_url ? (
+                    {selectedApp.user_profile?.resume_signed_url ? (
                       <div className="flex flex-col gap-3 px-[17px] py-3">
                         <div className="bg-[#e7e7e7] w-full overflow-hidden" style={{ height: 300 }}>
                           <iframe
-                            src={selectedApp.seeker_profile.resume_url}
+                            src={selectedApp.user_profile.resume_signed_url}
                             className="w-full h-full"
                             title="Resume Preview"
                           />
                         </div>
                         <div className="flex justify-end">
                           <a
-                            href={selectedApp.seeker_profile.resume_url}
+                            href={selectedApp.user_profile.resume_signed_url}
                             download
                             target="_blank"
                             rel="noopener noreferrer"

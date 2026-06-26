@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { submitApplication } from "../../services/discoverService";
+import { fetchMyProfile } from "../../services/accountService";
 
 type Props = {
   postId: string;
@@ -7,37 +8,8 @@ type Props = {
   eligibilityCriteria?: string[];
   documentsRequired?: string[];
   onClose: () => void;
+  onSuccess?: (postId: string) => void;
 };
-
-function OutlinedField({
-  label, required, type = "text", placeholder, value, onChange, error,
-}: {
-  label: string; required?: boolean; type?: string;
-  placeholder: string; value: string; onChange: (v: string) => void; error?: string;
-}) {
-  const [focused, setFocused] = useState(false);
-  const lifted = focused || value.length > 0;
-  const borderColor = error ? "#b3261e" : focused ? "#ff9400" : "#79747e";
-  return (
-    <div className="relative w-full">
-      <label
-        className="absolute left-3 transition-all duration-150 pointer-events-none z-10 bg-white px-1"
-        style={{ top: lifted ? "-8px" : "16px", fontSize: lifted ? "12px" : "16px",
-          color: error ? "#b3261e" : focused ? "#ff9400" : "#49454f", lineHeight: "16px" }}
-      >
-        {label}{required && <span style={{ color: "#b3261e", marginLeft: "1px" }}>*</span>}
-      </label>
-      <input
-        type={type} value={value} placeholder={lifted ? placeholder : ""}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-        className="w-full h-[56px] px-4 rounded-lg bg-white text-[#18191c] text-base outline-none transition-colors placeholder:text-[#9e9e9e]"
-        style={{ border: `1px solid ${borderColor}` }}
-      />
-      {error && <p className="text-[#b3261e] text-xs mt-1 pl-1">{error}</p>}
-    </div>
-  );
-}
 
 function OrangeCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -64,22 +36,42 @@ function PaperclipIcon() {
   );
 }
 
-export default function ApplyModal({ postId, eligibilityCriteria, documentsRequired, onClose }: Props) {
+export default function ApplyModal({ postId, eligibilityCriteria, documentsRequired, onClose, onSuccess }: Props) {
   const criteria = eligibilityCriteria?.length ? eligibilityCriteria : [];
   const docLabels = documentsRequired?.length ? documentsRequired : [];
 
-  const [step, setStep] = useState<"form" | "eligibility" | "documents" | "success">("form");
+  // Skip the form step — start directly at eligibility
+  const [step, setStep] = useState<"eligibility" | "documents" | "success">("eligibility");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [profileLoading, setProfileLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [checked, setChecked] = useState<boolean[]>(criteria.map(() => false));
-  // One File slot per required document
   const [docFiles, setDocFiles] = useState<(File | null)[]>(docLabels.map(() => null));
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Auto-fill name and email from the logged-in user's profile
+  useEffect(() => {
+    fetchMyProfile()
+      .then((profile) => {
+        const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim();
+        setName(fullName || "");
+        setEmail(profile.email || "");
+        // phone is not stored in profile; leave blank
+      })
+      .catch(() => {
+        // fallback: try localStorage
+        try {
+          const stored = JSON.parse(localStorage.getItem("user") || "{}");
+          if (stored.email) setEmail(stored.email);
+        } catch {}
+      })
+      .finally(() => setProfileLoading(false));
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -91,15 +83,6 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
     };
   }, [onClose]);
 
-  function validateForm() {
-    const e: Record<string, string> = {};
-    if (!name.trim()) e.name = "Name is required";
-    if (!email.trim()) e.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Enter a valid email";
-    setFormErrors(e);
-    return Object.keys(e).length === 0;
-  }
-
   function handleFileChange(i: number, file: File | null) {
     setDocFiles((prev) => {
       const next = [...prev];
@@ -110,6 +93,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
 
   async function handleSubmit() {
     setSubmitting(true);
+    setSubmitError("");
     try {
       const files: File[] = [];
       const labels: string[] = [];
@@ -117,9 +101,10 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
         if (f) { files.push(f); labels.push(docLabels[i] ?? f.name); }
       });
       await submitApplication({ postId, name, email, phone, message, documents: files, documentLabels: labels });
+      onSuccess?.(postId);
       setStep("success");
     } catch {
-      setFormErrors({ submit: "Submission failed. Please try again." });
+      setSubmitError("Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -161,41 +146,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
           </div>
         )}
 
-        {/* ══ STEP 1: Basic info ══ */}
-        {step === "form" && (
-          <>
-            <div className="px-10 py-7 text-center border-b" style={{ background: "#fff4e5", borderColor: "#d78005" }}>
-              <h2 className="text-[#49454f] font-normal leading-snug" style={{ fontSize: "30px", lineHeight: "33px" }}>
-                Submit your application
-              </h2>
-            </div>
-            <div className="px-10 py-8 flex flex-col gap-8 overflow-y-auto">
-              <div className="flex flex-col gap-8">
-                <OutlinedField label="Name" required placeholder="Enter your name" value={name} onChange={setName} error={formErrors.name} />
-                <OutlinedField label="Email" required type="email" placeholder="Enter your email" value={email} onChange={setEmail} error={formErrors.email} />
-                <OutlinedField label="Mobile Number" type="tel" placeholder="Enter your Mobile Number" value={phone} onChange={setPhone} />
-              </div>
-              {formErrors.submit && <p className="text-[#b3261e] text-sm text-center">{formErrors.submit}</p>}
-              <div className="flex gap-8">
-                <button type="button" onClick={onClose}
-                  className="flex-1 h-14 rounded-[5px] border text-[#ff9400] font-medium text-sm hover:bg-[#fff4e5] transition-colors"
-                  style={{ borderColor: "#ff9400" }}>
-                  Go Back
-                </button>
-                <button type="button" onClick={() => { if (validateForm()) setStep("eligibility"); }}
-                  className="flex-1 h-14 rounded-[5px] bg-[#ff9400] text-white font-medium text-sm hover:bg-[#e68500] transition-colors">
-                  Next
-                </button>
-              </div>
-              <p className="text-[#79747e] text-sm text-center -mt-4">
-                By submitting this form, you agree to our{" "}
-                <a href="#" className="text-[#0088ff] hover:underline" onClick={(e) => e.preventDefault()}>Terms of Use and consent</a>.
-              </p>
-            </div>
-          </>
-        )}
-
-        {/* ══ STEP 2: Eligibility checkboxes ══ */}
+        {/* ══ STEP 1 (now first): Eligibility checkboxes ══ */}
         {step === "eligibility" && (
           <div className="p-8 flex flex-col gap-8 overflow-y-auto">
             <div className="flex items-start justify-between gap-4">
@@ -208,6 +159,13 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
                 </svg>
               </button>
             </div>
+
+            {profileLoading ? (
+              <div className="flex items-center gap-2 text-sm text-[#79747e]">
+                <div className="w-4 h-4 border-2 border-[#ff9400] border-t-transparent rounded-full animate-spin" />
+                Loading your profile…
+              </div>
+            ) : null}
 
             {criteria.length === 0 ? (
               <p className="text-[#555] text-base">No specific eligibility criteria for this posting.</p>
@@ -226,15 +184,20 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
               </div>
             )}
 
+            {submitError && <p className="text-[#b3261e] text-sm text-center">{submitError}</p>}
+
             <div className="flex items-center justify-between pt-2">
-              <button onClick={() => setStep("form")}
+              {/* Back closes the modal — no form step to return to */}
+              <button
+                onClick={onClose}
                 className="h-10 px-6 rounded-full border text-[#ff9400] font-medium text-sm hover:bg-[#fff4e5] transition-colors"
-                style={{ borderColor: "#ff9400" }}>
+                style={{ borderColor: "#ff9400" }}
+              >
                 Back
               </button>
               <button
                 onClick={goToNextAfterEligibility}
-                disabled={!allChecked || submitting}
+                disabled={!allChecked || submitting || profileLoading}
                 className="h-10 px-6 rounded-full bg-[#ff9400] text-white font-medium text-sm hover:bg-[#e68500] transition-colors disabled:opacity-50"
               >
                 {submitting ? "Submitting…" : "Next"}
@@ -243,7 +206,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
           </div>
         )}
 
-        {/* ══ STEP 3: Document uploads ══ */}
+        {/* ══ STEP 2: Document uploads ══ */}
         {step === "documents" && (
           <div className="p-8 flex flex-col gap-6 overflow-y-auto">
             <div className="flex items-start justify-between gap-4">
@@ -297,12 +260,14 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
               <p className="text-right text-xs text-[#79747e]">{message.length}/500 characters</p>
             </div>
 
-            {formErrors.submit && <p className="text-[#b3261e] text-sm text-center">{formErrors.submit}</p>}
+            {submitError && <p className="text-[#b3261e] text-sm text-center">{submitError}</p>}
 
             <div className="flex items-center justify-between pt-2">
-              <button onClick={() => setStep("eligibility")}
+              <button
+                onClick={() => setStep("eligibility")}
                 className="h-10 px-6 rounded-full border text-[#ff9400] font-medium text-sm hover:bg-[#fff4e5] transition-colors"
-                style={{ borderColor: "#ff9400" }}>
+                style={{ borderColor: "#ff9400" }}
+              >
                 Back
               </button>
               <button
@@ -310,7 +275,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
                 disabled={submitting}
                 className="h-10 px-6 rounded-full bg-[#ff9400] text-white font-medium text-sm hover:bg-[#e68500] transition-colors disabled:opacity-50"
               >
-                {submitting ? "Submitting…" : "Next"}
+                {submitting ? "Submitting…" : "Submit"}
               </button>
             </div>
           </div>

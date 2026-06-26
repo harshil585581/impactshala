@@ -804,11 +804,13 @@ CREATE TABLE IF NOT EXISTS employment_applications (
   email         TEXT        NOT NULL,
   mobile        TEXT,
   message       TEXT,
+  document_data JSONB       NOT NULL DEFAULT '[]'::jsonb,
   status        TEXT        NOT NULL DEFAULT 'applied'
                   CHECK (status IN ('applied', 'not_a_fit', 'maybe', 'goodfit')),
   applied_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (posting_id, applicant_id)
 );
+ALTER TABLE employment_applications ADD COLUMN IF NOT EXISTS document_data JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 ALTER TABLE employment_applications ENABLE ROW LEVEL SECURITY;
 

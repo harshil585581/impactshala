@@ -35,6 +35,7 @@ import ProfessionalAccountUpdatePage from './pages/account/ProfessionalAccountUp
 import EducatorAccountUpdatePage from './pages/account/EducatorAccountUpdatePage';
 import AuthCallbackPage from './pages/auth/AuthCallbackPage';
 import MyApplicationsPage from './pages/applications/MyApplicationsPage';
+import DiscoverAppliedPage from './pages/applications/DiscoverAppliedPage';
 import DiscoverMyPostingsPage from './pages/applications/DiscoverMyPostingsPage';
 import ApplicantsDetailPage from './pages/applications/ApplicantsDetailPage';
 import MyPostingsPage from './pages/applications/MyPostingsPage';
@@ -105,7 +106,8 @@ export default function App() {
         <Route path="/discover/create/seeker" element={<CreateSeekerPage />} />
         <Route path="/discover/create/seeker/details" element={<CreateSeekerDetailsPage />} />
         <Route path="/discover/create/seeker/preview" element={<CreateSeekerPreviewPage />} />
-        <Route path="/applications" element={<DiscoverMyPostingsPage />} />
+        <Route path="/applications" element={<DiscoverAppliedPage />} />
+        <Route path="/applications/postings" element={<DiscoverMyPostingsPage />} />
         <Route path="/applications/my-applications" element={<MyApplicationsPage />} />
         <Route path="/applications/my-postings" element={<MyPostingsPage />} />
         <Route path="/applications/detail/:postingId" element={<ApplicantsDetailPage />} />

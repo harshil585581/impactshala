@@ -1,5 +1,13 @@
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const session = await getAuthenticatedSession();
+  const token = session?.access_token ?? '';
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+}
+
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 async function requireSession() {
@@ -350,12 +358,49 @@ export type EmploymentApplication = {
 
 export type MyApplication = EmploymentApplication & { posting: EmployerPosting | null };
 
+export type RichEmploymentApplication = EmploymentApplication & {
+  user_profile?: { avatar_url: string | null; first_name: string | null; last_name: string | null; org_name: string | null; resume_signed_url?: string | null } | null;
+  seeker_profile?: {
+    career_goals: string | null; work_drives_you: string | null; current_location: string | null;
+    job_industry: string | null; department: string | null; technical_skills: string[];
+    soft_skills: string[]; resume_url: string | null; institute_name: string | null;
+    education_level: string | null; documents_required: string[];
+  } | null;
+  experiences?: Array<{
+    role: string; company: string; emp_type: string | null;
+    start_month: string | null; start_year: string | null;
+    end_month: string | null; end_year: string | null;
+    is_current: boolean; location: string | null;
+  }>;
+  educations?: Array<{
+    school: string; level: string | null; field_of_study: string | null;
+    start_date: string | null; end_date: string | null;
+  }>;
+  document_data?: Array<{ name: string; url: string }>;
+};
+
 export async function submitApplication(
   postingId: string,
   data: { name: string; email: string; mobile: string; message?: string },
+  docFiles?: (File | null)[],
+  docNames?: string[],
 ): Promise<void> {
   const userId = getStoredUserId();
   if (!userId) throw new Error('Not logged in');
+
+  // Upload document files and collect {name, url} pairs
+  const documentData: { name: string; url: string }[] = [];
+  if (docFiles?.length) {
+    for (let i = 0; i < docFiles.length; i++) {
+      const file = docFiles[i];
+      if (!file) continue;
+      try {
+        const url = await uploadFile('employment-hub-media', 'documents', file);
+        documentData.push({ name: docNames?.[i] ?? `Document ${i + 1}`, url });
+      } catch {}
+    }
+  }
+
   const { error } = await supabase
     .from('employment_applications')
     .upsert(
@@ -366,6 +411,7 @@ export async function submitApplication(
         email: data.email,
         mobile: data.mobile || null,
         message: data.message || null,
+        document_data: documentData,
       },
       { onConflict: 'posting_id,applicant_id' },
     );
@@ -382,6 +428,13 @@ export async function fetchApplicationsForPosting(
     .order('applied_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as EmploymentApplication[];
+}
+
+export async function fetchRichApplicationsForPosting(postingId: string): Promise<RichEmploymentApplication[]> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/api/employment/postings/${postingId}/applications`, { headers });
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function updateApplicationStatus(
@@ -405,6 +458,14 @@ export async function fetchMyApplicationsAsSeeker(): Promise<MyApplication[]> {
     .order('applied_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as MyApplication[];
+}
+
+export async function withdrawEmploymentApplication(appId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/employment/applications/${appId}/withdraw`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
 }
 
 export async function fetchApplicationCountsForPostings(

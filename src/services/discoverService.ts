@@ -276,6 +276,26 @@ export type DiscoverMyPost = {
   documentsRequired: string[];
   status: string;
   createdAt: string;
+  applicant_count?: number;
+};
+
+export type MyDiscoverApplication = {
+  id: string;
+  post_id: string;
+  status: "applied" | "not_a_fit" | "maybe" | "goodfit";
+  created_at: string;
+  post?: {
+    title: string;
+    domain: string;
+    nature: string;
+    address: string;
+    delivery_mode: string;
+  };
+  post_creator?: {
+    org_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
+  };
 };
 
 export type DiscoverApplication = {
@@ -294,6 +314,7 @@ export type DiscoverApplication = {
     first_name: string | null;
     last_name: string | null;
     org_name: string | null;
+    resume_signed_url?: string | null;
   };
   seeker_profile?: {
     career_goals: string | null;
@@ -303,10 +324,27 @@ export type DiscoverApplication = {
     department: string | null;
     technical_skills: string[] | null;
     soft_skills: string[] | null;
-    resume_url: string | null;
     institute_name: string | null;
     education_level: string | null;
   };
+  experiences?: Array<{
+    role: string;
+    company: string;
+    emp_type: string | null;
+    start_month: string | null;
+    start_year: string | null;
+    end_month: string | null;
+    end_year: string | null;
+    is_current: boolean;
+    location: string | null;
+  }>;
+  educations?: Array<{
+    school: string;
+    level: string | null;
+    field_of_study: string | null;
+    start_date: string | null;
+    end_date: string | null;
+  }>;
 };
 
 export type DiscoverApplicationStatus = "applied" | "not_a_fit" | "maybe" | "goodfit";
@@ -343,6 +381,22 @@ export async function updateDiscoverApplicationStatus(
     method: "PATCH",
     headers: await authHeaders(),
     body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+}
+
+export async function fetchMyDiscoverApplications(): Promise<MyDiscoverApplication[]> {
+  const res = await fetch(`${API_URL}/api/discover/my-applications`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+export async function withdrawDiscoverApplication(appId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/discover/applications/${appId}/withdraw`, {
+    method: "DELETE",
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`${res.status}`);
 }

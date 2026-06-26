@@ -393,7 +393,7 @@ export default function HomePage() {
           </div>
 
           {/* Right Panel */}
-          <div className="hidden xl:block w-[340px] shrink-0 self-start sticky top-[35px]">
+          <div className="hidden xl:block w-[340px] shrink-0 self-start sticky top-[-155px]">
             <RightPanel />
           </div>
         </div>
