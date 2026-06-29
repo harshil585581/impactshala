@@ -270,17 +270,13 @@ function SeekerView() {
 function ApplicantDetailPanel({
   selected,
   selectedPosting,
-  applications,
   setApplications,
-  setSelectedId,
   statusUpdating,
   setStatusUpdating,
 }: {
   selected: RichEmploymentApplication;
   selectedPosting: EmployerPosting;
-  applications: RichEmploymentApplication[];
   setApplications: React.Dispatch<React.SetStateAction<RichEmploymentApplication[]>>;
-  setSelectedId: React.Dispatch<React.SetStateAction<string | null>>;
   statusUpdating: string | null;
   setStatusUpdating: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
@@ -707,9 +703,7 @@ function OrgView() {
             <ApplicantDetailPanel
               selected={selected}
               selectedPosting={selectedPosting}
-              applications={applications}
               setApplications={setApplications}
-              setSelectedId={setSelectedId}
               statusUpdating={statusUpdating}
               setStatusUpdating={setStatusUpdating}
             />

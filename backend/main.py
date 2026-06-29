@@ -784,12 +784,82 @@ async def get_my_courses(authorization: str = Header(None)):
 @app.get("/api/learning/my-courses/{course_id}/applications")
 async def get_course_applications(course_id: str, authorization: str = Header(None)):
     user_id = get_user_id(authorization)
-    # Verify this course belongs to the requesting user
     course_check = supabase_admin.table("learning_courses").select("id").eq("id", course_id).eq("user_id", user_id).execute()
     if not course_check.data:
         raise HTTPException(status_code=403, detail="Not your course or course not found")
     result = supabase_admin.table("course_applications").select("*").eq("course_id", course_id).order("created_at", desc=True).execute()
-    return result.data or []
+    apps = result.data or []
+    enhanced = []
+    for app in apps:
+        app_data = dict(app)
+        applicant_id = app.get("user_id")
+        if applicant_id:
+            try:
+                u = supabase_admin.table("users").select("avatar_url, first_name, last_name, org_name, resume_url").eq("id", applicant_id).execute()
+                if u.data:
+                    profile = dict(u.data[0])
+                    raw_resume = profile.pop("resume_url", None)
+                    if raw_resume:
+                        try:
+                            bucket_marker = "/documents/"
+                            if bucket_marker in raw_resume:
+                                resume_path = raw_resume.split(bucket_marker, 1)[1].split("?")[0]
+                            else:
+                                resume_path = raw_resume.split("?")[0]
+                            signed = supabase_admin.storage.from_("documents").create_signed_url(resume_path, 3600)
+                            profile["resume_signed_url"] = signed.get("signedURL") or signed.get("signed_url") or None
+                        except Exception:
+                            profile["resume_signed_url"] = None
+                    else:
+                        profile["resume_signed_url"] = None
+                    app_data["user_profile"] = profile
+            except Exception:
+                pass
+            try:
+                exp = supabase_admin.table("experiences").select(
+                    "role, company, emp_type, start_month, start_year, end_month, end_year, is_current, location"
+                ).eq("user_id", applicant_id).order("is_current", desc=True).order("start_year", desc=True).execute()
+                app_data["experiences"] = exp.data or []
+            except Exception:
+                app_data["experiences"] = []
+            try:
+                edu = supabase_admin.table("educations").select(
+                    "school, level, field_of_study, start_date, end_date"
+                ).eq("user_id", applicant_id).order("start_date", desc=True).execute()
+                app_data["educations"] = edu.data or []
+            except Exception:
+                app_data["educations"] = []
+        enhanced.append(app_data)
+    return enhanced
+
+
+@app.patch("/api/learning/applications/{app_id}/status")
+async def update_course_application_status(app_id: str, body: dict, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    app_check = supabase_admin.table("course_applications").select("course_id").eq("id", app_id).execute()
+    if not app_check.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+    course_id = app_check.data[0]["course_id"]
+    course_check = supabase_admin.table("learning_courses").select("id").eq("id", course_id).eq("user_id", user_id).execute()
+    if not course_check.data:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    new_status = body.get("status")
+    if new_status not in ("applied", "not_a_fit", "maybe", "goodfit"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    supabase_admin.table("course_applications").update({"status": new_status}).eq("id", app_id).execute()
+    return {"ok": True}
+
+
+@app.delete("/api/learning/applications/{app_id}/withdraw")
+async def withdraw_course_application(app_id: str, authorization: str = Header(None)):
+    user_id = get_user_id(authorization)
+    app_check = supabase_admin.table("course_applications").select("user_id").eq("id", app_id).execute()
+    if not app_check.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if app_check.data[0].get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    supabase_admin.table("course_applications").delete().eq("id", app_id).execute()
+    return {"ok": True}
 
 
 @app.post("/api/upload/course-image")
@@ -2419,6 +2489,282 @@ class MentionNotifyRequest(BaseModel):
     commenter_name: str
     post_id: Optional[str] = None
     post_table: Optional[str] = None
+
+
+@app.get("/api/admin/users")
+async def admin_list_users(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(8, ge=1, le=100),
+    authorization: str = Header(None),
+):
+    """Paginated list of all users for the admin General view."""
+    get_user_id(authorization)
+
+    offset = (page - 1) * per_page
+    end = offset + per_page - 1
+
+    res = supabase_admin.table("users").select(
+        "id, first_name, last_name, org_name, avatar_url, user_type, role, org_type, email, created_at, deactivated_at",
+        count="exact",
+    ).order("created_at", desc=True).range(offset, end).execute()
+
+    return {
+        "users": res.data or [],
+        "total": res.count or 0,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
+@app.delete("/api/admin/users/{target_id}")
+async def admin_delete_user(target_id: str, authorization: str = Header(None)):
+    """Hard-delete a user (admin only). Removes auth user which cascades to profile."""
+    get_user_id(authorization)
+    try:
+        supabase_admin.auth.admin.delete_user(target_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"deleted": target_id}
+
+
+@app.get("/api/admin/stats")
+async def get_admin_stats(authorization: str = Header(None)):
+    """
+    Admin dashboard stats. Uses the service-role client (supabase_admin)
+    so all queries bypass RLS and return accurate counts.
+    Requires a valid user JWT — anyone authenticated can call this for now.
+    """
+    get_user_id(authorization)  # validates token; raises 401 if missing/invalid
+
+    from datetime import datetime as _dt
+    now = _dt.now()
+    start_of_month = _dt(now.year, now.month, 1).isoformat()
+
+    # ── Basic counts ──────────────────────────────────────────────────────────
+    total_users_res = supabase_admin.table("users").select(
+        "*", count="exact"
+    ).execute()
+
+    orgs_res = supabase_admin.table("users").select(
+        "*", count="exact"
+    ).eq("user_type", "organization").execute()
+
+    active_users_res = supabase_admin.table("users").select(
+        "*", count="exact"
+    ).is_("deactivated_at", "null").execute()
+
+    initiatives_res = supabase_admin.table("collaborative_accomplishments").select(
+        "*", count="exact"
+    ).execute()
+
+    # ── Monthly engagement ─────────────────────────────────────────────────────
+    # Distinct users who posted, liked, OR commented this month — same formula
+    # LinkedIn uses for Member Engagement Rate.
+    posts_res = supabase_admin.table("posts").select("user_id").gte(
+        "created_at", start_of_month
+    ).limit(10000).execute()
+
+    likes_res = supabase_admin.table("post_likes").select("user_id").gte(
+        "created_at", start_of_month
+    ).limit(10000).execute()
+
+    comments_res = supabase_admin.table("post_comments").select("user_id").gte(
+        "created_at", start_of_month
+    ).limit(10000).execute()
+
+    engaged: set = set()
+    for row in (posts_res.data or []):
+        engaged.add(row["user_id"])
+    for row in (likes_res.data or []):
+        engaged.add(row["user_id"])
+    for row in (comments_res.data or []):
+        engaged.add(row["user_id"])
+
+    active_count = active_users_res.count or 0
+    engagement_pct = (
+        min(100, round(len(engaged) / active_count * 100))
+        if active_count > 0 else 0
+    )
+
+    # ── Engagement overview counts ────────────────────────────────────────────
+    media_posts_res = supabase_admin.table("posts").select(
+        "*", count="exact"
+    ).in_("post_type", ["photo", "video"]).execute()
+
+    events_res = supabase_admin.table("posts").select(
+        "*", count="exact"
+    ).eq("post_type", "event").execute()
+
+    polls_res = supabase_admin.table("posts").select(
+        "*", count="exact"
+    ).eq("post_type", "poll").execute()
+
+    employment_posts_res = supabase_admin.table("employment_hub_postings").select(
+        "*", count="exact"
+    ).execute()
+
+    learning_posts_res = supabase_admin.table("learning_courses").select(
+        "*", count="exact"
+    ).execute()
+
+    # ── User categorisation ───────────────────────────────────────────────────
+    # Left chart: individual users grouped by role
+    individual_res = supabase_admin.table("users").select("role").eq(
+        "user_type", "individual"
+    ).limit(10000).execute()
+
+    # Right chart: organisations grouped by org_type
+    org_type_res = supabase_admin.table("users").select("org_type").eq(
+        "user_type", "organization"
+    ).limit(10000).execute()
+
+    def _categorise(rows: list, field: str) -> list:
+        counts: dict = {}
+        for row in rows:
+            val = (row.get(field) or "unknown").strip()
+            counts[val] = counts.get(val, 0) + 1
+        total = sum(counts.values()) or 1
+        return [
+            {"key": k, "count": v, "pct": round(v / total * 100, 1)}
+            for k, v in sorted(counts.items(), key=lambda x: -x[1])
+        ]
+
+    individual_categories = _categorise(individual_res.data or [], "role")
+    org_categories = _categorise(org_type_res.data or [], "org_type")
+
+    return {
+        "total_users": total_users_res.count or 0,
+        "total_organisations": orgs_res.count or 0,
+        "active_users": active_count,
+        "completed_initiatives": initiatives_res.count or 0,
+        "monthly_engagement": f"{engagement_pct}%",
+        "individual_categories": individual_categories,
+        "org_categories": org_categories,
+        "media_posts": media_posts_res.count or 0,
+        "events": events_res.count or 0,
+        "polls": polls_res.count or 0,
+        "employment_posts": employment_posts_res.count or 0,
+        "learning_posts": learning_posts_res.count or 0,
+    }
+
+
+@app.get("/api/admin/client-requests")
+async def admin_list_client_requests(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(8, ge=1, le=100),
+    tab: str = Query("open"),
+    search: str = Query(""),
+    authorization: str = Header(None),
+):
+    """Paginated help_center_inquiries for the admin Client Requests view."""
+    get_user_id(authorization)
+
+    status_val = "closed" if tab == "closed" else ("cancelled" if tab == "cancelled" else "open")
+    offset = (page - 1) * per_page
+    end = offset + per_page - 1
+
+    q = (
+        supabase_admin.table("help_center_inquiries")
+        .select("id, user_id, name, email, category, urgency, timeline, status, created_at", count="exact")
+        .eq("status", status_val)
+    )
+    if search:
+        q = q.ilike("name", f"%{search}%")
+    res = q.order("created_at", desc=True).range(offset, end).execute()
+    inquiries = res.data or []
+
+    # Batch-fetch linked user profiles
+    user_ids = list({i["user_id"] for i in inquiries if i.get("user_id")})
+    users_map: dict = {}
+    if user_ids:
+        u_res = supabase_admin.table("users").select(
+            "id, first_name, last_name, org_name, avatar_url, user_type"
+        ).in_("id", user_ids).execute()
+        users_map = {u["id"]: u for u in (u_res.data or [])}
+
+    # Stats — absolute totals unaffected by tab/search
+    open_c = supabase_admin.table("help_center_inquiries").select("id", count="exact").eq("status", "open").execute()
+    closed_c = supabase_admin.table("help_center_inquiries").select("id", count="exact").eq("status", "closed").execute()
+    cancelled_c = supabase_admin.table("help_center_inquiries").select("id", count="exact").eq("status", "cancelled").execute()
+
+    result = []
+    for inq in inquiries:
+        user = users_map.get(inq.get("user_id") or "", {})
+        result.append({
+            "id": inq["id"],
+            "name": inq.get("name") or "",
+            "email": inq.get("email") or "",
+            "category": inq.get("category") or "",
+            "urgency": inq.get("urgency") or "",
+            "timeline": str(inq.get("timeline") or ""),
+            "status": inq.get("status") or "open",
+            "created_at": inq.get("created_at") or "",
+            "user_id": inq.get("user_id"),
+            "user": {
+                "first_name": user.get("first_name") or "",
+                "last_name": user.get("last_name") or "",
+                "org_name": user.get("org_name") or "",
+                "avatar_url": user.get("avatar_url"),
+                "user_type": user.get("user_type") or "individual",
+            } if user else None,
+        })
+
+    return {
+        "inquiries": result,
+        "total": res.count or 0,
+        "page": page,
+        "per_page": per_page,
+        "stats": {
+            "total": (open_c.count or 0) + (closed_c.count or 0) + (cancelled_c.count or 0),
+            "open": open_c.count or 0,
+            "closed": closed_c.count or 0,
+            "cancelled": cancelled_c.count or 0,
+        },
+    }
+
+
+@app.get("/api/admin/client-requests/{inquiry_id}")
+async def admin_get_client_request(inquiry_id: str, authorization: str = Header(None)):
+    """Full detail of a single help_center_inquiry (admin only)."""
+    get_user_id(authorization)
+    res = supabase_admin.table("help_center_inquiries").select("*").eq("id", inquiry_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+    inq = res.data[0]
+    user = None
+    if inq.get("user_id"):
+        u_res = supabase_admin.table("users").select(
+            "id, first_name, last_name, org_name, avatar_url, user_type"
+        ).eq("id", inq["user_id"]).execute()
+        if u_res.data:
+            user = u_res.data[0]
+    return {**inq, "user": user}
+
+
+class UpdateInquiryStatus(BaseModel):
+    status: str
+
+
+@app.patch("/api/admin/client-requests/{inquiry_id}/status")
+async def admin_update_client_request_status(
+    inquiry_id: str,
+    data: UpdateInquiryStatus,
+    authorization: str = Header(None),
+):
+    """Update help_center_inquiry status (admin only): open | closed | cancelled."""
+    get_user_id(authorization)
+    if data.status not in ("open", "closed", "cancelled"):
+        raise HTTPException(status_code=400, detail="status must be open, closed, or cancelled")
+    supabase_admin.table("help_center_inquiries").update({"status": data.status}).eq("id", inquiry_id).execute()
+    return {"updated": inquiry_id, "status": data.status}
+
+
+@app.delete("/api/admin/client-requests/{inquiry_id}")
+async def admin_delete_client_request(inquiry_id: str, authorization: str = Header(None)):
+    """Hard-delete a help_center_inquiry (admin only)."""
+    get_user_id(authorization)
+    supabase_admin.table("help_center_inquiries").delete().eq("id", inquiry_id).execute()
+    return {"deleted": inquiry_id}
 
 
 @app.post("/api/comments/notify-mentions")

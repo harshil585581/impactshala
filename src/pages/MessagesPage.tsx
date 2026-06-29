@@ -138,36 +138,33 @@ type GroupMember = {
   role?: "Owner" | "Admin" | "Moderator";
 };
 
-const DEFAULT_MEMBERS: GroupMember[] = [
-  { id: "gm1", name: "Alex Mason", initials: "AM", avatarColor: "#4f46e5", role: "Owner" },
-  { id: "gm2", name: "Andrew Joseph", initials: "AJ", avatarColor: "#10b981", role: "Admin" },
-  { id: "gm3", name: "Avery Quinn", initials: "AQ", avatarColor: "#ec4899", role: "Moderator" },
-  { id: "gm4", name: "Brian Michael", initials: "BM", avatarColor: "#f59e0b" },
-  { id: "gm5", name: "Carol Davis", initials: "CD", avatarColor: "#0ea5e9" },
-  { id: "gm6", name: "David Wilson", initials: "DW", avatarColor: "#8b5cf6" },
-  { id: "gm7", name: "Emma Roberts", initials: "ER", avatarColor: "#f77f00" },
-  { id: "gm8", name: "Frank Turner", initials: "FT", avatarColor: "#14b8a6" },
-];
-
-const MOCK_GROUP_MEMBERS: Record<string, GroupMember[]> = {
-  default: DEFAULT_MEMBERS,
+type Group = {
+  id: string;
+  name: string;
+  members: number;
+  initials: string;
+  avatarColor: string;
+  online?: boolean;
 };
 
-type Contact = { id: string; name: string; initials: string; avatarColor: string };
-const ALL_CONTACTS: Contact[] = [
-  { id: "ac1",  name: "Alex Mason",      initials: "AM", avatarColor: "#4f46e5" },
-  { id: "ac2",  name: "Andrew Joseph",   initials: "AJ", avatarColor: "#10b981" },
-  { id: "ac3",  name: "Avery Quinn",     initials: "AQ", avatarColor: "#ec4899" },
-  { id: "ac4",  name: "Brian Michael",   initials: "BM", avatarColor: "#f59e0b" },
-  { id: "ac5",  name: "Cameron Lee",     initials: "CL", avatarColor: "#0ea5e9" },
-  { id: "ac6",  name: "Charles Dean",    initials: "CD", avatarColor: "#8b5cf6" },
-  { id: "ac7",  name: "Dana Cooper",     initials: "DC", avatarColor: "#f77f00" },
-  { id: "ac8",  name: "Emily",           initials: "EM", avatarColor: "#14b8a6" },
-  { id: "ac9",  name: "George Allen",    initials: "GA", avatarColor: "#4f46e5" },
-  { id: "ac10", name: "Jennifer Lynn",   initials: "JL", avatarColor: "#ec4899" },
-  { id: "ac11", name: "Jessica",         initials: "JE", avatarColor: "#f59e0b" },
-  { id: "ac12", name: "John Paul",       initials: "JP", avatarColor: "#0ea5e9" },
-];
+type CallLog = {
+  id: string;
+  name: string;
+  initials?: string;
+  avatarColor?: string;
+  date: string;
+  type: "outgoing" | "missed";
+  missedCount?: number;
+};
+
+type Contact = {
+  id: string;
+  name: string;
+  initials: string;
+  avatarColor: string;
+};
+
+
 
 const MOCK_GROUP_CHAT_MESSAGES: Record<string, Message[]> = {
   g9: [
@@ -183,48 +180,6 @@ const MOCK_GROUP_CHAT_MESSAGES: Record<string, Message[]> = {
 };
 
 
-type CallLog = {
-  id: string;
-  name: string;
-  initials?: string;
-  avatarColor?: string;
-  date: string;
-  type: "outgoing" | "missed";
-  missedCount?: number;
-};
-
-const MOCK_CALLS: CallLog[] = [
-  { id: "cl1", name: "John Paul", initials: "JP", avatarColor: "#4f46e5", date: "8 August, 8:14 pm", type: "outgoing" },
-  { id: "cl2", name: "Epic Games", initials: "EG", avatarColor: "#8b5cf6", date: "8 August, 8:14 pm", type: "outgoing" },
-  { id: "cl3", name: "Tessa", initials: "TE", avatarColor: "#ec4899", date: "8 August, 8:14 pm", type: "missed", missedCount: 2 },
-  { id: "cl4", name: "Paul David", initials: "PD", avatarColor: "#0ea5e9", date: "8 August, 8:14 pm", type: "outgoing" },
-  { id: "cl5", name: "Robert Allen", initials: "RA", avatarColor: "#10b981", date: "8 August, 8:14 pm", type: "outgoing" },
-  { id: "cl6", name: "Safiya Fareena", initials: "SF", avatarColor: "#f59e0b", date: "8 August, 8:14 pm", type: "outgoing" },
-  { id: "cl7", name: "Michael Scott", initials: "MS", avatarColor: "#6366f1", date: "8 August, 8:14 pm", type: "missed" },
-  { id: "cl8", name: "Scott Franklin", initials: "SF", avatarColor: "#f77f00", date: "8 August, 8:14 pm", type: "outgoing" },
-];
-
-
-type Group = {
-  id: string;
-  name: string;
-  members: number;
-  initials: string;
-  avatarColor: string;
-  online?: boolean;
-};
-
-const MOCK_GROUPS: Group[] = [
-  { id: "g1", name: "Artistic Design", members: 24, initials: "AD", avatarColor: "#8b5cf6" },
-  { id: "g2", name: "Bright Minds Education", members: 233, initials: "BM", avatarColor: "#f77f00" },
-  { id: "g3", name: "Code Craze", members: 8, initials: "CC", avatarColor: "#6366f1" },
-  { id: "g4", name: "Creative Event", members: 42, initials: "CE", avatarColor: "#ec4899" },
-  { id: "g5", name: "Epic Game", members: 33, initials: "EG", avatarColor: "#0ea5e9", online: true },
-  { id: "g6", name: "Design Duo", members: 16, initials: "DD", avatarColor: "#10b981" },
-  { id: "g7", name: "Future of Digital Technology", members: 11, initials: "FD", avatarColor: "#4f46e5" },
-  { id: "g8", name: "Health Haven", members: 35, initials: "HH", avatarColor: "#f77f00" },
-  { id: "g9", name: "Innovative Online Shopping", members: 44, initials: "IO", avatarColor: "#f59e0b" },
-];
 
 // ─── Avatar helper ───────────────────────────────────────────────────────────
 
@@ -868,7 +823,7 @@ export default function MessagesPage() {
   const [userSearch, setUserSearch] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
-  const [newGroupType, setNewGroupType] = useState<"Public" | "Private" | "Password">("Public");
+  const [_newGroupType, _setNewGroupType] = useState<"Public" | "Private" | "Password">("Public");
   const [newGroupName, setNewGroupName] = useState("");
   const [createGroupError, setCreateGroupError] = useState("");
   const [createGroupLoading, setCreateGroupLoading] = useState(false);

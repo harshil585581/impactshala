@@ -342,8 +342,10 @@ CREATE TABLE IF NOT EXISTS course_applications (
   applicant_mobile  TEXT,
   message           TEXT,
   document_urls     TEXT[]      NOT NULL DEFAULT '{}',
+  status            TEXT        NOT NULL DEFAULT 'applied' CHECK (status IN ('applied', 'not_a_fit', 'maybe', 'goodfit')),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE course_applications ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'applied' CHECK (status IN ('applied', 'not_a_fit', 'maybe', 'goodfit'));
 
 ALTER TABLE course_applications ENABLE ROW LEVEL SECURITY;
 
@@ -1241,3 +1243,20 @@ CREATE POLICY "Members can send messages"
 CREATE POLICY "Senders can edit/delete their messages"
   ON group_messages FOR UPDATE TO authenticated
   USING (auth.uid() = sender_id);
+
+-- ============================================================
+-- Add status column to help_center_inquiries (admin workflow)
+-- Run this in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE help_center_inquiries
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open'
+  CHECK (status IN ('open', 'closed', 'cancelled'));
+
+-- Allow admin (service role) to update status — no extra policy needed
+-- since supabase_admin bypasses RLS. Add this policy so the column
+-- is also visible to authenticated users viewing their own inquiries.
+CREATE POLICY IF NOT EXISTS "Admin can manage inquiries"
+  ON help_center_inquiries FOR ALL
+  USING (true)
+  WITH CHECK (true);

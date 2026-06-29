@@ -8,6 +8,8 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export type CourseApplicationStatus = 'applied' | 'not_a_fit' | 'maybe' | 'goodfit';
+
 export type CourseFilters = {
   programLevel?: 'school' | 'college' | 'professional';
   mode?: string;
@@ -182,7 +184,25 @@ export type CourseApplication = {
   applicant_mobile: string | null;
   message: string | null;
   document_urls: string[];
+  status: CourseApplicationStatus;
   created_at: string;
+  user_profile?: {
+    avatar_url: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    org_name: string | null;
+    resume_signed_url?: string | null;
+  } | null;
+  experiences?: Array<{
+    role: string; company: string; emp_type: string | null;
+    start_month: string | null; start_year: string | null;
+    end_month: string | null; end_year: string | null;
+    is_current: boolean; location: string | null;
+  }>;
+  educations?: Array<{
+    school: string; level: string | null; field_of_study: string | null;
+    start_date: string | null; end_date: string | null;
+  }>;
 };
 
 export async function fetchMyCourses(): Promise<MyCourse[]> {
@@ -223,6 +243,7 @@ export type MyLearningApplication = {
   applicant_mobile: string | null;
   message: string | null;
   document_urls: string[];
+  status: CourseApplicationStatus;
   created_at: string;
   course: {
     id: string;
@@ -240,11 +261,40 @@ export async function fetchMyLearningApplications(): Promise<MyLearningApplicati
   if (!userId) return [];
   const { data, error } = await _supabase
     .from('course_applications')
+    .select('id, course_id, applicant_name, applicant_email, applicant_mobile, message, document_urls, status, created_at, course:learning_courses(id, title, program_level, course_mode, status)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (!error) return (data ?? []) as unknown as MyLearningApplication[];
+
+  // Fallback: status column may not exist yet — query without it
+  const { data: data2, error: error2 } = await _supabase
+    .from('course_applications')
     .select('id, course_id, applicant_name, applicant_email, applicant_mobile, message, document_urls, created_at, course:learning_courses(id, title, program_level, course_mode, status)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as MyLearningApplication[];
+  if (error2) throw new Error(error2.message);
+  return ((data2 ?? []) as unknown as Omit<MyLearningApplication, 'status'>[]).map(
+    a => ({ ...a, status: 'applied' as CourseApplicationStatus }),
+  );
+}
+
+export async function updateCourseApplicationStatus(appId: string, status: CourseApplicationStatus): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/api/learning/applications/${appId}/status`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error('Failed to update status');
+}
+
+export async function withdrawLearningApplication(appId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/api/learning/applications/${appId}/withdraw`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) throw new Error('Failed to withdraw application');
 }
 
 export async function applyToCourse(
