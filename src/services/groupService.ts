@@ -55,7 +55,7 @@ export async function fetchUserGroups(): Promise<GroupChat[]> {
 
   if (error) throw new Error(error.message);
 
-  const rawGroups = ((data ?? []) as { group_chats: Omit<GroupChat, 'member_count'> | null }[])
+  const rawGroups = ((data ?? []) as unknown as { group_chats: Omit<GroupChat, 'member_count'> | null }[])
     .map((r) => r.group_chats)
     .filter((g): g is Omit<GroupChat, 'member_count'> => g !== null);
 
@@ -191,7 +191,7 @@ export async function fetchGroupMembers(groupId: string): Promise<GroupMemberRow
     .select('user_id, role, joined_at, user:users!group_members_user_id_fkey(first_name, last_name, org_name, avatar_url)')
     .eq('group_id', groupId);
   if (error) throw new Error(error.message);
-  return (data ?? []) as GroupMemberRow[];
+  return (data ?? []) as unknown as GroupMemberRow[];
 }
 
 export async function addGroupMembers(groupId: string, userIds: string[]): Promise<void> {

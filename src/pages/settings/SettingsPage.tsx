@@ -1627,28 +1627,6 @@ function LoginRecoveryView({ onBack }: { onBack: () => void }) {
   );
 }
 
-// ─── Coming soon stub for unimplemented sub-views ─────────────────────────────
-
-function PrivacyComingSoonView({ title, onBack }: { title: string; onBack: () => void }) {
-  return (
-    <div className="bg-white border border-[#d7d7d7] rounded-[15px] overflow-hidden">
-      <div className="px-8 py-5 border-b border-[#e0e0e0]">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-[#575555] text-base font-medium hover:text-[#262626] transition-colors"
-        >
-          <ChevronLeft />
-          Back
-        </button>
-      </div>
-      <div className="px-8 pt-6 pb-12">
-        <h2 className="text-[#18191c] text-xl font-semibold mb-6">{title}</h2>
-        <p className="text-[#9199a3] text-sm text-center py-8">Coming soon.</p>
-      </div>
-    </div>
-  );
-}
-
 function AccountsPrivacyContent() {
   const [view, setView] = useState<PrivacyView>("overview");
 

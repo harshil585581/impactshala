@@ -5,6 +5,7 @@ import CollegeSubCategoryPills, { type AcademicLevel } from "../../features/lear
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
 import { fetchCourses, applyToCourse, type CourseRecord } from "../../services/learningService";
+import { fetchMyProfile } from "../../services/accountService";
 import {
   saveLearningCourse,
   unsaveLearningCourse,
@@ -1054,13 +1055,25 @@ export default function LearningDirectoryPage() {
     return result;
   }, [courses, filters, mainTab, gradeLevel, academicLevel, levelTab]);
 
-  function openApplication(course: Course) {
+  async function openApplication(course: Course) {
     setApplyError(null);
     setSelectedCourse(course);
     setEligibilityChecked(new Array(course.eligibilityCriteria.length).fill(false));
     setDocUploads(new Array(course.requiredDocs.length).fill(null));
     setAppMessage("");
-    setAppStep("details");
+    // Auto-populate form from profile, skip the details step
+    try {
+      const profile = await fetchMyProfile();
+      const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+      setAppForm({ name: fullName || profile.email || '', email: profile.email || '', mobile: '' });
+    } catch {
+      try {
+        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+        const fullName = [stored.first_name, stored.last_name].filter(Boolean).join(' ').trim();
+        setAppForm({ name: fullName, email: stored.email || '', mobile: '' });
+      } catch {}
+    }
+    setAppStep("eligibility");
   }
 
   function closeApplication() {
@@ -1260,21 +1273,12 @@ export default function LearningDirectoryPage() {
       </div>
 
       {/* Application Flow Modals */}
-      {appStep === "details" && (
-        <DetailsModal
-          onClose={closeApplication}
-          onNext={() => setAppStep("eligibility")}
-          form={appForm}
-          onChange={(field, value) => setAppForm((f) => ({ ...f, [field]: value }))}
-        />
-      )}
-
       {appStep === "eligibility" && selectedCourse && (
         <EligibilityModal
           criteria={selectedCourse.eligibilityCriteria}
           checked={eligibilityChecked}
           onToggle={toggleEligibility}
-          onBack={() => setAppStep("details")}
+          onBack={closeApplication}
           onNext={() => setAppStep("documents")}
           onClose={closeApplication}
         />

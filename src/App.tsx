@@ -68,6 +68,7 @@ import NotificationsPage from './pages/notifications/NotificationsPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import SettingsForgotPasswordPage from './pages/settings/SettingsForgotPasswordPage';
+import AdminPage from './pages/admin/AdminPage';
 
 export default function App() {
   return (
@@ -162,6 +163,9 @@ export default function App() {
         {/* Settings */}
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/forgot-password" element={<SettingsForgotPasswordPage />} />
+
+        {/* Admin */}
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </BrowserRouter>
   );

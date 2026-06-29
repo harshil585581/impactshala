@@ -44,7 +44,7 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
   const [step, setStep] = useState<"eligibility" | "documents" | "success">("eligibility");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone] = useState("");
   const [message, setMessage] = useState("");
   const [profileLoading, setProfileLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
