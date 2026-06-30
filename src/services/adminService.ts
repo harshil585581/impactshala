@@ -126,9 +126,21 @@ export async function fetchClientRequests(
     tab,
     search,
   });
-  const res = await fetch(`${API_URL}/api/admin/client-requests?${params}`, { headers });
-  if (!res.ok) throw new Error(`Client requests failed: ${res.status}`);
-  return res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${API_URL}/api/admin/client-requests?${params}`, {
+      headers,
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Server error ${res.status} — check if the status column migration has been run.`);
+    return res.json();
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw new Error('Request timed out. Check the backend is running.');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function fetchClientRequestDetail(id: string): Promise<ClientInquiryDetail> {
@@ -158,6 +170,75 @@ export async function deleteClientRequest(id: string): Promise<void> {
     headers,
   });
   if (!res.ok) throw new Error(`Delete client request failed: ${res.status}`);
+}
+
+// ── Account Attribution types ─────────────────────────────────────────────────
+
+export interface AccountRow {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  org_name: string;
+  email: string;
+  user_type: 'individual' | 'organization';
+  role: string;
+  org_type: string;
+  avatar_url: string | null;
+  deactivated_at: string | null;
+  deleted_at: string | null;
+}
+
+export interface AccountAttributionStats {
+  deactivated: number;
+  deleted: number;
+}
+
+export interface AccountAttributionPage {
+  rows: AccountRow[];
+  total: number;
+  page: number;
+  per_page: number;
+  stats: AccountAttributionStats;
+}
+
+export async function fetchAccountAttribution(
+  page = 1,
+  perPage = 8,
+  tab = 'deactivated',
+  search = '',
+): Promise<AccountAttributionPage> {
+  const headers = await authHeaders();
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+    tab,
+    search,
+  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${API_URL}/api/admin/account-attribution?${params}`, {
+      headers,
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Account attribution failed: ${res.status}`);
+    return res.json();
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw new Error('Request timed out.');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function reactivateUser(userId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/api/admin/account-attribution/${userId}/reactivate`, {
+    method: 'PATCH',
+    headers,
+  });
+  if (!res.ok) throw new Error(`Reactivate failed: ${res.status}`);
 }
 
 export async function fetchAdminStats(): Promise<AdminStats> {

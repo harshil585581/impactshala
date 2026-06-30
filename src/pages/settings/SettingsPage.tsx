@@ -795,11 +795,33 @@ function WhereLoggedInView({ onBack }: { onBack: () => void }) {
 
 function LogInAlertsView({ onBack }: { onBack: () => void }) {
   const [selected, setSelected] = useState<LogInAlertChannel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetchMyProfile()
+      .then((p) => {
+        if (p.login_alert_channels && p.login_alert_channels.length > 0) {
+          setSelected(p.login_alert_channels as LogInAlertChannel[]);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   function toggle(val: LogInAlertChannel) {
     setSelected((prev) =>
       prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
     );
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    await saveProfile({ login_alert_channels: selected }).catch(() => {});
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   const options: { value: LogInAlertChannel; label: string }[] = [
@@ -821,20 +843,31 @@ function LogInAlertsView({ onBack }: { onBack: () => void }) {
       <div className="px-8 py-6">
         <h2 className="text-[#18191c] text-xl font-semibold mb-1">Log In Alerts</h2>
         <p className="text-[#575555] text-sm mb-7">Select where to receive log in alerts.</p>
-        <div className="flex flex-col gap-6">
-          {options.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-4 cursor-pointer select-none">
-              <SquareCheckbox
-                checked={selected.includes(opt.value)}
-                onChange={() => toggle(opt.value)}
-              />
-              <span className="text-[#575555] text-base">{opt.label}</span>
-            </label>
-          ))}
-        </div>
-        <div className="mt-8 flex justify-end">
-          <button className="bg-[#f77f00] text-white text-sm font-semibold rounded-full px-6 py-2.5 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)]">
-            Save
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <div className="w-6 h-6 border-2 border-[#f77f00] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {options.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-4 cursor-pointer select-none">
+                <SquareCheckbox
+                  checked={selected.includes(opt.value)}
+                  onChange={() => toggle(opt.value)}
+                />
+                <span className="text-[#575555] text-base">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        <div className="mt-8 flex items-center justify-end gap-3">
+          {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="bg-[#f77f00] text-white text-sm font-semibold rounded-full px-6 py-2.5 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

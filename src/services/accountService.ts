@@ -42,6 +42,7 @@ export interface ProfileData {
   mention_permission?: string;
   review_permission?: string[];
   community_visibility?: string;
+  login_alert_channels?: string[];
 }
 
 export async function fetchMyProfile(): Promise<ProfileData> {

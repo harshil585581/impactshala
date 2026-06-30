@@ -305,6 +305,7 @@ export default function ClientRequestsView() {
   const [listTotal, setListTotal] = useState(0);
   const [stats, setStats] = useState<ClientRequestStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -312,13 +313,18 @@ export default function ClientRequestsView() {
 
   const load = useCallback((p: number, t: Tab, s: string) => {
     setLoading(true);
+    setError(null);
     fetchClientRequests(p, PER_PAGE, t, s)
       .then((res) => {
         setInquiries(res.inquiries);
         setListTotal(res.total);
         setStats(res.stats);
       })
-      .catch(() => { setInquiries([]); setListTotal(0); })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load requests.");
+        setInquiries([]);
+        setListTotal(0);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -450,7 +456,20 @@ export default function ClientRequestsView() {
 
         {/* Rows */}
         {loading ? (
-          <div className="py-20 flex items-center justify-center text-[#aaa] animate-pulse">Loading requests…</div>
+          <div className="py-20 flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-[3px] border-[#f77f00] border-t-transparent rounded-full animate-spin" />
+            <span className="text-[16px] text-[#aaa]">Loading requests…</span>
+          </div>
+        ) : error ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-4">
+            <p className="text-[16px] text-red-500">{error}</p>
+            <button
+              onClick={() => load(page, tab, search)}
+              className="px-5 py-2 rounded-full bg-[#f77f00] text-white text-[15px] font-semibold hover:bg-[#e07000] transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         ) : inquiries.length === 0 ? (
           <div className="py-20 flex items-center justify-center text-[#aaa]">No requests found.</div>
         ) : (
