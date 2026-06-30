@@ -431,12 +431,33 @@ async def delete_account(data: DeleteAccountRequest, authorization: str = Header
     if not auth_response.user or not auth_response.session:
         raise HTTPException(status_code=400, detail="Incorrect password")
         
+    # Log to deleted_accounts_log before hard-deleting
+    try:
+        profile = supabase_admin.table("users").select(
+            "id, first_name, last_name, org_name, email, user_type, role, org_type, avatar_url"
+        ).eq("id", user_id).execute()
+        if profile.data:
+            p = profile.data[0]
+            supabase_admin.table("deleted_accounts_log").insert({
+                "user_id": p["id"],
+                "first_name": p.get("first_name"),
+                "last_name": p.get("last_name"),
+                "org_name": p.get("org_name"),
+                "email": p.get("email"),
+                "user_type": p.get("user_type"),
+                "role": p.get("role"),
+                "org_type": p.get("org_type"),
+                "avatar_url": p.get("avatar_url"),
+            }).execute()
+    except Exception as log_err:
+        print(f"[delete_account] logging failed: {log_err}")
+
     # Delete the user from auth.users (ON DELETE CASCADE deletes other tables)
     try:
         supabase_admin.auth.admin.delete_user(id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete user account: {str(e)}")
-        
+
     return {"message": "Account deleted successfully"}
 
 
@@ -2518,13 +2539,153 @@ async def admin_list_users(
 
 @app.delete("/api/admin/users/{target_id}")
 async def admin_delete_user(target_id: str, authorization: str = Header(None)):
-    """Hard-delete a user (admin only). Removes auth user which cascades to profile."""
+    """Hard-delete a user (admin only). Logs to deleted_accounts_log before removal."""
     get_user_id(authorization)
+    # Log the account before deleting so the Account Attribution view can show it
+    try:
+        profile = supabase_admin.table("users").select(
+            "id, first_name, last_name, org_name, email, user_type, role, org_type, avatar_url"
+        ).eq("id", target_id).execute()
+        if profile.data:
+            p = profile.data[0]
+            supabase_admin.table("deleted_accounts_log").insert({
+                "user_id": p["id"],
+                "first_name": p.get("first_name"),
+                "last_name": p.get("last_name"),
+                "org_name": p.get("org_name"),
+                "email": p.get("email"),
+                "user_type": p.get("user_type"),
+                "role": p.get("role"),
+                "org_type": p.get("org_type"),
+                "avatar_url": p.get("avatar_url"),
+            }).execute()
+    except Exception as log_err:
+        print(f"[admin_delete_user] logging failed: {log_err}")
     try:
         supabase_admin.auth.admin.delete_user(target_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"deleted": target_id}
+
+
+# ── Account Attribution endpoints ─────────────────────────────────────────────
+
+@app.get("/api/admin/account-attribution")
+async def admin_account_attribution(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(8, ge=1, le=100),
+    tab: str = Query("deactivated"),
+    search: str = Query(""),
+    authorization: str = Header(None),
+):
+    """Deactivated / Deleted accounts for the admin Account Attribution view."""
+    import asyncio as _asyncio
+
+    get_user_id(authorization)
+
+    offset = (page - 1) * per_page
+    end = offset + per_page - 1
+
+    def _fetch_deactivated_stats():
+        return supabase_admin.table("users").select("id", count="exact").not_.is_("deactivated_at", "null").execute()
+
+    def _fetch_deleted_stats():
+        return supabase_admin.table("deleted_accounts_log").select("id", count="exact").execute()
+
+    if tab == "deleted":
+        def _fetch_list():
+            q = supabase_admin.table("deleted_accounts_log").select("*", count="exact")
+            if search:
+                q = q.or_(
+                    f"first_name.ilike.%{search}%,"
+                    f"last_name.ilike.%{search}%,"
+                    f"org_name.ilike.%{search}%,"
+                    f"email.ilike.%{search}%"
+                )
+            return q.order("deleted_at", desc=True).range(offset, end).execute()
+
+        res, deact_c, del_c = await _asyncio.gather(
+            _asyncio.to_thread(_fetch_list),
+            _asyncio.to_thread(_fetch_deactivated_stats),
+            _asyncio.to_thread(_fetch_deleted_stats),
+        )
+
+        rows = []
+        for r in (res.data or []):
+            rows.append({
+                "id": r["id"],
+                "user_id": r.get("user_id"),
+                "first_name": r.get("first_name") or "",
+                "last_name": r.get("last_name") or "",
+                "org_name": r.get("org_name") or "",
+                "email": r.get("email") or "",
+                "user_type": r.get("user_type") or "individual",
+                "role": r.get("role") or "",
+                "org_type": r.get("org_type") or "",
+                "avatar_url": r.get("avatar_url"),
+                "deactivated_at": None,
+                "deleted_at": r.get("deleted_at") or "",
+            })
+    else:
+        def _fetch_list():  # type: ignore[no-redef]
+            q = (
+                supabase_admin.table("users")
+                .select(
+                    "id, first_name, last_name, org_name, avatar_url, "
+                    "user_type, role, org_type, email, deactivated_at, created_at",
+                    count="exact",
+                )
+                .not_.is_("deactivated_at", "null")
+            )
+            if search:
+                q = q.or_(
+                    f"first_name.ilike.%{search}%,"
+                    f"last_name.ilike.%{search}%,"
+                    f"org_name.ilike.%{search}%"
+                )
+            return q.order("deactivated_at", desc=True).range(offset, end).execute()
+
+        res, deact_c, del_c = await _asyncio.gather(
+            _asyncio.to_thread(_fetch_list),
+            _asyncio.to_thread(_fetch_deactivated_stats),
+            _asyncio.to_thread(_fetch_deleted_stats),
+        )
+
+        rows = []
+        for r in (res.data or []):
+            rows.append({
+                "id": r["id"],
+                "user_id": r["id"],
+                "first_name": r.get("first_name") or "",
+                "last_name": r.get("last_name") or "",
+                "org_name": r.get("org_name") or "",
+                "email": r.get("email") or "",
+                "user_type": r.get("user_type") or "individual",
+                "role": r.get("role") or "",
+                "org_type": r.get("org_type") or "",
+                "avatar_url": r.get("avatar_url"),
+                "deactivated_at": r.get("deactivated_at") or "",
+                "deleted_at": None,
+            })
+
+    return {
+        "rows": rows,
+        "total": res.count or 0,
+        "page": page,
+        "per_page": per_page,
+        "stats": {
+            "deactivated": deact_c.count or 0,
+            "deleted": del_c.count or 0,
+        },
+    }
+
+
+@app.patch("/api/admin/account-attribution/{user_id}/reactivate")
+async def admin_reactivate_user(user_id: str, authorization: str = Header(None)):
+    """Clear deactivated_at to restore a deactivated account."""
+    get_user_id(authorization)
+    supabase_admin.table("users").update({"deactivated_at": None}).eq("id", user_id).execute()
+    return {"reactivated": user_id}
 
 
 @app.get("/api/admin/stats")
@@ -2657,35 +2818,53 @@ async def admin_list_client_requests(
     authorization: str = Header(None),
 ):
     """Paginated help_center_inquiries for the admin Client Requests view."""
+    import asyncio as _asyncio
+
     get_user_id(authorization)
 
     status_val = "closed" if tab == "closed" else ("cancelled" if tab == "cancelled" else "open")
     offset = (page - 1) * per_page
     end = offset + per_page - 1
 
-    q = (
-        supabase_admin.table("help_center_inquiries")
-        .select("id, user_id, name, email, category, urgency, timeline, status, created_at", count="exact")
-        .eq("status", status_val)
+    # ── Parallel I/O: list page + all-statuses for stats ─────────────────────
+    def _fetch_list():
+        q = (
+            supabase_admin.table("help_center_inquiries")
+            .select("id, user_id, name, email, category, urgency, timeline, status, created_at", count="exact")
+            .eq("status", status_val)
+        )
+        if search:
+            q = q.ilike("name", f"%{search}%")
+        return q.order("created_at", desc=True).range(offset, end).execute()
+
+    def _fetch_all_statuses():
+        # One pass to derive all three counts — avoids 3 separate count queries
+        return supabase_admin.table("help_center_inquiries").select("status").limit(50000).execute()
+
+    res, statuses_res = await _asyncio.gather(
+        _asyncio.to_thread(_fetch_list),
+        _asyncio.to_thread(_fetch_all_statuses),
     )
-    if search:
-        q = q.ilike("name", f"%{search}%")
-    res = q.order("created_at", desc=True).range(offset, end).execute()
+
     inquiries = res.data or []
 
-    # Batch-fetch linked user profiles
+    # Derive stats in-process (no extra DB round trip)
+    counts: dict = {"open": 0, "closed": 0, "cancelled": 0}
+    for row in (statuses_res.data or []):
+        s = (row.get("status") or "open")
+        if s in counts:
+            counts[s] += 1
+
+    # ── Conditional user batch (only when page has rows with user_id) ─────────
     user_ids = list({i["user_id"] for i in inquiries if i.get("user_id")})
     users_map: dict = {}
     if user_ids:
-        u_res = supabase_admin.table("users").select(
-            "id, first_name, last_name, org_name, avatar_url, user_type"
-        ).in_("id", user_ids).execute()
+        u_res = await _asyncio.to_thread(
+            lambda: supabase_admin.table("users").select(
+                "id, first_name, last_name, org_name, avatar_url, user_type"
+            ).in_("id", user_ids).execute()
+        )
         users_map = {u["id"]: u for u in (u_res.data or [])}
-
-    # Stats — absolute totals unaffected by tab/search
-    open_c = supabase_admin.table("help_center_inquiries").select("id", count="exact").eq("status", "open").execute()
-    closed_c = supabase_admin.table("help_center_inquiries").select("id", count="exact").eq("status", "closed").execute()
-    cancelled_c = supabase_admin.table("help_center_inquiries").select("id", count="exact").eq("status", "cancelled").execute()
 
     result = []
     for inq in inquiries:
@@ -2715,10 +2894,10 @@ async def admin_list_client_requests(
         "page": page,
         "per_page": per_page,
         "stats": {
-            "total": (open_c.count or 0) + (closed_c.count or 0) + (cancelled_c.count or 0),
-            "open": open_c.count or 0,
-            "closed": closed_c.count or 0,
-            "cancelled": cancelled_c.count or 0,
+            "total": counts["open"] + counts["closed"] + counts["cancelled"],
+            "open": counts["open"],
+            "closed": counts["closed"],
+            "cancelled": counts["cancelled"],
         },
     }
 

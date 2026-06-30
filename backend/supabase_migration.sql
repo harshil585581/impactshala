@@ -1245,6 +1245,33 @@ CREATE POLICY "Senders can edit/delete their messages"
   USING (auth.uid() = sender_id);
 
 -- ============================================================
+-- Deleted accounts log (admin Account Attribution view)
+-- Run in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS deleted_accounts_log (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL,
+  first_name  TEXT,
+  last_name   TEXT,
+  org_name    TEXT,
+  email       TEXT,
+  user_type   TEXT,
+  role        TEXT,
+  org_type    TEXT,
+  avatar_url  TEXT,
+  deleted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE deleted_accounts_log ENABLE ROW LEVEL SECURITY;
+
+-- Service role (supabase_admin) bypasses RLS — no policy needed for backend.
+-- Prevent any non-service client from reading this sensitive log.
+CREATE POLICY "No direct client access"
+  ON deleted_accounts_log FOR ALL
+  USING (false);
+
+-- ============================================================
 -- Add status column to help_center_inquiries (admin workflow)
 -- Run this in Supabase Dashboard → SQL Editor
 -- ============================================================

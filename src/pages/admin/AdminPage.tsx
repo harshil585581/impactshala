@@ -3,6 +3,7 @@ import logoImg from "../../assets/images/logo/logo.png";
 import { fetchAdminStats, type AdminStats } from "../../services/adminService";
 import GeneralView from "./GeneralView";
 import ClientRequestsView from "./ClientRequestsView";
+import AccountAttributionView from "./AccountAttributionView";
 
 type NavItem =
   | "dashboard"
@@ -282,6 +283,7 @@ export default function AdminPage() {
           {/* General — users table */}
           {activeNav === "general" && <GeneralView />}
           {activeNav === "client-requests" && <ClientRequestsView />}
+          {activeNav === "account-attribution" && <AccountAttributionView />}
 
           {/* Dashboard */}
           {activeNav === "dashboard" && <>
