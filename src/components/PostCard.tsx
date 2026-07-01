@@ -5,6 +5,7 @@ import type { EmojiClickData } from 'emoji-picker-react';
 import type { FeedPost } from '../services/postService';
 import { fetchPollData, voteOnPoll, unvoteOnPoll } from '../services/postService';
 import { followUser, unfollowUser, checkIsFollowing } from '../services/followService';
+import { sendConnectionRequest } from '../services/communityService';
 import likeIcon        from '../assets/images/svg/like.svg';
 import heartIcon       from '../assets/images/svg/heart.svg';
 import congratulateIcon from '../assets/images/svg/congratulate.svg';
@@ -79,6 +80,9 @@ export default function PostCard({
   inModal = false,
   onDelete,
   isFollowing: isFollowingProp,
+  showAddToCommunity = false,
+  communityStatus = 'none',
+  onCommunityRequestSent,
 }: {
   post: FeedPost;
   isSaved?: boolean;
@@ -91,6 +95,9 @@ export default function PostCard({
   inModal?: boolean;
   onDelete?: (postId: string) => void;
   isFollowing?: boolean;
+  showAddToCommunity?: boolean;
+  communityStatus?: 'none' | 'sent' | 'connected';
+  onCommunityRequestSent?: (authorId: string) => void;
 }) {
   const [pollVoteCounts, setPollVoteCounts] = useState<Record<number, number>>({});
   const [pollUserVote, setPollUserVote] = useState<number | null>(null);
@@ -216,9 +223,9 @@ export default function PostCard({
 
   useEffect(() => {
     const authorId = post.user?.id;
-    if (!authorId || isOwnPost || isFollowingProp !== undefined) return;
+    if (!authorId || isOwnPost || isFollowingProp !== undefined || showAddToCommunity) return;
     checkIsFollowing(authorId).then(setFollowing).catch(() => {});
-  }, [post.user?.id, isOwnPost, isFollowingProp]);
+  }, [post.user?.id, isOwnPost, isFollowingProp, showAddToCommunity]);
 
   async function handleFollowToggle() {
     const authorId = post.user?.id;
@@ -233,6 +240,23 @@ export default function PostCard({
       setFollowing(!next);
     } finally {
       setFollowLoading(false);
+    }
+  }
+
+  const [sendingCommunityRequest, setSendingCommunityRequest] = useState(false);
+
+  async function handleAddToCommunity() {
+    const authorId = post.user?.id;
+    if (!authorId || sendingCommunityRequest || communityStatus !== 'none') return;
+    setSendingCommunityRequest(true);
+    try {
+      await sendConnectionRequest(authorId);
+      onCommunityRequestSent?.(authorId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message.toLowerCase() : '';
+      if (message.includes('already')) onCommunityRequestSent?.(authorId);
+    } finally {
+      setSendingCommunityRequest(false);
     }
   }
 
@@ -322,6 +346,36 @@ export default function PostCard({
               </svg>
             </button>
           )
+        ) : !isOwnPost && showAddToCommunity && communityStatus === 'connected' ? null
+        : !isOwnPost && showAddToCommunity ? (
+          <button
+            onClick={handleAddToCommunity}
+            disabled={communityStatus === 'sent' || sendingCommunityRequest}
+            className={`text-sm font-semibold flex items-center gap-1 px-3 py-1 rounded-full border transition-all duration-150
+              ${communityStatus === 'sent'
+                ? 'border-[#d1d5db] text-[#6b7280] cursor-default'
+                : 'border-[#FF9400] text-[#FF9400] hover:bg-[#fff4e5]'
+              }
+              ${sendingCommunityRequest ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            {communityStatus === 'sent' ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Request Sent
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <circle cx="9" cy="8" r="3" stroke="#FF9400" strokeWidth="2" />
+                  <path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#FF9400" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M18 8v6M15 11h6" stroke="#FF9400" strokeWidth="2.5" strokeLinecap="round" />
+                </svg>
+                Add to Community
+              </>
+            )}
+          </button>
         ) : !isOwnPost ? (
           <button
             onClick={handleFollowToggle}

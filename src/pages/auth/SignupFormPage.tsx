@@ -5,16 +5,6 @@ import signupBg from "../../assets/images/loginsignup/l1.png";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-const interestOptions = [
-  "Education & Learning",
-  "Technology & Innovation",
-  "Business & Entrepreneurship",
-  "Arts & Culture",
-  "Health & Wellness",
-  "Environment & Sustainability",
-  "Social Impact",
-];
-
 const inputCls =
   "w-full h-[40px] sm:h-[44px] border border-[#e5e7eb] rounded-full px-4 text-[#1e1e1e] text-sm placeholder-[#adaebc] focus:outline-none focus:border-[#f77f00] focus:ring-1 focus:ring-[#f77f00] transition-colors bg-white";
 
@@ -29,10 +19,8 @@ export default function SignupFormPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    interests: "",
     agreeTerms: false,
   });
-  const [showInterests, setShowInterests] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -59,7 +47,6 @@ export default function SignupFormPage() {
           dob: form.dob,
           email: form.email,
           password: form.password,
-          interests: form.interests,
           role: role || null,
           agreed_terms: form.agreeTerms,
         }),
@@ -205,56 +192,6 @@ export default function SignupFormPage() {
                       className={inputCls}
                     />
                   </div>
-                </div>
-
-                {/* Interest Areas */}
-                <div className="relative">
-                  <label className="block text-[#374151] text-sm font-medium mb-1.5">
-                    Select Your Interest Areas
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowInterests((v) => !v)}
-                    className="w-full h-[40px] sm:h-[44px] border border-[#d6d6d6] rounded-full px-4 text-left flex items-center justify-between hover:border-[#f77f00] transition-colors focus:outline-none focus:border-[#f77f00] bg-white"
-                  >
-                    <span
-                      className={`text-sm truncate pr-2 ${form.interests ? "text-[#1e1e1e]" : "text-[#adaebc]"}`}
-                    >
-                      {form.interests || "Select an interest area"}
-                    </span>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      className={`shrink-0 transition-transform duration-200 ${showInterests ? "rotate-180" : ""}`}
-                    >
-                      <path
-                        d="M6 9l6 6 6-6"
-                        stroke="#adaebc"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                  {showInterests && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e5e7eb] rounded-2xl shadow-lg z-10 overflow-hidden">
-                      {interestOptions.map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => {
-                            update("interests", opt);
-                            setShowInterests(false);
-                          }}
-                          className="w-full text-left px-4 py-3 text-sm text-[#1e1e1e] hover:bg-[#fff6ed] hover:text-[#f77f00] transition-colors"
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* Terms */}

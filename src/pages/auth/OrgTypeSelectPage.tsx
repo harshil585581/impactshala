@@ -92,7 +92,7 @@ const VISIBLE_DEFAULT = 9;
 
 export default function OrgTypeSelectPage() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState("educational");
+  const [selected, setSelected] = useState("");
   const [showAll, setShowAll] = useState(false);
 
   const visibleTypes = showAll ? ORG_TYPES : ORG_TYPES.slice(0, VISIBLE_DEFAULT);

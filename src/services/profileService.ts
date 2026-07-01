@@ -53,6 +53,10 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
     applicableIndustries: data.applicable_industries ?? [],
     services: data.services ?? [],
     industries: data.industries ?? [],
+    venueTypes: data.venue_types ?? [],
+    departmentType: data.department_type ?? '',
+    talentTypes: data.talent_types ?? [],
+    supportTypes: data.support_types ?? [],
   };
 }
 

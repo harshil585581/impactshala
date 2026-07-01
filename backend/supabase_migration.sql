@@ -57,6 +57,10 @@ CREATE TABLE IF NOT EXISTS users (
   applicable_industries TEXT[] NOT NULL DEFAULT '{}',
   services      TEXT[]      NOT NULL DEFAULT '{}',
   industries    JSONB       NOT NULL DEFAULT '[]',
+  venue_types   TEXT[]      NOT NULL DEFAULT '{}',
+  department_type TEXT,
+  talent_types  TEXT[]      NOT NULL DEFAULT '{}',
+  support_types TEXT[]      NOT NULL DEFAULT '{}',
 
   agreed_terms  BOOLEAN     NOT NULL DEFAULT false,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -91,6 +95,10 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS applicable_industries TEXT[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS services         TEXT[]      DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS industries       JSONB       DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS venue_types      TEXT[]      DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS department_type  TEXT,
+  ADD COLUMN IF NOT EXISTS talent_types     TEXT[]      DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS support_types    TEXT[]      DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS year_of_founding TEXT;
 
 -- Enable Row Level Security

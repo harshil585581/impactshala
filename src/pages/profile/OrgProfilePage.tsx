@@ -392,6 +392,102 @@ export default function OrgProfilePage() {
     return () => observer.disconnect();
   }, [(profile?.eduLevelsOffered ?? []).join(',')]);
 
+  const [showAllVenueTypes, setShowAllVenueTypes] = useState(false);
+  const [venueLimit, setVenueLimit] = useState((profile?.venueTypes ?? []).length || 10);
+  const venueMeasureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!venueMeasureRef.current) return;
+    const observer = new ResizeObserver(() => {
+      const container = venueMeasureRef.current;
+      if (!container) return;
+      const children = Array.from(container.children) as HTMLElement[];
+      if (children.length === 0) return;
+
+      const firstTop = children[0].offsetTop;
+      let wrapIndex = -1;
+      for (let i = 0; i < children.length; i++) {
+        if (children[i].offsetTop > firstTop + 5) {
+          wrapIndex = i;
+          break;
+        }
+      }
+
+      if (wrapIndex !== -1) {
+        setVenueLimit(Math.max(1, wrapIndex - 1));
+      } else {
+        setVenueLimit((profile?.venueTypes ?? []).length);
+      }
+    });
+
+    observer.observe(venueMeasureRef.current);
+    return () => observer.disconnect();
+  }, [(profile?.venueTypes ?? []).join(',')]);
+
+  const [showAllTalentTypes, setShowAllTalentTypes] = useState(false);
+  const [talentLimit, setTalentLimit] = useState((profile?.talentTypes ?? []).length || 10);
+  const talentMeasureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!talentMeasureRef.current) return;
+    const observer = new ResizeObserver(() => {
+      const container = talentMeasureRef.current;
+      if (!container) return;
+      const children = Array.from(container.children) as HTMLElement[];
+      if (children.length === 0) return;
+
+      const firstTop = children[0].offsetTop;
+      let wrapIndex = -1;
+      for (let i = 0; i < children.length; i++) {
+        if (children[i].offsetTop > firstTop + 5) {
+          wrapIndex = i;
+          break;
+        }
+      }
+
+      if (wrapIndex !== -1) {
+        setTalentLimit(Math.max(1, wrapIndex - 1));
+      } else {
+        setTalentLimit((profile?.talentTypes ?? []).length);
+      }
+    });
+
+    observer.observe(talentMeasureRef.current);
+    return () => observer.disconnect();
+  }, [(profile?.talentTypes ?? []).join(',')]);
+
+  const [showAllSupportTypes, setShowAllSupportTypes] = useState(false);
+  const [supportLimit, setSupportLimit] = useState((profile?.supportTypes ?? []).length || 10);
+  const supportMeasureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!supportMeasureRef.current) return;
+    const observer = new ResizeObserver(() => {
+      const container = supportMeasureRef.current;
+      if (!container) return;
+      const children = Array.from(container.children) as HTMLElement[];
+      if (children.length === 0) return;
+
+      const firstTop = children[0].offsetTop;
+      let wrapIndex = -1;
+      for (let i = 0; i < children.length; i++) {
+        if (children[i].offsetTop > firstTop + 5) {
+          wrapIndex = i;
+          break;
+        }
+      }
+
+      if (wrapIndex !== -1) {
+        setSupportLimit(Math.max(1, wrapIndex - 1));
+      } else {
+        setSupportLimit((profile?.supportTypes ?? []).length);
+      }
+    });
+
+    observer.observe(supportMeasureRef.current);
+    return () => observer.disconnect();
+  }, [(profile?.supportTypes ?? []).join(',')]);
+
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
@@ -729,61 +825,241 @@ export default function OrgProfilePage() {
                   </div>
                 </div>
 
+                {profile?.orgType === 'fieldtrip' && (
+                  <>
+                    <Divider />
+                    <div>
+                      <p className="text-[#18191c] text-base font-bold mb-3">Venue Types</p>
+                      {(profile?.venueTypes ?? []).length > 0 ? (
+                        showAllVenueTypes ? (
+                          <>
+                            <div className="flex flex-wrap gap-2">
+                              {(profile?.venueTypes ?? []).map((type) => (
+                                <span key={type} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ff9400] whitespace-nowrap">
+                                  {type}
+                                </span>
+                              ))}
+                            </div>
+                            <button onClick={() => setShowAllVenueTypes(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
+                              Show less
+                            </button>
+                          </>
+                        ) : (
+                          <div className="relative">
+                            {/* Hidden measuring container */}
+                            <div ref={venueMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
+                              {(profile?.venueTypes ?? []).map((type) => (
+                                <span key={type} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ff9400] whitespace-nowrap">
+                                  {type}
+                                </span>
+                              ))}
+                            </div>
+
+                            {/* Visible container */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {(profile?.venueTypes ?? []).slice(0, venueLimit).map((type) => (
+                                <span key={type} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ff9400] whitespace-nowrap shrink-0">
+                                  {type}
+                                </span>
+                              ))}
+                              {venueLimit < (profile?.venueTypes ?? []).length && (
+                                <button
+                                  onClick={() => setShowAllVenueTypes(true)}
+                                  className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" /></svg>
+                                  Show more
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      ) : (
+                        <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
                 <Divider />
 
-                {/* Educational Levels Offered */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[#18191c] text-lg font-bold">Educational Levels Offered</h3>
-                  </div>
-                  {(profile?.eduLevelsOffered ?? []).length > 0 ? (
-                    showAllEduLevels ? (
-                      <>
-                        <div className="flex flex-wrap gap-2">
-                          {(profile?.eduLevelsOffered ?? []).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
-                              {level}
-                            </span>
-                          ))}
-                        </div>
-                        <button onClick={() => setShowAllEduLevels(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
-                          Show less
-                        </button>
-                      </>
+                {profile?.orgType === 'safety' ? (
+                  /* Department Type */
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[#18191c] text-lg font-bold">Department Type</h3>
+                    </div>
+                    {profile?.departmentType ? (
+                      <span className="inline-block bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                        {profile.departmentType}
+                      </span>
                     ) : (
-                      <div className="relative">
-                        {/* Hidden measuring container */}
-                        <div ref={eduMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
-                          {(profile?.eduLevelsOffered ?? []).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
-                              {level}
-                            </span>
-                          ))}
-                        </div>
+                      <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                    )}
+                  </div>
+                ) : profile?.orgType === 'talent' ? (
+                  /* Talents Showcased */
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[#18191c] text-lg font-bold">Talents that can be showcased and learnt on our platform</h3>
+                    </div>
+                    {(profile?.talentTypes ?? []).length > 0 ? (
+                      showAllTalentTypes ? (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            {(profile?.talentTypes ?? []).map((t) => (
+                              <span key={t} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                          <button onClick={() => setShowAllTalentTypes(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
+                            Show less
+                          </button>
+                        </>
+                      ) : (
+                        <div className="relative">
+                          {/* Hidden measuring container */}
+                          <div ref={talentMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
+                            {(profile?.talentTypes ?? []).map((t) => (
+                              <span key={t} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
 
-                        {/* Visible container */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {(profile?.eduLevelsOffered ?? []).slice(0, eduLimit).map((level) => (
-                            <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
-                              {level}
-                            </span>
-                          ))}
-                          {eduLimit < (profile?.eduLevelsOffered ?? []).length && (
-                            <button
-                              onClick={() => setShowAllEduLevels(true)}
-                              className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" /></svg>
-                              Show more
-                            </button>
-                          )}
+                          {/* Visible container */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {(profile?.talentTypes ?? []).slice(0, talentLimit).map((t) => (
+                              <span key={t} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
+                                {t}
+                              </span>
+                            ))}
+                            {talentLimit < (profile?.talentTypes ?? []).length && (
+                              <button
+                                onClick={() => setShowAllTalentTypes(true)}
+                                className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" /></svg>
+                                Show more
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  ) : (
-                    <p className="text-[#9199a3] text-sm">Not specified yet.</p>
-                  )}
-                </div>
+                      )
+                    ) : (
+                      <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                    )}
+                  </div>
+                ) : profile?.orgType === 'startup' ? (
+                  /* Support Types */
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[#18191c] text-lg font-bold">Support Types</h3>
+                    </div>
+                    {(profile?.supportTypes ?? []).length > 0 ? (
+                      showAllSupportTypes ? (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            {(profile?.supportTypes ?? []).map((t) => (
+                              <span key={t} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                          <button onClick={() => setShowAllSupportTypes(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
+                            Show less
+                          </button>
+                        </>
+                      ) : (
+                        <div className="relative">
+                          {/* Hidden measuring container */}
+                          <div ref={supportMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
+                            {(profile?.supportTypes ?? []).map((t) => (
+                              <span key={t} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Visible container */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {(profile?.supportTypes ?? []).slice(0, supportLimit).map((t) => (
+                              <span key={t} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
+                                {t}
+                              </span>
+                            ))}
+                            {supportLimit < (profile?.supportTypes ?? []).length && (
+                              <button
+                                onClick={() => setShowAllSupportTypes(true)}
+                                className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" /></svg>
+                                Show more
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                    )}
+                  </div>
+                ) : (
+                  /* Educational Levels Offered */
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[#18191c] text-lg font-bold">Educational Levels Offered</h3>
+                    </div>
+                    {(profile?.eduLevelsOffered ?? []).length > 0 ? (
+                      showAllEduLevels ? (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            {(profile?.eduLevelsOffered ?? []).map((level) => (
+                              <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                                {level}
+                              </span>
+                            ))}
+                          </div>
+                          <button onClick={() => setShowAllEduLevels(false)} className="mt-3 text-[#ff9400] text-sm font-medium hover:underline">
+                            Show less
+                          </button>
+                        </>
+                      ) : (
+                        <div className="relative">
+                          {/* Hidden measuring container */}
+                          <div ref={eduMeasureRef} className="absolute top-0 left-0 right-0 opacity-0 pointer-events-none flex flex-wrap gap-2 max-h-[46px] overflow-hidden">
+                            {(profile?.eduLevelsOffered ?? []).map((level) => (
+                              <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap">
+                                {level}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Visible container */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {(profile?.eduLevelsOffered ?? []).slice(0, eduLimit).map((level) => (
+                              <span key={level} className="bg-white text-[#ff9400] text-sm font-medium px-4 py-2 rounded-full border border-[#ffd9a0] whitespace-nowrap shrink-0">
+                                {level}
+                              </span>
+                            ))}
+                            {eduLimit < (profile?.eduLevelsOffered ?? []).length && (
+                              <button
+                                onClick={() => setShowAllEduLevels(true)}
+                                className="flex items-center gap-1.5 shrink-0 bg-[#ff9400] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round" /></svg>
+                                Show more
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <p className="text-[#9199a3] text-sm">Not specified yet.</p>
+                    )}
+                  </div>
+                )}
 
                 <Divider />
 

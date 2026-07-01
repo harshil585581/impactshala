@@ -744,7 +744,7 @@ export default function HealthServicesOrgProfilePage() {
                 {facilityTypes.length > 0 && (
                   <>
                     <div>
-                      <p className="text-[#18191c] text-base font-bold mb-3">Facility Types</p>
+                      <p className="text-[#18191c] text-base font-bold mb-3">Health Facility Types</p>
                       {showAllFacilities ? (
                         <>
                           <div className="flex flex-wrap gap-2">

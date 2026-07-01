@@ -51,7 +51,7 @@ class IndividualSignup(BaseModel):
     dob: str
     email: str
     password: str
-    interests: str
+    interests: Optional[str] = None
     role: Optional[str] = None
     agreed_terms: bool
 
@@ -125,6 +125,10 @@ class ProfileUpdate(BaseModel):
     applicable_industries: Optional[List[str]] = None
     services: Optional[List[str]] = None
     industries: Optional[List[Any]] = None
+    venue_types: Optional[List[str]] = None
+    department_type: Optional[str] = None
+    talent_types: Optional[List[str]] = None
+    support_types: Optional[List[str]] = None
 
     # Settings
     tag_permission: Optional[str] = None
