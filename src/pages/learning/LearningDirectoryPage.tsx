@@ -16,7 +16,7 @@ import {
 
 type MainTab = "school" | "college" | "professional";
 type LevelTab = "beginner" | "intermediate" | "advanced";
-type AppStep = "details" | "eligibility" | "documents" | "success" | null;
+type AppStep = "eligibility" | "documents" | "success" | null;
 
 interface Course {
   id: string;
@@ -386,94 +386,6 @@ function ModalOverlay({ children, onClose: _onClose }: { children: React.ReactNo
         {children}
       </div>
     </div>
-  );
-}
-
-function DetailsModal({
-  onClose,
-  onNext,
-  form,
-  onChange,
-}: {
-  onClose: () => void;
-  onNext: () => void;
-  form: { name: string; email: string; mobile: string };
-  onChange: (field: string, value: string) => void;
-}) {
-  const canProceed = form.name.trim() && form.email.trim();
-
-  return (
-    <ModalOverlay onClose={onClose}>
-      <div className="p-8">
-        <h2 className="text-[#18191c] text-2xl font-bold text-center mb-6">
-          Submit your application
-        </h2>
-
-        <div className="space-y-4">
-          <div className="relative">
-            <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-[#6b7280]">
-              Name<span className="text-red-500">*</span>
-            </label>
-            <input
-              value={form.name}
-              onChange={(e) => onChange("name", e.target.value)}
-              placeholder="Enter your name"
-              className="w-full border border-[#d1d5db] rounded-lg px-4 py-3 text-sm text-[#18191c] placeholder-[#9ca3af] focus:outline-none focus:border-[#f77f00] transition-colors"
-            />
-          </div>
-
-          <div className="relative">
-            <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-[#6b7280]">
-              Email<span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => onChange("email", e.target.value)}
-              placeholder="Enter your email"
-              className="w-full border border-[#d1d5db] rounded-lg px-4 py-3 text-sm text-[#18191c] placeholder-[#9ca3af] focus:outline-none focus:border-[#f77f00] transition-colors"
-            />
-          </div>
-
-          <div className="relative">
-            <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-[#6b7280]">
-              Mobile Number
-            </label>
-            <input
-              type="tel"
-              value={form.mobile}
-              onChange={(e) => onChange("mobile", e.target.value)}
-              placeholder="Enter your Mobile Number"
-              className="w-full border border-[#d1d5db] rounded-lg px-4 py-3 text-sm text-[#18191c] placeholder-[#9ca3af] focus:outline-none focus:border-[#f77f00] transition-colors"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-4 mt-6">
-          <button
-            onClick={onClose}
-            className="flex-1 border border-[#f77f00] text-[#f77f00] py-3 rounded-full text-sm font-semibold hover:bg-[#fff8ee] transition-colors"
-          >
-            Go Back
-          </button>
-          <button
-            onClick={onNext}
-            disabled={!canProceed}
-            className="flex-1 bg-[#f77f00] text-white py-3 rounded-full text-sm font-semibold hover:bg-[#e07000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-
-        <p className="text-center text-xs text-[#6b7280] mt-4">
-          By submitting this form, you agree to our{" "}
-          <a href="#" className="text-[#f77f00] hover:underline">
-            Terms of Use and consent
-          </a>{" "}
-          t.
-        </p>
-      </div>
-    </ModalOverlay>
   );
 }
 
