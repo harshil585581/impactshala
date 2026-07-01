@@ -4,18 +4,6 @@ import logoImg from "../../assets/images/logo/logo.png";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-function getRoleRoute(): string {
-  const role = localStorage.getItem("pending_signup_role") ?? "";
-  const userType = localStorage.getItem("pending_signup_user_type") ?? "";
-  if (userType === "individual") {
-    if (role === "entrepreneur") return "/account/update/entrepreneur";
-    if (role === "professional") return "/account/update/professional";
-    if (role === "educator") return "/account/update/educator";
-    return "/account/update/student";
-  }
-  return "/home";
-}
-
 export default function VerificationPage() {
   const navigate = useNavigate();
   const [resendStatus, setResendStatus] = useState<
@@ -73,12 +61,15 @@ export default function VerificationPage() {
             </p>
           </div>
 
-          {/* Skip Now */}
+          {/* Refresh */}
+          <p className="text-[#64748b] text-xs sm:text-sm -mt-1">
+            Refresh page after you have completed email verification
+          </p>
           <button
-            onClick={() => navigate(getRoleRoute())}
+            onClick={() => navigate("/login")}
             className="w-full h-[42px] sm:h-[46px] bg-[#f77f00] text-white text-sm sm:text-base font-bold rounded-full hover:bg-[#e68500] transition-colors tracking-[0.2px] shadow-[0px_4px_16px_rgba(255,148,0,0.35)]"
           >
-            Skip Now
+            Refresh
           </button>
 
           {/* Resend */}

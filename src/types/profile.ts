@@ -56,6 +56,10 @@ export interface UserProfile {
   applicableIndustries?: string[];
   services?: string[];
   industries?: IndustryEntry[];
+  venueTypes?: string[];
+  departmentType?: string;
+  talentTypes?: string[];
+  supportTypes?: string[];
 }
 
 export interface EditProfileForm {

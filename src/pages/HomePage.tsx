@@ -12,6 +12,7 @@ import CreatePostModal from "../components/CreatePostModal";
 import { fetchFeedPosts, fetchPostById, fetchLikedPostIds, fetchLikesCounts, fetchCommentCounts, togglePostLike, FEED_PAGE_SIZE } from "../services/postService";
 import type { FeedPost, FeedFilter } from "../services/postService";
 import { fetchSavedPostIds, savePost, unsavePost } from "../services/savedService";
+import { fetchConnections, fetchSentRequests } from "../services/communityService";
 import { useProfile } from "../hooks/useProfile";
 
 
@@ -100,6 +101,8 @@ export default function HomePage() {
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [communityConnectedIds, setCommunityConnectedIds] = useState<Set<string>>(new Set());
+  const [communityPendingIds, setCommunityPendingIds] = useState<Set<string>>(new Set());
 
   const { profile: liveProfile } = useProfile("me");
   const storedUser = getStoredUser();
@@ -118,6 +121,12 @@ export default function HomePage() {
   useEffect(() => {
     fetchSavedPostIds().then(setSavedPostIds).catch(() => {});
     fetchLikedPostIds().then(setLikedPostIds).catch(() => {});
+    fetchConnections().then(({ connections }) => setCommunityConnectedIds(new Set(connections.map(c => c.id)))).catch(() => {});
+    fetchSentRequests().then(({ requests }) => setCommunityPendingIds(new Set(requests.map(r => r.id)))).catch(() => {});
+  }, []);
+
+  const handleCommunityRequestSent = useCallback((authorId: string) => {
+    setCommunityPendingIds(prev => new Set(prev).add(authorId));
   }, []);
 
   const handleLikeToggle = useCallback((postId: string, willLike: boolean) => {
@@ -376,6 +385,13 @@ export default function HomePage() {
                   onLikeToggle={handleLikeToggle}
                   commentsCount={commentCounts[post.id] ?? 0}
                   onCommentAdded={() => setCommentCounts(prev => ({ ...prev, [post.id]: (prev[post.id] ?? 0) + 1 }))}
+                  showAddToCommunity
+                  communityStatus={
+                    post.user?.id && communityConnectedIds.has(post.user.id) ? 'connected'
+                    : post.user?.id && communityPendingIds.has(post.user.id) ? 'sent'
+                    : 'none'
+                  }
+                  onCommunityRequestSent={handleCommunityRequestSent}
                 />
               ))}
 
@@ -435,6 +451,13 @@ export default function HomePage() {
                   commentsCount={linkedPostComments}
                   onCommentAdded={() => setLinkedPostComments(c => c + 1)}
                   inModal={true}
+                  showAddToCommunity
+                  communityStatus={
+                    linkedPost.user?.id && communityConnectedIds.has(linkedPost.user.id) ? 'connected'
+                    : linkedPost.user?.id && communityPendingIds.has(linkedPost.user.id) ? 'sent'
+                    : 'none'
+                  }
+                  onCommunityRequestSent={handleCommunityRequestSent}
                 />
               </>
             ) : (
