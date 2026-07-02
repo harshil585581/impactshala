@@ -173,24 +173,29 @@ export default function HomePage() {
     setHasMore(true);
 
     fetchFeedPosts(activeFilter, 0)
-      .then(async (data) => {
+      .then((data) => {
         if (cancelled) return;
         setPosts(data);
         setHasMore(data.length === FEED_PAGE_SIZE);
+        setLoadingPosts(false);
+
+        // Like/comment counts are supplementary — fetch them in the background
+        // instead of blocking the skeleton, so posts render as soon as they're ready.
         const ids = data.map(p => p.id);
-        const [counts, cCounts] = await Promise.all([
+        Promise.all([
           fetchLikesCounts(ids).catch(() => ({})),
           fetchCommentCounts(ids).catch(() => ({})),
-        ]);
-        if (!cancelled) { setLikesCounts(counts); setCommentCounts(cCounts); }
+        ]).then(([counts, cCounts]) => {
+          if (!cancelled) { setLikesCounts(counts); setCommentCounts(cCounts); }
+        });
       })
       .catch((err) => {
         if (!cancelled) {
           setFeedError(err.message ?? "Failed to load posts.");
           setHasMore(false); // stop infinite scroll retrying on error
+          setLoadingPosts(false);
         }
-      })
-      .finally(() => { if (!cancelled) setLoadingPosts(false); });
+      });
     return () => { cancelled = true; };
   }, [activeFilter, refreshKey]);
 

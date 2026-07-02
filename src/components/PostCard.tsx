@@ -58,7 +58,7 @@ function formatEventDate(date: string | null, time: string | null): string {
 
 function UserAvatar({ name, url }: { name: string; url?: string | null }) {
   if (url) {
-    return <img src={url} alt={name} className="w-11 h-11 rounded-full object-cover shrink-0" />;
+    return <img src={url} alt={name} loading="lazy" decoding="async" className="w-11 h-11 rounded-full object-cover shrink-0" />;
   }
   const initials = name.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase();
   return (
@@ -425,6 +425,8 @@ export default function PostCard({
                   <img
                     src={url}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className={`w-full object-cover rounded-lg ${post.media_urls!.length === 1 ? 'max-h-[420px]' : 'h-[200px]'}`}
                   />
                   {i === 3 && post.media_urls!.length > 4 && (
@@ -449,7 +451,7 @@ export default function PostCard({
           )}
           {post.media_urls?.[0] && (
             <div className="px-4 pb-3">
-              <video src={post.media_urls[0]} controls className="w-full rounded-lg max-h-[420px] bg-black" />
+              <video src={post.media_urls[0]} controls preload="metadata" className="w-full rounded-lg max-h-[420px] bg-black" />
             </div>
           )}
         </>
@@ -459,7 +461,7 @@ export default function PostCard({
       {post.post_type === 'event' && (
         <div className="px-4 pb-4">
           {post.cover_image_url && (
-            <img src={post.cover_image_url} alt="" className="w-full h-[200px] object-cover rounded-xl mb-3" />
+            <img src={post.cover_image_url} alt="" loading="lazy" decoding="async" className="w-full h-[200px] object-cover rounded-xl mb-3" />
           )}
           <div className="border border-[#e5e7eb] rounded-xl p-4 flex flex-col gap-2.5">
             <span className={`self-start text-xs font-semibold px-2.5 py-0.5 rounded-full ${post.event_type === 'online' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-700'}`}>
@@ -718,12 +720,14 @@ export default function PostCard({
               onClick={(e) => e.stopPropagation()}
               onMouseEnter={() => clearTimeout(pickerTimer.current)}
             >
-              <EmojiPicker
-                height={380}
-                width={320}
-                searchPlaceholder="Search emoji…"
-                onEmojiClick={(data: EmojiClickData) => applyReaction(data.emoji)}
-              />
+              {showFullPicker && (
+                <EmojiPicker
+                  height={380}
+                  width={320}
+                  searchPlaceholder="Search emoji…"
+                  onEmojiClick={(data: EmojiClickData) => applyReaction(data.emoji)}
+                />
+              )}
             </div>
 
             {/* Caret pointing down to the Like button */}
