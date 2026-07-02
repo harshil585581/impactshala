@@ -73,5 +73,5 @@ export function useProfile(userId: string) {
     }
   }, [profile, addToast]);
 
-  return { profile, loading, saving, toasts, removeToast, saveProfile, follow, reload };
+  return { profile, loading, saving, toasts, removeToast, addToast, saveProfile, follow, reload };
 }

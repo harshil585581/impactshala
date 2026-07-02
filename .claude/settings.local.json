@@ -30,7 +30,13 @@
       "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups2.png\" \"https://www.figma.com/api/mcp/asset/0d8f3eae-97f0-4e25-94b6-a9a89a03bf4b\")",
       "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/groups3.png\" \"https://www.figma.com/api/mcp/asset/361cbc1f-2a38-4f42-bdd3-8a67a36bd2a5\")",
       "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/calls1.png\" \"https://www.figma.com/api/mcp/asset/3e2f40f4-ba51-4b2f-a760-f37a7a95ebeb\")",
-      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/reactions.png\" \"https://www.figma.com/api/mcp/asset/fff94c20-6008-4389-81bc-47bc91e16426\")"
+      "Bash(curl -s -o \"C:/Users/HARSHIL/Downloads/reactions.png\" \"https://www.figma.com/api/mcp/asset/fff94c20-6008-4389-81bc-47bc91e16426\")",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(ls .claude/skills)",
+      "Bash(find . -maxdepth 3 -iname \"SKILL.md\")",
+      "Bash(node scroll_repro4.mjs)",
+      "Bash(node scroll_repro5.mjs)"
     ]
   }
 }

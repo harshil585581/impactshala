@@ -567,6 +567,15 @@ async def upload_profile_image(
     return {"url": public_url}
 
 
+DOCUMENT_CONTENT_TYPES = {
+    "pdf": "application/pdf",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "ppt": "application/vnd.ms-powerpoint",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+
+
 @app.post("/api/upload/document")
 async def upload_document(
     file: UploadFile = File(...),
@@ -574,18 +583,18 @@ async def upload_document(
 ):
     user_id = get_user_id(authorization)
     ext = (file.filename or "document.pdf").rsplit(".", 1)[-1].lower()
-    if ext not in ("pdf",):
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    if ext not in DOCUMENT_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Only PDF, DOC, DOCX, PPT, or PPTX files are allowed")
     content = await file.read()
     if len(content) > 12 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size exceeds 12 MB limit")
     bucket = "documents"
-    path = f"{user_id}/resume.pdf"
+    path = f"{user_id}/resume.{ext}"
     try:
         supabase_admin.storage.from_(bucket).upload(
             path=path,
             file=content,
-            file_options={"content-type": "application/pdf", "upsert": "true"},
+            file_options={"content-type": DOCUMENT_CONTENT_TYPES[ext], "upsert": "true"},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")

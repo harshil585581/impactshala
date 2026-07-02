@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getFreshToken } from '../../lib/authToken';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
 import EditProfileModal from '../../components/profile/EditProfileModal';
@@ -195,7 +196,7 @@ export default function ForProfitOrgProfilePage() {
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const { profile, loading, saving, toasts, removeToast, saveProfile, reload } = useProfile(userId);
+  const { profile, loading, saving, toasts, removeToast, addToast, saveProfile, reload } = useProfile(userId);
 
   const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
   const isOwn = userId === 'me' || userId === storedUser.id;
@@ -343,18 +344,27 @@ export default function ForProfitOrgProfilePage() {
     if (!file) return;
     setBrochureUploading(true);
     try {
-      const user = JSON.parse(localStorage.getItem('user') ?? '{}');
+      const token = await getFreshToken();
       const form = new FormData();
       form.append('file', file);
       const res = await fetch(`${API_URL}/api/upload/document`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${user.access_token ?? ''}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? 'Upload failed');
+      }
       reload();
-    } catch { /* ignore */ }
-    finally { setBrochureUploading(false); }
+      addToast('success', 'Brochure uploaded successfully!');
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : 'Failed to upload brochure');
+    }
+    finally {
+      setBrochureUploading(false);
+      e.target.value = '';
+    }
   }
 
   const reachForTags = profile?.reachFor ?? [];
