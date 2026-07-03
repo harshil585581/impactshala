@@ -17,6 +17,7 @@ export interface ProfileData {
   email: string;
   first_name: string;
   last_name: string;
+  org_name?: string;
   title?: string;
   company?: string;
   location?: string;

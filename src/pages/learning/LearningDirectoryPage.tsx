@@ -878,6 +878,13 @@ export default function LearningDirectoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isOrg = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') ?? '{}')?.user_type === 'organization';
+    } catch {
+      return false;
+    }
+  })();
   const [mainTab, setMainTab] = useState<MainTab>("professional");
   const [levelTab, setLevelTab] = useState<LevelTab>("beginner");
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -1067,12 +1074,14 @@ export default function LearningDirectoryPage() {
               ))}
             </div>
 
-            <button
-              onClick={() => navigate('/learning-directory/list-course', { state: { programLevel: mainTab } })}
-              className="shrink-0 bg-[#f77f00] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#e07000] transition-colors mb-1"
-            >
-              List your course
-            </button>
+            {isOrg && (
+              <button
+                onClick={() => navigate('/learning-directory/list-course', { state: { programLevel: mainTab } })}
+                className="shrink-0 bg-[#f77f00] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#e07000] transition-colors mb-1"
+              >
+                List your course
+              </button>
+            )}
           </div>
 
           <div className="flex gap-5 items-start mt-5">

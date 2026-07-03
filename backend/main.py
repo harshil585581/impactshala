@@ -1534,7 +1534,9 @@ async def get_discover_post_applications(post_id: str, authorization: Optional[s
         app_data = dict(app)
         if app.get("user_id"):
             try:
-                u = supabase_admin.table("users").select("avatar_url, first_name, last_name, org_name, resume_url").eq("id", app["user_id"]).execute()
+                u = supabase_admin.table("users").select(
+                    "avatar_url, first_name, last_name, org_name, resume_url, user_type, bio, website, work_sector, work_industry"
+                ).eq("id", app["user_id"]).execute()
                 if u.data:
                     profile = dict(u.data[0])
                     raw_resume = profile.pop("resume_url", None)

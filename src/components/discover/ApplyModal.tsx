@@ -54,12 +54,13 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Auto-fill name and email from the logged-in user's profile
+  // Auto-fill name and email from the logged-in user's profile.
+  // Organization accounts have no first_name/last_name — fall back to org_name.
   useEffect(() => {
     fetchMyProfile()
       .then((profile) => {
         const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim();
-        setName(fullName || "");
+        setName(fullName || profile.org_name || "");
         setEmail(profile.email || "");
         // phone is not stored in profile; leave blank
       })
@@ -68,6 +69,8 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
         try {
           const stored = JSON.parse(localStorage.getItem("user") || "{}");
           if (stored.email) setEmail(stored.email);
+          const storedName = stored.org_name || [stored.first_name, stored.last_name].filter(Boolean).join(" ").trim();
+          if (storedName) setName(storedName);
         } catch {}
       })
       .finally(() => setProfileLoading(false));
@@ -103,7 +106,8 @@ export default function ApplyModal({ postId, eligibilityCriteria, documentsRequi
       await submitApplication({ postId, name, email, phone, message, documents: files, documentLabels: labels });
       onSuccess?.(postId);
       setStep("success");
-    } catch {
+    } catch (err) {
+      if (err instanceof Error) console.error("Application submission failed:", err.message);
       setSubmitError("Submission failed. Please try again.");
     } finally {
       setSubmitting(false);

@@ -402,12 +402,34 @@ export default function DiscoverMyPostingsPage() {
 
                   {/* Profile info */}
                   <div className="flex flex-col gap-4">
-                    {(selectedApp.message || selectedApp.seeker_profile?.career_goals || selectedApp.seeker_profile?.work_drives_you) && (
+                    {(selectedApp.message || selectedApp.seeker_profile?.career_goals || selectedApp.seeker_profile?.work_drives_you || selectedApp.user_profile?.bio) && (
                       <div>
                         <p className="text-sm font-semibold text-[#6e6e6e] mb-1">Bio</p>
                         <p className="text-sm text-black leading-relaxed">
-                          {selectedApp.message || selectedApp.seeker_profile?.career_goals || selectedApp.seeker_profile?.work_drives_you}
+                          {selectedApp.message || selectedApp.seeker_profile?.career_goals || selectedApp.seeker_profile?.work_drives_you || selectedApp.user_profile?.bio}
                         </p>
+                      </div>
+                    )}
+
+                    {selectedApp.user_profile?.user_type === 'organization' && (
+                      (selectedApp.user_profile.work_sector || selectedApp.user_profile.work_industry || selectedApp.user_profile.website)
+                    ) && (
+                      <div>
+                        <p className="text-sm font-semibold text-[#6e6e6e] mb-2">Organization Details</p>
+                        <div className="flex flex-col gap-1.5">
+                          {selectedApp.user_profile.work_sector && (
+                            <p className="text-sm text-black">{selectedApp.user_profile.work_sector}</p>
+                          )}
+                          {selectedApp.user_profile.work_industry && (
+                            <p className="text-sm text-[#6e6e6e]">{selectedApp.user_profile.work_industry}</p>
+                          )}
+                          {selectedApp.user_profile.website && (
+                            <a href={selectedApp.user_profile.website} target="_blank" rel="noopener noreferrer"
+                              className="text-sm text-[#f77f00] hover:underline w-fit">
+                              {selectedApp.user_profile.website.replace(/^https?:\/\//, '')}
+                            </a>
+                          )}
+                        </div>
                       </div>
                     )}
 
