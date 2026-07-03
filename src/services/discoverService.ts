@@ -192,7 +192,10 @@ export async function submitApplication(
     headers: { Authorization: `Bearer ${await getFreshToken()}` },
     body: form,
   });
-  if (!res.ok) throw new Error(`${res.status}`);
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ? JSON.stringify(detail.detail) : `${res.status}`);
+  }
 }
 
 export type ProviderPostPayload = {
@@ -315,6 +318,11 @@ export type DiscoverApplication = {
     last_name: string | null;
     org_name: string | null;
     resume_signed_url?: string | null;
+    user_type?: string | null;
+    bio?: string | null;
+    website?: string | null;
+    work_sector?: string | null;
+    work_industry?: string | null;
   };
   seeker_profile?: {
     career_goals: string | null;

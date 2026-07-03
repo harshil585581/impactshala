@@ -51,6 +51,16 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: 'rejected', label: 'Rejected' },
 ];
 
+// Accepted/Hold/Rejected reflect the status this user assigned an applicant on
+// one of *their own* postings — not anything this user applied for.
+const RECEIVED_STATUS_TABS: Partial<Record<FilterTab, ApplicationStatus>> = {
+  accepted: 'goodfit',
+  hold: 'maybe',
+  rejected: 'not_a_fit',
+};
+
+type ReceivedApplication = { posting: EmployerPosting; app: RichEmploymentApplication };
+
 const PAGE_SIZE = 6;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -151,145 +161,20 @@ function PaginationBar({ page, totalPages, setPage }: { page: number; totalPages
   );
 }
 
-// ─── Seeker View ──────────────────────────────────────────────────────────────
-
-function SeekerView() {
-  const [apps, setApps] = useState<MyApplication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<FilterTab>('applied');
-  const [page, setPage] = useState(1);
-  const [withdrawing, setWithdrawing] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchMyApplicationsAsSeeker()
-      .then(setApps)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  function filterApps(tab: FilterTab): MyApplication[] {
-    switch (tab) {
-      case 'applied':  return apps;
-      case 'received': return apps.filter(a => a.status !== 'applied');
-      case 'accepted': return apps.filter(a => a.status === 'goodfit');
-      case 'hold':     return apps.filter(a => a.status === 'maybe');
-      case 'rejected': return apps.filter(a => a.status === 'not_a_fit');
-    }
-  }
-
-  const filtered = filterApps(activeTab);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  async function handleWithdraw(appId: string) {
-    setWithdrawing(appId);
-    try {
-      await withdrawEmploymentApplication(appId);
-      setApps(prev => prev.filter(a => a.id !== appId));
-    } catch {}
-    setWithdrawing(null);
-  }
-
-  return (
-    <div className="flex flex-col gap-[30px]">
-      {/* Filter tabs */}
-      <div className="flex items-center gap-4 flex-wrap">
-        {FILTER_TABS.map(tab => (
-          <button key={tab.key} type="button"
-            onClick={() => { setActiveTab(tab.key); setPage(1); }}
-            className={`h-[48px] px-[24px] rounded-[24px] text-[16px] font-medium border transition-colors whitespace-nowrap ${
-              activeTab === tab.key
-                ? 'bg-[#ff9400] text-white border-[#ff9400]'
-                : 'bg-white text-[#ff9400] border-[#ff9400] hover:bg-[#fff8ee]'
-            }`}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Card list */}
-      <div className="border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
-        {loading ? (
-          <div className="flex flex-col gap-1 p-2">
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="p-[10px] flex flex-col gap-4">
-                <Skeleton className="h-8 w-64" /><Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-40" />
-              </div>
-            ))}
-          </div>
-        ) : paged.length === 0 ? (
-          <div className="py-16 text-center text-[#9ca3af] text-base">No applications in this category.</div>
-        ) : (
-          paged.map((app, idx) => {
-            const posting = app.posting;
-            const locationParts: string[] = [];
-            if (posting?.work_mode) locationParts.push(posting.work_mode);
-            const locationStr = locationParts.join(', ');
-            return (
-              <div key={app.id}>
-                <div className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px]">
-                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
-                    <div className="flex flex-col gap-[6px]">
-                      <p className="text-[20px] font-medium text-black"
-                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
-                        {posting?.job_title || '—'}
-                      </p>
-                      {posting?.org_name && (
-                        <p className="text-[16px] font-normal text-black"
-                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
-                          {posting.org_name}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-[4px] opacity-40">
-                      {locationStr && <p className="text-[13px] font-medium text-black">{locationStr}</p>}
-                      <p className="text-[13px] font-medium text-black">Applied {timeAgo(app.applied_at)}</p>
-                    </div>
-                  </div>
-                  <DotsMenuButton options={[{
-                    label: withdrawing === app.id ? 'Withdrawing…' : 'Withdraw Application',
-                    onClick: () => handleWithdraw(app.id),
-                    danger: true,
-                  }]} />
-                </div>
-                {idx < paged.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {!loading && totalPages > 1 && <PaginationBar page={page} totalPages={totalPages} setPage={setPage} />}
-    </div>
-  );
-}
-
-// ─── Org / Employer View ──────────────────────────────────────────────────────
+// ─── Applicant detail panel ───────────────────────────────────────────────────
 
 function ApplicantDetailPanel({
   selected,
   selectedPosting,
-  setApplications,
   statusUpdating,
-  setStatusUpdating,
+  onUpdateStatus,
 }: {
   selected: RichEmploymentApplication;
   selectedPosting: EmployerPosting;
-  setApplications: React.Dispatch<React.SetStateAction<RichEmploymentApplication[]>>;
   statusUpdating: string | null;
-  setStatusUpdating: React.Dispatch<React.SetStateAction<string | null>>;
+  onUpdateStatus: (appId: string, status: ApplicationStatus) => void;
 }) {
   const sp = selected.seeker_profile;
-
-  async function handleStatus(appId: string, status: ApplicationStatus) {
-    setStatusUpdating(appId + status);
-    try {
-      await updateApplicationStatus(appId, status);
-      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
-    } catch {}
-    setStatusUpdating(null);
-  }
 
   return (
     <div className="w-[420px] shrink-0 bg-white border border-[#e5e5e5] rounded-lg p-5 self-start sticky top-[90px] flex flex-col gap-5 max-h-[calc(100vh-110px)] overflow-y-auto">
@@ -306,7 +191,7 @@ function ApplicantDetailPanel({
         </div>
         <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
           {(['not_a_fit', 'maybe', 'goodfit'] as ApplicationStatus[]).map(s => (
-            <button key={s} disabled={!!statusUpdating} onClick={() => handleStatus(selected.id, s)}
+            <button key={s} disabled={!!statusUpdating} onClick={() => onUpdateStatus(selected.id, s)}
               className={cn('h-[30px] px-3 rounded-full text-xs whitespace-nowrap transition-colors border',
                 selected.status === s ? 'bg-[#f77f00] text-white border-[#f77f00]' : 'border-[#f77f00] text-[#f77f00] hover:bg-[#fff8ee]')}>
               {STATUS_LABELS[s]}
@@ -455,47 +340,73 @@ function ApplicantDetailPanel({
   );
 }
 
-function OrgView() {
+// ─── Applications view (identical for individual & organization accounts) ────
+//
+// Every account can both apply to other users' postings and own postings that
+// receive applications, so the tabs read from three independent sources:
+//   - Applied                -> applications *this user submitted*
+//   - Received               -> postings *this user owns*, with applicant counts
+//   - Accepted/Hold/Rejected -> applicants on postings *this user owns*, filtered
+//                               by the status this user assigned them
+
+function ApplicationsView({ isOrg }: { isOrg: boolean }) {
   const navigate = useNavigate();
-  // View state: 'list' = all postings, 'applicants' = applicants for selected posting
-  const [view, setView] = useState<'list' | 'applicants'>('list');
+
+  // Top-level tab data
+  const [apps, setApps] = useState<MyApplication[]>([]);
   const [postings, setPostings] = useState<EmployerPosting[]>([]);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  const [appsByPosting, setAppsByPosting] = useState<Map<string, RichEmploymentApplication[]>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<FilterTab>('applied');
+  const [page, setPage] = useState(1);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
+
+  // Drill-down view: viewing one posting's applicants + detail panel
+  const [view, setView] = useState<'list' | 'applicants'>('list');
   const [selectedPosting, setSelectedPosting] = useState<EmployerPosting | null>(null);
   const [applications, setApplications] = useState<RichEmploymentApplication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [appsLoading, setAppsLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const [detailPage, setDetailPage] = useState(1);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchMyEmployerPostings()
-      .then(async posts => {
-        setPostings(posts);
-        if (posts.length > 0) {
-          const countMap = await fetchApplicationCountsForPostings(posts.map(p => p.id));
-          setCounts(countMap);
-        }
+    Promise.all([fetchMyApplicationsAsSeeker(), fetchMyEmployerPostings()])
+      .then(async ([fetchedApps, fetchedPostings]) => {
+        setApps(fetchedApps);
+        setPostings(fetchedPostings);
+        const [countMap, perPosting] = await Promise.all([
+          fetchApplicationCountsForPostings(fetchedPostings.map(p => p.id)),
+          Promise.all(fetchedPostings.map(async p => [p.id, await fetchRichApplicationsForPosting(p.id).catch(() => [])] as const)),
+        ]);
+        setCounts(countMap);
+        setAppsByPosting(new Map(perPosting));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  function openPosting(posting: EmployerPosting) {
+  async function handleWithdraw(appId: string) {
+    setWithdrawing(appId);
+    try {
+      await withdrawEmploymentApplication(appId);
+      setApps(prev => prev.filter(a => a.id !== appId));
+    } catch {}
+    setWithdrawing(null);
+  }
+
+  function openPosting(posting: EmployerPosting, focusAppId?: string) {
+    const cached = appsByPosting.get(posting.id) ?? [];
     setSelectedPosting(posting);
+    setApplications(cached);
+    setSelectedId(focusAppId ?? cached[0]?.id ?? null);
+    setDetailPage(1);
     setView('applicants');
-    setApplications([]);
-    setSelectedId(null);
-    setPage(1);
-    setAppsLoading(true);
-    fetchRichApplicationsForPosting(posting.id)
-      .then(apps => {
-        setApplications(apps);
-        if (apps.length > 0) setSelectedId(apps[0].id);
-      })
-      .catch(() => {})
-      .finally(() => setAppsLoading(false));
+  }
+
+  function backToList() {
+    setView('list');
+    setSelectedPosting(null);
   }
 
   function handleRemove(appId: string) {
@@ -504,212 +415,340 @@ function OrgView() {
       if (selectedId === appId) setSelectedId(next[0]?.id ?? null);
       return next;
     });
-    // Update count for selected posting
     if (selectedPosting) {
       setCounts(prev => {
         const next = new Map(prev);
         next.set(selectedPosting.id, Math.max(0, (next.get(selectedPosting.id) ?? 1) - 1));
         return next;
       });
+      setAppsByPosting(prev => {
+        const next = new Map(prev);
+        next.set(selectedPosting.id, (next.get(selectedPosting.id) ?? []).filter(a => a.id !== appId));
+        return next;
+      });
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(applications.length / PAGE_SIZE));
-  const pagedApps = applications.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const selected = applications.find(a => a.id === selectedId) ?? null;
+  async function handleUpdateStatus(appId: string, status: ApplicationStatus) {
+    setStatusUpdating(appId + status);
+    try {
+      await updateApplicationStatus(appId, status);
+      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
+      if (selectedPosting) {
+        setAppsByPosting(prev => {
+          const next = new Map(prev);
+          next.set(selectedPosting.id, (next.get(selectedPosting.id) ?? []).map(a => a.id === appId ? { ...a, status } : a));
+          return next;
+        });
+      }
+    } catch {}
+    setStatusUpdating(null);
+  }
 
-  // ── View 1: Postings list ──────────────────────────────────────────────────
-  if (view === 'list') {
-    if (loading) {
-      return (
-        <div className="max-w-[900px] border border-[#bebebe] rounded-[20px] p-[10px] bg-white flex flex-col gap-1">
-          {[0,1,2].map(i => (
-            <div key={i} className="p-[10px] flex flex-col gap-4">
-              <Skeleton className="h-8 w-56" /><Skeleton className="h-6 w-44" />
-              <Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-28" />
-            </div>
-          ))}
-        </div>
-      );
-    }
+  const isReceivedTab = activeTab === 'received';
+  const isStatusTab = activeTab === 'accepted' || activeTab === 'hold' || activeTab === 'rejected';
 
-    if (postings.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-[#6b7280] font-semibold text-base mb-2">No job postings yet</p>
-          <p className="text-[#9ca3af] text-sm mb-5">Create your first job posting to start receiving applicants.</p>
-          <button onClick={() => navigate('/employment-hub/employer')}
-            className="bg-[#f77f00] text-white text-sm font-semibold h-10 px-6 rounded-full hover:bg-[#e07000] transition-colors">
-            Create Posting
-          </button>
-        </div>
-      );
-    }
+  const receivedApplications: ReceivedApplication[] = postings.flatMap(posting =>
+    (appsByPosting.get(posting.id) ?? []).map(app => ({ posting, app })),
+  );
+
+  const filteredApps = activeTab === 'applied' ? apps : [];
+  const filteredPostings = isReceivedTab ? postings : [];
+  const filteredReceived = isStatusTab
+    ? receivedApplications.filter(r => r.app.status === RECEIVED_STATUS_TABS[activeTab])
+    : [];
+
+  const totalItems = isReceivedTab ? filteredPostings.length : isStatusTab ? filteredReceived.length : filteredApps.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const pagedApps = filteredApps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagedPostings = filteredPostings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagedReceived = filteredReceived.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // ── Drill-down: applicants for one posting ─────────────────────────────────
+  if (view === 'applicants') {
+    const detailTotalPages = Math.max(1, Math.ceil(applications.length / PAGE_SIZE));
+    const pagedDetailApps = applications.slice((detailPage - 1) * PAGE_SIZE, detailPage * PAGE_SIZE);
+    const selected = applications.find(a => a.id === selectedId) ?? null;
 
     return (
-      <div className="max-w-[900px] border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
-        {postings.map((posting, idx) => {
-          const count = counts.get(posting.id) ?? 0;
-          const locationParts: string[] = [];
-          if (posting.org_name) locationParts.push(posting.org_name);
-          if (posting.work_mode) locationParts.push(posting.work_mode);
-          return (
-            <div key={posting.id}>
-              <div
-                onClick={() => openPosting(posting)}
-                className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer hover:bg-[#fffaf5] transition-colors"
-              >
-                <div className="flex-1 flex flex-col gap-[12px] min-w-0">
-                  <div className="flex flex-col gap-[6px]">
-                    <p className="text-[20px] font-medium text-black"
-                      style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
-                      {posting.job_title || 'Untitled Role'}
-                    </p>
-                    {posting.industry && (
-                      <p className="text-[16px] font-normal text-black"
-                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
-                        {posting.industry}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-[4px] opacity-40">
-                    {locationParts.length > 0 && (
-                      <p className="text-[13px] font-medium text-black">{locationParts.join(', ')}</p>
-                    )}
-                    <p className="text-[13px] font-medium text-black">Posted {timeAgo(posting.created_at)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 mt-1">
-                  <span className="text-[#f77f00] text-[14px] font-medium whitespace-nowrap">
-                    {count} {count === 1 ? 'Applicant' : 'Applicants'}
-                  </span>
-                  <DotsMenuButton options={[
-                    { label: 'View Applicants', onClick: () => openPosting(posting) },
-                    { label: 'Delete Posting', onClick: () => {}, danger: true },
-                  ]} />
-                </div>
-              </div>
-              {idx < postings.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
+      <div className="flex flex-col gap-6">
+        {/* Posting header card */}
+        {selectedPosting && (
+          <div className="bg-white border border-[#e5e5e5] px-6 py-5 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-[20px] font-semibold text-black leading-tight mb-1">
+                {selectedPosting.job_title}
+              </h1>
+              {selectedPosting.industry && (
+                <p className="text-sm text-[#49454f] mb-0.5">{selectedPosting.industry}</p>
+              )}
+              {(selectedPosting.org_name || selectedPosting.work_mode) && (
+                <p className="text-sm text-[#49454f] mb-0.5">
+                  {[selectedPosting.org_name, selectedPosting.work_mode ? `(${selectedPosting.work_mode})` : ''].filter(Boolean).join(' ')}
+                </p>
+              )}
+              <p className="text-sm mt-1">
+                <span className={selectedPosting.status === 'active' ? 'text-[#05a12c] font-semibold' : 'text-[#6b7280] font-semibold'}>
+                  {selectedPosting.status.charAt(0).toUpperCase() + selectedPosting.status.slice(1)}
+                </span>
+                <span className="text-[#6e6e6e]"> • Posted {timeAgo(selectedPosting.created_at)}</span>
+              </p>
             </div>
-          );
-        })}
+            <div className="flex items-center gap-3 shrink-0 mt-1">
+              <button
+                type="button"
+                onClick={backToList}
+                className="border border-[#e5e5e5] text-[#6b7280] text-sm font-medium h-[41px] px-5 rounded-full hover:border-[#f77f00] hover:text-[#f77f00] transition-colors whitespace-nowrap"
+              >
+                ← All Postings
+              </button>
+              <button
+                type="button"
+                className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-5 rounded-full hover:bg-[#fff8ee] transition-colors whitespace-nowrap"
+              >
+                Manage Job
+              </button>
+            </div>
+          </div>
+        )}
+
+        {applications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[#e5e7eb] rounded-2xl">
+            <p className="text-[#6b7280] font-semibold text-[15px]">No applications yet</p>
+            <p className="text-[#9ca3af] text-sm mt-1">Applicants will appear here once people apply.</p>
+          </div>
+        ) : (
+          <div className="flex gap-6 items-start">
+            {/* Left: applicant cards */}
+            <div className="flex-1 min-w-0">
+              <div className="border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
+                {pagedDetailApps.map((app, idx) => {
+                  const isSelected = app.id === selectedId;
+                  const locationParts: string[] = [];
+                  if (app.seeker_profile?.current_location) locationParts.push(app.seeker_profile.current_location);
+                  if (selectedPosting?.work_mode) locationParts.push(selectedPosting.work_mode);
+                  const locationStr = locationParts.join(', ');
+                  return (
+                    <div key={app.id}>
+                      <div onClick={() => setSelectedId(app.id)}
+                        className={cn('rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer transition-colors',
+                          isSelected ? 'bg-[#fffaf5]' : 'bg-white hover:bg-[#fffaf5]')}>
+                        <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                          <div className="flex flex-col gap-[6px]">
+                            <p className="text-[20px] font-medium text-black"
+                              style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
+                              {app.name}
+                            </p>
+                            {selectedPosting?.org_name && (
+                              <p className="text-[16px] font-normal text-black"
+                                style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
+                                {selectedPosting.org_name}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-[4px] opacity-40">
+                            {locationStr && <p className="text-[13px] font-medium text-black">{locationStr}</p>}
+                            <p className="text-[13px] font-medium text-black">Applied {timeAgo(app.applied_at)}</p>
+                          </div>
+                        </div>
+                        <DotsMenuButton options={[{
+                          label: 'Remove',
+                          onClick: () => handleRemove(app.id),
+                          danger: true,
+                        }]} />
+                      </div>
+                      {idx < pagedDetailApps.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
+                    </div>
+                  );
+                })}
+              </div>
+              {detailTotalPages > 1 && <PaginationBar page={detailPage} totalPages={detailTotalPages} setPage={setDetailPage} />}
+            </div>
+
+            {/* Right: applicant detail */}
+            {selected && selectedPosting && (
+              <ApplicantDetailPanel
+                selected={selected}
+                selectedPosting={selectedPosting}
+                statusUpdating={statusUpdating}
+                onUpdateStatus={handleUpdateStatus}
+              />
+            )}
+          </div>
+        )}
       </div>
     );
   }
 
-  // ── View 2: Applicants for selected posting ────────────────────────────────
+  // ── Tab-driven list view ────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-6">
-      {/* Posting header card */}
-      {selectedPosting && (
-        <div className="bg-white border border-[#e5e5e5] px-6 py-5 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[20px] font-semibold text-black leading-tight mb-1">
-              {selectedPosting.job_title}
-            </h1>
-            {selectedPosting.industry && (
-              <p className="text-sm text-[#49454f] mb-0.5">{selectedPosting.industry}</p>
-            )}
-            {(selectedPosting.org_name || selectedPosting.work_mode) && (
-              <p className="text-sm text-[#49454f] mb-0.5">
-                {[selectedPosting.org_name, selectedPosting.work_mode ? `(${selectedPosting.work_mode})` : ''].filter(Boolean).join(' ')}
-              </p>
-            )}
-            <p className="text-sm mt-1">
-              <span className={selectedPosting.status === 'active' ? 'text-[#05a12c] font-semibold' : 'text-[#6b7280] font-semibold'}>
-                {selectedPosting.status.charAt(0).toUpperCase() + selectedPosting.status.slice(1)}
-              </span>
-              <span className="text-[#6e6e6e]"> • Posted {timeAgo(selectedPosting.created_at)}</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0 mt-1">
-            <button
-              type="button"
-              onClick={() => { setView('list'); setSelectedPosting(null); }}
-              className="border border-[#e5e5e5] text-[#6b7280] text-sm font-medium h-[41px] px-5 rounded-full hover:border-[#f77f00] hover:text-[#f77f00] transition-colors whitespace-nowrap"
-            >
-              ← All Postings
-            </button>
-            <button
-              type="button"
-              className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-5 rounded-full hover:bg-[#fff8ee] transition-colors whitespace-nowrap"
-            >
-              Manage Job
-            </button>
-          </div>
-        </div>
-      )}
+    <div className="max-w-[900px] flex flex-col gap-[30px]">
+      {/* Filter tabs */}
+      <div className="flex items-center gap-4 flex-wrap">
+        {FILTER_TABS.map(tab => (
+          <button key={tab.key} type="button"
+            onClick={() => { setActiveTab(tab.key); setPage(1); }}
+            className={`h-[48px] px-[24px] rounded-[24px] text-[16px] font-medium border transition-colors whitespace-nowrap ${
+              activeTab === tab.key
+                ? 'bg-[#ff9400] text-white border-[#ff9400]'
+                : 'bg-white text-[#ff9400] border-[#ff9400] hover:bg-[#fff8ee]'
+            }`}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {appsLoading ? (
-        <div className="flex gap-6">
-          <div className="flex-1 space-y-4">{[0,1,2,3].map(i => <Skeleton key={i} className="h-28" />)}</div>
-          <Skeleton className="w-[420px] shrink-0 h-[600px]" />
-        </div>
-      ) : applications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[#e5e7eb] rounded-2xl">
-          <p className="text-[#6b7280] font-semibold text-[15px]">No applications yet</p>
-          <p className="text-[#9ca3af] text-sm mt-1">Applicants will appear here once people apply.</p>
-        </div>
-      ) : (
-        <div className="flex gap-6 items-start">
-          {/* Left: applicant cards */}
-          <div className="flex-1 min-w-0">
-            <div className="border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
-              {pagedApps.map((app, idx) => {
-                const isSelected = app.id === selectedId;
-                const locationParts: string[] = [];
-                if (app.seeker_profile?.current_location) locationParts.push(app.seeker_profile.current_location);
-                if (selectedPosting?.work_mode) locationParts.push(selectedPosting.work_mode);
-                const locationStr = locationParts.join(', ');
-                return (
-                  <div key={app.id}>
-                    <div onClick={() => setSelectedId(app.id)}
-                      className={cn('rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer transition-colors',
-                        isSelected ? 'bg-[#fffaf5]' : 'bg-white hover:bg-[#fffaf5]')}>
-                      <div className="flex-1 flex flex-col gap-[12px] min-w-0">
-                        <div className="flex flex-col gap-[6px]">
-                          <p className="text-[20px] font-medium text-black"
-                            style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
-                            {app.name}
-                          </p>
-                          {selectedPosting?.org_name && (
-                            <p className="text-[16px] font-normal text-black"
-                              style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
-                              {selectedPosting.org_name}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-[4px] opacity-40">
-                          {locationStr && <p className="text-[13px] font-medium text-black">{locationStr}</p>}
-                          <p className="text-[13px] font-medium text-black">Applied {timeAgo(app.applied_at)}</p>
-                        </div>
-                      </div>
-                      <DotsMenuButton options={[{
-                        label: 'Remove',
-                        onClick: () => handleRemove(app.id),
-                        danger: true,
-                      }]} />
+      {/* Card list */}
+      <div className="border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
+        {loading ? (
+          <div className="flex flex-col gap-1 p-2">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="p-[10px] flex flex-col gap-4">
+                <Skeleton className="h-8 w-64" /><Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-40" />
+              </div>
+            ))}
+          </div>
+        ) : isReceivedTab && pagedPostings.length === 0 && postings.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-[#9ca3af] text-base mb-4">No job postings yet.</p>
+            <button
+              type="button"
+              onClick={() => navigate(isOrg ? '/employment-hub/employer' : '/employment-hub/seeker')}
+              className="px-6 py-2 bg-[#ff9400] text-white rounded-full text-sm font-semibold hover:bg-[#e68500] transition-colors"
+            >
+              {isOrg ? 'Create Posting' : 'Browse Jobs'}
+            </button>
+          </div>
+        ) : isReceivedTab && pagedPostings.length === 0 ? (
+          <div className="py-16 text-center text-[#9ca3af] text-base">No postings in this category.</div>
+        ) : isStatusTab && pagedReceived.length === 0 ? (
+          <div className="py-16 text-center text-[#9ca3af] text-base">No applications in this category.</div>
+        ) : !isReceivedTab && !isStatusTab && pagedApps.length === 0 ? (
+          <div className="py-16 text-center text-[#9ca3af] text-base">No applications in this category.</div>
+        ) : isReceivedTab ? (
+          pagedPostings.map((posting, idx) => {
+            const count = counts.get(posting.id) ?? 0;
+            const locationParts: string[] = [];
+            if (posting.org_name) locationParts.push(posting.org_name);
+            if (posting.work_mode) locationParts.push(posting.work_mode);
+            return (
+              <div key={posting.id}>
+                <div
+                  onClick={() => openPosting(posting)}
+                  className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer hover:bg-[#fffaf5] transition-colors"
+                >
+                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                    <div className="flex flex-col gap-[6px]">
+                      <p className="text-[20px] font-medium text-black"
+                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
+                        {posting.job_title || 'Untitled Role'}
+                      </p>
+                      {posting.industry && (
+                        <p className="text-[16px] font-normal text-black"
+                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
+                          {posting.industry}
+                        </p>
+                      )}
                     </div>
-                    {idx < pagedApps.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
+                    <div className="flex flex-col gap-[4px] opacity-40">
+                      {locationParts.length > 0 && (
+                        <p className="text-[13px] font-medium text-black">{locationParts.join(', ')}</p>
+                      )}
+                      <p className="text-[13px] font-medium text-black">Posted {timeAgo(posting.created_at)}</p>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-            {totalPages > 1 && <PaginationBar page={page} totalPages={totalPages} setPage={setPage} />}
-          </div>
+                  <div className="flex items-center gap-3 shrink-0 mt-1">
+                    <span className="text-[#f77f00] text-[14px] font-medium whitespace-nowrap">
+                      {count} {count === 1 ? 'Applicant' : 'Applicants'}
+                    </span>
+                    <DotsMenuButton options={[
+                      { label: 'View Applicants', onClick: () => openPosting(posting) },
+                      { label: 'Delete Posting', onClick: () => {}, danger: true },
+                    ]} />
+                  </div>
+                </div>
+                {idx < pagedPostings.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
+              </div>
+            );
+          })
+        ) : isStatusTab ? (
+          pagedReceived.map(({ posting, app }, idx) => {
+            const locationParts: string[] = [];
+            if (app.seeker_profile?.current_location) locationParts.push(app.seeker_profile.current_location);
+            if (posting.work_mode) locationParts.push(posting.work_mode);
+            const locationStr = locationParts.join(', ');
+            return (
+              <div key={app.id}>
+                <div
+                  onClick={() => openPosting(posting, app.id)}
+                  className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer hover:bg-[#fffaf5] transition-colors"
+                >
+                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                    <div className="flex flex-col gap-[6px]">
+                      <p className="text-[20px] font-medium text-black"
+                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
+                        {posting.job_title || '—'}
+                      </p>
+                      {app.name && (
+                        <p className="text-[16px] font-normal text-black"
+                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
+                          {app.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-[4px] opacity-40">
+                      {locationStr && <p className="text-[13px] font-medium text-black">{locationStr}</p>}
+                      <p className="text-[13px] font-medium text-black">Applied {timeAgo(app.applied_at)}</p>
+                    </div>
+                  </div>
+                  <DotsMenuButton options={[{ label: 'View Applicant', onClick: () => openPosting(posting, app.id) }]} />
+                </div>
+                {idx < pagedReceived.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
+              </div>
+            );
+          })
+        ) : (
+          pagedApps.map((app, idx) => {
+            const posting = app.posting;
+            const locationParts: string[] = [];
+            if (posting?.work_mode) locationParts.push(posting.work_mode);
+            const locationStr = locationParts.join(', ');
+            return (
+              <div key={app.id}>
+                <div className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px]">
+                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                    <div className="flex flex-col gap-[6px]">
+                      <p className="text-[20px] font-medium text-black"
+                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
+                        {posting?.job_title || '—'}
+                      </p>
+                      {posting?.org_name && (
+                        <p className="text-[16px] font-normal text-black"
+                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
+                          {posting.org_name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-[4px] opacity-40">
+                      {locationStr && <p className="text-[13px] font-medium text-black">{locationStr}</p>}
+                      <p className="text-[13px] font-medium text-black">Applied {timeAgo(app.applied_at)}</p>
+                    </div>
+                  </div>
+                  <DotsMenuButton options={[{
+                    label: withdrawing === app.id ? 'Withdrawing…' : 'Withdraw Application',
+                    onClick: () => handleWithdraw(app.id),
+                    danger: true,
+                  }]} />
+                </div>
+                {idx < pagedApps.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
+              </div>
+            );
+          })
+        )}
+      </div>
 
-          {/* Right: applicant detail */}
-          {selected && selectedPosting && (
-            <ApplicantDetailPanel
-              selected={selected}
-              selectedPosting={selectedPosting}
-              setApplications={setApplications}
-              statusUpdating={statusUpdating}
-              setStatusUpdating={setStatusUpdating}
-            />
-          )}
-        </div>
-      )}
+      {!loading && totalPages > 1 && <PaginationBar page={page} totalPages={totalPages} setPage={setPage} />}
     </div>
   );
 }
@@ -728,11 +767,7 @@ export default function MyPostingsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
-          {isOrg ? <OrgView /> : (
-            <div className="max-w-[900px]">
-              <SeekerView />
-            </div>
-          )}
+          <ApplicationsView isOrg={isOrg} />
         </div>
       </div>
     </div>

@@ -6,8 +6,9 @@ import {
   fetchMyDiscoverApplications,
   withdrawDiscoverApplication,
   fetchMyDiscoverPosts,
+  fetchDiscoverPostApplications,
 } from '../../services/discoverService';
-import type { MyDiscoverApplication, DiscoverMyPost } from '../../services/discoverService';
+import type { MyDiscoverApplication, DiscoverMyPost, DiscoverApplication } from '../../services/discoverService';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 
 type FilterTab = 'applied' | 'received' | 'accepted' | 'hold' | 'rejected';
@@ -19,6 +20,37 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: 'hold', label: 'Hold' },
   { key: 'rejected', label: 'Rejected' },
 ];
+
+// Accepted/Hold/Rejected reflect the status the post owner assigned to an
+// applicant on one of *their own* posts — not anything this user applied for.
+const RECEIVED_STATUS_TABS: Partial<Record<FilterTab, DiscoverApplication['status']>> = {
+  accepted: 'goodfit',
+  hold: 'maybe',
+  rejected: 'not_a_fit',
+};
+
+type ReceivedApplication = { post: DiscoverMyPost; app: DiscoverApplication };
+
+function FilterTabsBar({ activeTab, onSelect }: { activeTab: FilterTab; onSelect: (tab: FilterTab) => void }) {
+  return (
+    <div className="flex items-center gap-4 flex-wrap">
+      {FILTER_TABS.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          onClick={() => onSelect(tab.key)}
+          className={`h-[48px] px-[24px] rounded-[24px] text-[16px] font-medium border transition-colors whitespace-nowrap ${
+            activeTab === tab.key
+              ? 'bg-[#ff9400] text-white border-[#ff9400]'
+              : 'bg-white text-[#ff9400] border-[#ff9400] hover:bg-[#fff8ee]'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const PAGE_SIZE = 6;
 
@@ -156,35 +188,47 @@ function PaginationBar({
   );
 }
 
-// ─── Individual/Seeker view ──────────────────────────────────────────────────
+// ─── Applications view (identical for individual & organization accounts) ────
+//
+// Every account can both apply to other users' Discover posts and own posts
+// that receive applications, so the tabs read from three independent sources:
+//   - Applied                     -> applications *this user submitted*
+//   - Received                    -> posts *this user owns*, with applicant counts
+//   - Accepted/Hold/Rejected      -> applicants on posts *this user owns*, filtered
+//                                    by the status this user assigned them
 
-function SeekerView() {
+function ApplicationsView({ isOrg }: { isOrg: boolean }) {
+  const navigate = useNavigate();
   const [apps, setApps] = useState<MyDiscoverApplication[]>([]);
+  const [posts, setPosts] = useState<DiscoverMyPost[]>([]);
+  const [receivedApplications, setReceivedApplications] = useState<ReceivedApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>('applied');
   const [page, setPage] = useState(1);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
+  const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
+  const orgName =
+    storedUser.org_name ||
+    [storedUser.first_name, storedUser.last_name].filter(Boolean).join(' ') ||
+    '';
+
   useEffect(() => {
-    fetchMyDiscoverApplications()
-      .then(setApps)
+    Promise.all([fetchMyDiscoverApplications(), fetchMyDiscoverPosts()])
+      .then(async ([fetchedApps, fetchedPosts]) => {
+        setApps(fetchedApps);
+        setPosts(fetchedPosts);
+        const perPost = await Promise.all(
+          fetchedPosts.map(async (post) => {
+            const postApps = await fetchDiscoverPostApplications(post.id).catch(() => []);
+            return postApps.map((app) => ({ post, app }));
+          }),
+        );
+        setReceivedApplications(perPost.flat());
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  function filterApps(tab: FilterTab): MyDiscoverApplication[] {
-    switch (tab) {
-      case 'applied':  return apps;
-      case 'received': return apps.filter((a) => a.status !== 'applied');
-      case 'accepted': return apps.filter((a) => a.status === 'goodfit');
-      case 'hold':     return apps.filter((a) => a.status === 'maybe');
-      case 'rejected': return apps.filter((a) => a.status === 'not_a_fit');
-    }
-  }
-
-  const filtered = filterApps(activeTab);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function handleWithdraw(appId: string) {
     setWithdrawing(appId);
@@ -195,140 +239,30 @@ function SeekerView() {
     setWithdrawing(null);
   }
 
-  return (
-    <div className="flex flex-col gap-[30px]">
-      {/* Filter tabs */}
-      <div className="flex items-center gap-4 flex-wrap">
-        {FILTER_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => { setActiveTab(tab.key); setPage(1); }}
-            className={`h-[48px] px-[24px] rounded-[24px] text-[16px] font-medium border transition-colors whitespace-nowrap ${
-              activeTab === tab.key
-                ? 'bg-[#ff9400] text-white border-[#ff9400]'
-                : 'bg-white text-[#ff9400] border-[#ff9400] hover:bg-[#fff8ee]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Card list */}
-      <div className="border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
-        {loading ? (
-          <div className="flex flex-col gap-1 p-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="p-[10px] flex flex-col gap-4">
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-36" />
-                <Skeleton className="h-4 w-40" />
-              </div>
-            ))}
-          </div>
-        ) : paged.length === 0 ? (
-          <div className="py-16 text-center text-[#9ca3af] text-base">
-            No applications in this category.
-          </div>
-        ) : (
-          paged.map((app, idx) => {
-            const locationParts: string[] = [];
-            if (app.post?.address) locationParts.push(app.post.address);
-            if (app.post?.delivery_mode) locationParts.push(app.post.delivery_mode);
-            const locationStr = locationParts.join(', ');
-
-            const c = app.post_creator;
-            const creatorName = c
-              ? c.org_name || [c.first_name, c.last_name].filter(Boolean).join(' ')
-              : '';
-
-            return (
-              <div key={app.id}>
-                <div className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px]">
-                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
-                    <div className="flex flex-col gap-[6px]">
-                      <p
-                        className="text-[20px] font-medium text-black"
-                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}
-                      >
-                        {app.post?.title || '—'}
-                      </p>
-                      {creatorName && (
-                        <p
-                          className="text-[16px] font-normal text-black"
-                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}
-                        >
-                          {creatorName}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-[4px] opacity-40">
-                      {locationStr && (
-                        <p className="text-[13px] font-medium text-black">{locationStr}</p>
-                      )}
-                      <p className="text-[13px] font-medium text-black">
-                        {timeAgo(app.created_at, 'Applied')}
-                      </p>
-                    </div>
-                  </div>
-                  <DotsMenuButton
-                    options={[
-                      {
-                        label: withdrawing === app.id ? 'Withdrawing…' : 'Withdraw Application',
-                        onClick: () => handleWithdraw(app.id),
-                        danger: true,
-                      },
-                    ]}
-                  />
-                </div>
-                {idx < paged.length - 1 && (
-                  <div className="h-px bg-[#bebebe] w-full" />
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {!loading && totalPages > 1 && (
-        <PaginationBar page={page} totalPages={totalPages} setPage={setPage} />
-      )}
-    </div>
-  );
-}
-
-// ─── Org view ────────────────────────────────────────────────────────────────
-
-function OrgView() {
-  const navigate = useNavigate();
-  const [posts, setPosts] = useState<DiscoverMyPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-
-  const storedUser = JSON.parse(localStorage.getItem('user') ?? '{}');
-  const orgName =
-    storedUser.org_name ||
-    [storedUser.first_name, storedUser.last_name].filter(Boolean).join(' ') ||
-    '';
-
-  useEffect(() => {
-    fetchMyDiscoverPosts()
-      .then(setPosts)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const totalPages = Math.max(1, Math.ceil(posts.length / PAGE_SIZE));
-  const paged = posts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   function goToPostings(postId: string) {
     navigate(`/applications/postings?postId=${postId}`);
   }
 
+  const isReceivedTab = activeTab === 'received';
+  const isStatusTab = activeTab === 'accepted' || activeTab === 'hold' || activeTab === 'rejected';
+
+  const filteredApps = activeTab === 'applied' ? apps : [];
+  const filteredPosts = isReceivedTab ? posts : [];
+  const filteredReceived = isStatusTab
+    ? receivedApplications.filter((r) => r.app.status === RECEIVED_STATUS_TABS[activeTab])
+    : [];
+
+  const totalItems = isReceivedTab ? filteredPosts.length : isStatusTab ? filteredReceived.length : filteredApps.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const pagedApps = filteredApps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagedPosts = filteredPosts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagedReceived = filteredReceived.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="flex flex-col gap-[30px]">
+      {/* Filter tabs */}
+      <FilterTabsBar activeTab={activeTab} onSelect={(tab) => { setActiveTab(tab); setPage(1); }} />
+
       {/* Card list */}
       <div className="border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
         {loading ? (
@@ -342,19 +276,31 @@ function OrgView() {
               </div>
             ))}
           </div>
-        ) : paged.length === 0 ? (
+        ) : isReceivedTab && pagedPosts.length === 0 && posts.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-[#9ca3af] text-base mb-4">No discover posts yet.</p>
             <button
               type="button"
-              onClick={() => navigate('/discover/create/provider')}
+              onClick={() => navigate(isOrg ? '/discover/create/provider' : '/discover/create/seeker')}
               className="px-6 py-2 bg-[#ff9400] text-white rounded-full text-sm font-semibold hover:bg-[#e68500] transition-colors"
             >
               Create Post
             </button>
           </div>
-        ) : (
-          paged.map((post, idx) => {
+        ) : isReceivedTab && pagedPosts.length === 0 ? (
+          <div className="py-16 text-center text-[#9ca3af] text-base">
+            No postings in this category.
+          </div>
+        ) : isStatusTab && pagedReceived.length === 0 ? (
+          <div className="py-16 text-center text-[#9ca3af] text-base">
+            No applications in this category.
+          </div>
+        ) : !isReceivedTab && !isStatusTab && pagedApps.length === 0 ? (
+          <div className="py-16 text-center text-[#9ca3af] text-base">
+            No applications in this category.
+          </div>
+        ) : isReceivedTab ? (
+          pagedPosts.map((post, idx) => {
             const locationParts: string[] = [];
             if (post.address) locationParts.push(post.address);
             if (post.deliveryMode) locationParts.push(post.deliveryMode);
@@ -407,7 +353,118 @@ function OrgView() {
                     />
                   </div>
                 </div>
-                {idx < paged.length - 1 && (
+                {idx < pagedPosts.length - 1 && (
+                  <div className="h-px bg-[#bebebe] w-full" />
+                )}
+              </div>
+            );
+          })
+        ) : isStatusTab ? (
+          pagedReceived.map(({ post, app }, idx) => {
+            const locationParts: string[] = [];
+            if (post.address) locationParts.push(post.address);
+            if (post.deliveryMode) locationParts.push(post.deliveryMode);
+            const locationStr = locationParts.join(', ');
+
+            return (
+              <div key={app.id}>
+                <div
+                  className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer hover:bg-[#fffaf5] transition-colors"
+                  onClick={() => goToPostings(post.id)}
+                >
+                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                    <div className="flex flex-col gap-[6px]">
+                      <p
+                        className="text-[20px] font-medium text-black"
+                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}
+                      >
+                        {post.title || '—'}
+                      </p>
+                      {app.name && (
+                        <p
+                          className="text-[16px] font-normal text-black"
+                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}
+                        >
+                          {app.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-[4px] opacity-40">
+                      {locationStr && (
+                        <p className="text-[13px] font-medium text-black">{locationStr}</p>
+                      )}
+                      <p className="text-[13px] font-medium text-black">
+                        {timeAgo(app.created_at, 'Applied')}
+                      </p>
+                    </div>
+                  </div>
+                  <DotsMenuButton
+                    options={[
+                      {
+                        label: 'View Applicant',
+                        onClick: () => goToPostings(post.id),
+                      },
+                    ]}
+                  />
+                </div>
+                {idx < pagedReceived.length - 1 && (
+                  <div className="h-px bg-[#bebebe] w-full" />
+                )}
+              </div>
+            );
+          })
+        ) : (
+          pagedApps.map((app, idx) => {
+            const locationParts: string[] = [];
+            if (app.post?.address) locationParts.push(app.post.address);
+            if (app.post?.delivery_mode) locationParts.push(app.post.delivery_mode);
+            const locationStr = locationParts.join(', ');
+
+            const c = app.post_creator;
+            const creatorName = c
+              ? c.org_name || [c.first_name, c.last_name].filter(Boolean).join(' ')
+              : '';
+
+            return (
+              <div key={app.id}>
+                <div className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px]">
+                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                    <div className="flex flex-col gap-[6px]">
+                      <p
+                        className="text-[20px] font-medium text-black"
+                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}
+                      >
+                        {app.post?.title || '—'}
+                      </p>
+                      {creatorName && (
+                        <p
+                          className="text-[16px] font-normal text-black"
+                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}
+                        >
+                          {creatorName}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-[4px] opacity-40">
+                      {locationStr && (
+                        <p className="text-[13px] font-medium text-black">{locationStr}</p>
+                      )}
+                      <p className="text-[13px] font-medium text-black">
+                        {timeAgo(app.created_at, 'Applied')}
+                      </p>
+                    </div>
+                  </div>
+                  <DotsMenuButton
+                    options={[
+                      {
+                        label: withdrawing === app.id ? 'Withdrawing…' : 'Withdraw Application',
+                        onClick: () => handleWithdraw(app.id),
+                        danger: true,
+                      },
+                    ]}
+                  />
+                </div>
+                {idx < pagedApps.length - 1 && (
                   <div className="h-px bg-[#bebebe] w-full" />
                 )}
               </div>
@@ -440,7 +497,7 @@ export default function DiscoverAppliedPage() {
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
           <div className="max-w-[900px]">
-            {isOrg ? <OrgView /> : <SeekerView />}
+            <ApplicationsView isOrg={isOrg} />
           </div>
         </div>
       </div>
