@@ -131,7 +131,6 @@ class ProfileUpdate(BaseModel):
     support_types: Optional[List[str]] = None
 
     # Settings
-    tag_permission: Optional[str] = None
     mention_permission: Optional[str] = None
     review_permission: Optional[List[str]] = None
     community_visibility: Optional[str] = None
@@ -1070,7 +1069,10 @@ async def discover_feed(
     levelOfParticipant: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None),
 ):
-    post_type = "seeker" if tab == "seekers" else "provider"
+    # Tabs show content curated for that audience, not content created by it:
+    # provider-authored posts (opportunities/services) target seekers, and
+    # seeker-authored posts (availability/requests) target providers.
+    post_type = "provider" if tab == "seekers" else "seeker"
 
     query = (
         supabase_admin.table("discover_posts")
@@ -1722,6 +1724,26 @@ async def get_connections(
     return {"connections": connections, "total": len(connections)}
 
 
+@app.get("/api/community/connection-ids")
+async def get_connection_ids(authorization: str = Header(None)):
+    """Return just the accepted-connection peer IDs — a lightweight variant of
+    /api/community/connections for callers (like the feed) that only need IDs
+    for a visibility filter, not full profile cards with social-proof counts."""
+    user_id = get_user_id(authorization)
+
+    rows = supabase_admin.table("community_connections").select(
+        "requester_id, addressee_id"
+    ).eq("status", "accepted").or_(
+        f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
+    ).execute()
+
+    peer_ids = [
+        r["addressee_id"] if r["requester_id"] == user_id else r["requester_id"]
+        for r in (rows.data or [])
+    ]
+    return {"ids": peer_ids}
+
+
 @app.get("/api/community/members/{profile_user_id}")
 async def get_profile_community_members(
     profile_user_id: str,
@@ -1792,7 +1814,7 @@ async def search_mentionable_users(
     q: Optional[str] = None,
     authorization: str = Header(None),
 ):
-    """Return connections that allow being mentioned/tagged (respects mention_permission and tag_permission)."""
+    """Return connections that allow being mentioned (respects mention_permission)."""
     user_id = get_user_id(authorization)
 
     rows = supabase_admin.table("community_connections").select(
@@ -1810,15 +1832,14 @@ async def search_mentionable_users(
     ]
 
     users_result = supabase_admin.table("users").select(
-        "id, first_name, last_name, org_name, title, role, company, avatar_url, mention_permission, tag_permission"
+        "id, first_name, last_name, org_name, title, role, company, avatar_url, mention_permission"
     ).in_("id", peer_ids).execute()
 
     result = []
     for u in (users_result.data or []):
         mention_perm = u.get("mention_permission") or "everyone"
-        tag_perm = u.get("tag_permission") or "everyone"
-        # Exclude users who have opted out of both mentions and tags
-        if mention_perm == "none" and tag_perm == "none":
+        # Exclude users who have opted out of mentions
+        if mention_perm == "none":
             continue
         formatted = _format_user(u)
         if q and q.lower() not in formatted["name"].lower():
@@ -2983,9 +3004,12 @@ async def notify_comment_mentions(
         return {"notified": 0}
 
     all_users_resp = supabase_admin.table("users").select(
-        "id, first_name, last_name, org_name"
+        "id, first_name, last_name, org_name, mention_permission"
     ).execute()
-    all_users = all_users_resp.data or []
+    all_users = [
+        u for u in (all_users_resp.data or [])
+        if (u.get("mention_permission") or "everyone") != "none"
+    ]
 
     notified = 0
     seen_ids: set = set()

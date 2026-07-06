@@ -46,6 +46,13 @@ export async function fetchConnections(q?: string): Promise<{ connections: Conne
   return res.json();
 }
 
+export async function fetchConnectionIds(): Promise<string[]> {
+  const res = await fetch(`${API_URL}/api/community/connection-ids`, { headers: await authHeaders() });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.ids as string[];
+}
+
 export async function fetchPendingRequests(): Promise<{ requests: PendingRequest[] }> {
   const res = await fetch(`${API_URL}/api/community/pending`, { headers: await authHeaders() });
   if (!res.ok) throw new Error("Failed to fetch pending requests");

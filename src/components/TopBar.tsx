@@ -647,7 +647,7 @@ export default function TopBar({ onMenuToggle, searchValue: _sv, onSearchChange:
                 Update Account
               </button>
 
-              <button onClick={() => { setMeOpen(false); navigate("/settings?section=tags-mentions"); }}
+              <button onClick={() => { setMeOpen(false); navigate("/settings?section=mentions"); }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#18191c] hover:bg-[#fff6ed] hover:text-[#f77f00] transition-colors text-left">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />

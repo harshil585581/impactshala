@@ -427,7 +427,7 @@ export default function PostCard({
                     alt=""
                     loading="lazy"
                     decoding="async"
-                    className={`w-full object-cover rounded-lg ${post.media_urls!.length === 1 ? 'max-h-[420px]' : 'h-[200px]'}`}
+                    className={`w-full object-cover rounded-lg ${post.media_urls!.length === 1 ? 'max-h-[500px]' : 'h-[200px]'}`}
                   />
                   {i === 3 && post.media_urls!.length > 4 && (
                     <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center text-white text-2xl font-bold">
@@ -451,7 +451,7 @@ export default function PostCard({
           )}
           {post.media_urls?.[0] && (
             <div className="px-4 pb-3">
-              <video src={post.media_urls[0]} controls preload="metadata" className="w-full rounded-lg max-h-[420px] bg-black" />
+              <video src={post.media_urls[0]} controls preload="metadata" className="w-full rounded-lg max-h-[500px] bg-black" />
             </div>
           )}
         </>
@@ -461,7 +461,7 @@ export default function PostCard({
       {post.post_type === 'event' && (
         <div className="px-4 pb-4">
           {post.cover_image_url && (
-            <img src={post.cover_image_url} alt="" loading="lazy" decoding="async" className="w-full h-[200px] object-cover rounded-xl mb-3" />
+            <img src={post.cover_image_url} alt="" loading="lazy" decoding="async" className="w-full h-auto max-h-[500px] object-cover rounded-xl mb-3" />
           )}
           <div className="border border-[#e5e7eb] rounded-xl p-4 flex flex-col gap-2.5">
             <span className={`self-start text-xs font-semibold px-2.5 py-0.5 rounded-full ${post.event_type === 'online' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-700'}`}>

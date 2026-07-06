@@ -7,7 +7,6 @@ import { fetchDiscoverPost } from "../services/discoverService";
 import type { DiscoverItem } from "../services/discoverService";
 import CategoryChips from "../components/discover/CategoryChips";
 import DiscoverCard from "../components/discover/DiscoverCard";
-import ExpandedCard from "../components/discover/ExpandedCard";
 import SkeletonCard from "../components/discover/SkeletonCard";
 import FilterPanel from "../components/discover/FilterPanel";
 import HelpBox from "../components/discover/HelpBox";
@@ -19,7 +18,6 @@ import { fetchMyDiscoverApplications } from "../services/discoverService";
 export default function DiscoverPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [helpVisible, setHelpVisible] = useState(true);
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [applyPostId, setApplyPostId] = useState<string | null>(null);
   const [linkedPost, setLinkedPost] = useState<DiscoverItem | null>(null);
   const [appliedPostIds, setAppliedPostIds] = useState<Set<string>>(new Set());
@@ -34,7 +32,6 @@ export default function DiscoverPage() {
     fetchDiscoverPost(postId)
       .then((post) => {
         setLinkedPost(post);
-        setExpandedCardId(post.id);
       })
       .catch(() => {});
   }, [searchParams]);
@@ -78,10 +75,6 @@ export default function DiscoverPage() {
     resetFilters,
   } = useDiscover();
 
-  function handleExpand(id: string) {
-    setExpandedCardId((prev) => (prev === id ? null : id));
-  }
-
   return (
     <div className="min-h-screen bg-bg-page">
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
@@ -115,15 +108,15 @@ export default function DiscoverPage() {
 
             {/* Tabs */}
             <div className="bg-white rounded-t-2xl border border-border-default flex border-b-0">
-              {(["providers", "seekers"] as const).map((t) => (
+              {([["providers", "For Providers"], ["seekers", "For Seekers"]] as const).map(([t, label]) => (
                 <button
                   key={t}
                   onClick={() => switchTab(t)}
-                  className={`flex-1 py-3.5 text-sm font-semibold capitalize transition-colors relative min-h-[44px] ${
+                  className={`flex-1 py-3.5 text-sm font-semibold transition-colors relative min-h-[44px] ${
                     tab === t ? "text-primary" : "text-text-muted hover:text-text-medium"
                   }`}
                 >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  {label}
                   {tab === t && (
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
                   )}
@@ -141,7 +134,7 @@ export default function DiscoverPage() {
                   <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
                   <p className="text-xs text-primary font-semibold">Shared post</p>
                   <button
-                    onClick={() => { setLinkedPost(null); setExpandedCardId(null); }}
+                    onClick={() => setLinkedPost(null)}
                     className="ml-auto text-xs text-text-muted hover:text-text-dark transition-colors"
                   >
                     Dismiss
@@ -154,16 +147,9 @@ export default function DiscoverPage() {
                     isBookmarked={bookmarkedIds.has(linkedPost.id)}
                     isApplied={appliedPostIds.has(linkedPost.id)}
                     onGetStarted={
-                      linkedPost.type === "seeker"
-                        ? () => handleExpand(linkedPost.id)
-                        : appliedPostIds.has(linkedPost.id) ? undefined : () => setApplyPostId(linkedPost.id)
+                      appliedPostIds.has(linkedPost.id) ? undefined : () => setApplyPostId(linkedPost.id)
                     }
-                    onExpand={linkedPost.type === "seeker" ? handleExpand : undefined}
-                    isExpanded={expandedCardId === linkedPost.id}
                   />
-                  {linkedPost.type === "seeker" && expandedCardId === linkedPost.id && (
-                    <ExpandedCard item={linkedPost} onApply={() => setApplyPostId(linkedPost.id)} />
-                  )}
                 </div>
               </div>
             )}
@@ -197,21 +183,11 @@ export default function DiscoverPage() {
                       item={item}
                       onBookmark={setBookmarked}
                       isBookmarked={bookmarkedIds.has(item.id)}
-                      isApplied={tab === "providers" && appliedPostIds.has(item.id)}
+                      isApplied={appliedPostIds.has(item.id)}
                       onGetStarted={
-                        tab === "seekers"
-                          ? () => handleExpand(item.id)
-                          : appliedPostIds.has(item.id) ? undefined : () => setApplyPostId(item.id)
+                        appliedPostIds.has(item.id) ? undefined : () => setApplyPostId(item.id)
                       }
-                      onExpand={tab === "seekers" ? handleExpand : undefined}
-                      isExpanded={expandedCardId === item.id}
                     />
-                    {tab === "seekers" && expandedCardId === item.id && (
-                      <ExpandedCard
-                        item={item}
-                        onApply={() => setApplyPostId(item.id)}
-                      />
-                    )}
                   </div>
                 ))}
 

@@ -14,8 +14,7 @@ async function sessionAuthHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` };
 }
 
-type TagsMentionsView = "overview" | "tags" | "mentions";
-type TagPermission = "everyone" | "manual" | "none";
+type MentionPermission = "everyone" | "manual" | "none";
 
 function ChevronRight() {
   return (
@@ -45,143 +44,52 @@ function RadioCircle({ checked }: { checked: boolean }) {
   );
 }
 
-function TagsMentionsOverview({ onSelect }: { onSelect: (view: "tags" | "mentions") => void }) {
-  return (
-    <div className="bg-white border border-[#d7d7d7] rounded-[15px] overflow-hidden">
-      <div className="px-8 py-6 border-b border-[#e0e0e0]">
-        <p className="text-[#262626] text-xl font-normal">Manage tags and mentions</p>
-      </div>
-      <button
-        onClick={() => onSelect("tags")}
-        className="w-full flex items-center justify-between px-8 py-5 hover:bg-[#fafafa] transition-colors border-b border-[#e0e0e0]"
-      >
-        <span className="text-[#262626] text-base font-medium">Tags</span>
-        <ChevronRight />
-      </button>
-      <button
-        onClick={() => onSelect("mentions")}
-        className="w-full flex items-center justify-between px-8 py-5 hover:bg-[#fafafa] transition-colors"
-      >
-        <span className="text-[#262626] text-base font-medium">Mentions</span>
-        <ChevronRight />
-      </button>
-    </div>
-  );
-}
-
-function TagsDetail({
-  current,
-  onSave,
-  onBack,
-}: {
-  current: TagPermission;
-  onSave: (val: TagPermission) => Promise<void>;
-  onBack: () => void;
-}) {
-  const [tagPermission, setTagPermission] = useState<TagPermission>(current);
+function MentionsContent() {
+  const [mentionPermission, setMentionPermission] = useState<MentionPermission>("everyone");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    fetchMyProfile()
+      .then((p) => {
+        if (p.mention_permission) setMentionPermission(p.mention_permission as MentionPermission);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   async function handleSave() {
     setSaving(true);
-    await onSave(tagPermission);
+    await saveProfile({ mention_permission: mentionPermission }).catch(() => {});
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
 
-  const labels: Record<TagPermission, string> = {
-    everyone: "Everyone on Impactshaala",
-    manual: "Manually approve tags",
-    none: "Don't allow tags",
-  };
-
-  return (
-    <div className="bg-white border border-[#d7d7d7] rounded-[15px] overflow-hidden">
-      <div className="px-8 py-5 border-b border-[#e0e0e0]">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-[#262626] text-base font-medium hover:text-[#f77f00] transition-colors"
-        >
-          <ChevronLeft />
-          Back
-        </button>
-      </div>
-      <div className="px-8 py-6">
-        <h2 className="text-[#262626] text-xl font-semibold mb-1">Tags</h2>
-        <p className="text-[#5e6670] text-sm mb-6">Allow others to tag you in content posted on Impactshaala?</p>
-        <div className="flex flex-col gap-4">
-          {(["everyone", "manual", "none"] as TagPermission[]).map((val) => (
-            <button
-              key={val}
-              onClick={() => setTagPermission(val)}
-              className="flex items-center gap-4 py-3 text-left"
-            >
-              <RadioCircle checked={tagPermission === val} />
-              <span className={`text-base transition-colors ${tagPermission === val ? "text-[#f77f00] font-medium" : "text-[#262626]"}`}>
-                {labels[val]}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="mt-8 flex items-center justify-end gap-3">
-          {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-[#f77f00] text-white text-sm font-semibold rounded-full px-6 py-2.5 hover:bg-[#e68500] transition-colors shadow-[0px_4px_12px_rgba(255,148,0,0.3)] disabled:opacity-60"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MentionsDetail({
-  current,
-  onSave,
-  onBack,
-}: {
-  current: TagPermission;
-  onSave: (val: TagPermission) => Promise<void>;
-  onBack: () => void;
-}) {
-  const [mentionPermission, setMentionPermission] = useState<TagPermission>(current);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  async function handleSave() {
-    setSaving(true);
-    await onSave(mentionPermission);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
-
-  const labels: Record<TagPermission, string> = {
+  const labels: Record<MentionPermission, string> = {
     everyone: "Everyone on Impactshaala",
     manual: "Manually approve mentions",
     none: "Don't allow mentions",
   };
 
+  if (loading) {
+    return (
+      <div className="bg-white border border-[#d7d7d7] rounded-[15px] flex items-center justify-center py-16">
+        <div className="w-7 h-7 border-2 border-[#f77f00] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white border border-[#d7d7d7] rounded-[15px] overflow-hidden">
-      <div className="px-8 py-5 border-b border-[#e0e0e0]">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-[#262626] text-base font-medium hover:text-[#f77f00] transition-colors"
-        >
-          <ChevronLeft />
-          Back
-        </button>
+      <div className="px-8 py-6 border-b border-[#e0e0e0]">
+        <h2 className="text-[#262626] text-xl font-semibold mb-1">Mentions</h2>
+        <p className="text-[#5e6670] text-sm">Allow others to mention you in content posted on Impactshaala?</p>
       </div>
       <div className="px-8 py-6">
-        <h2 className="text-[#262626] text-xl font-semibold mb-1">Mentions</h2>
-        <p className="text-[#5e6670] text-sm mb-6">Allow others to mention you in content posted on Impactshaala?</p>
         <div className="flex flex-col gap-4">
-          {(["everyone", "manual", "none"] as TagPermission[]).map((val) => (
+          {(["everyone", "manual", "none"] as MentionPermission[]).map((val) => (
             <button
               key={val}
               onClick={() => setMentionPermission(val)}
@@ -207,63 +115,6 @@ function MentionsDetail({
       </div>
     </div>
   );
-}
-
-function TagsMentionsContent() {
-  const [view, setView] = useState<TagsMentionsView>("overview");
-  const [tagPermission, setTagPermission] = useState<TagPermission>("everyone");
-  const [mentionPermission, setMentionPermission] = useState<TagPermission>("everyone");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchMyProfile()
-      .then((p) => {
-        if (p.tag_permission) setTagPermission(p.tag_permission as TagPermission);
-        if (p.mention_permission) setMentionPermission(p.mention_permission as TagPermission);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handleSaveTag(val: TagPermission) {
-    setTagPermission(val);
-    await saveProfile({ tag_permission: val }).catch(() => {});
-  }
-
-  async function handleSaveMention(val: TagPermission) {
-    setMentionPermission(val);
-    await saveProfile({ mention_permission: val }).catch(() => {});
-  }
-
-  if (loading) {
-    return (
-      <div className="bg-white border border-[#d7d7d7] rounded-[15px] flex items-center justify-center py-16">
-        <div className="w-7 h-7 border-2 border-[#f77f00] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (view === "tags") {
-    return (
-      <TagsDetail
-        current={tagPermission}
-        onSave={handleSaveTag}
-        onBack={() => setView("overview")}
-      />
-    );
-  }
-
-  if (view === "mentions") {
-    return (
-      <MentionsDetail
-        current={mentionPermission}
-        onSave={handleSaveMention}
-        onBack={() => setView("overview")}
-      />
-    );
-  }
-
-  return <TagsMentionsOverview onSelect={(v) => setView(v)} />;
 }
 
 type BlockedView = "overview" | "blocked-users" | "blocked-orgs";
@@ -2014,7 +1865,7 @@ export default function SettingsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchParams] = useSearchParams();
 
-  const section = searchParams.get("section") ?? "tags-mentions";
+  const section = searchParams.get("section") ?? "mentions";
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
@@ -2025,7 +1876,7 @@ export default function SettingsPage() {
         <div className="max-w-3xl px-4 sm:px-6 py-8 md:px-10 md:py-10">
           <h1 className="text-[#18191c] text-2xl font-semibold mb-6">Settings</h1>
 
-          {section === "tags-mentions" && <TagsMentionsContent key="tags-mentions" />}
+          {section === "mentions" && <MentionsContent key="mentions" />}
           {section === "blocked-accounts" && <BlockedAccountsContent key="blocked" />}
           {section === "accounts-privacy" && <AccountsPrivacyContent key="privacy" />}
           {section === "admin-panel" && <AdminPanelContent key="admin-panel" />}
