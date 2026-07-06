@@ -1,5 +1,5 @@
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
-import { fetchConnections } from './communityService';
+import { fetchConnectionIds } from './communityService';
 import { fetchBlockedMeIds, fetchBlockedUsers } from './blockService';
 
 export type PostVisibility = 'public' | 'community';
@@ -209,20 +209,11 @@ export async function fetchFeedPosts(
 
   const myId = getUserId();
 
-  // Fetch connections and block lists concurrently
-  const [connectionsResult, blockedMeIds, myBlockedUsers] = await Promise.all([
-    fetchConnections().catch(() => ({ connections: [] as { id: string }[] })),
-    fetchBlockedMeIds().catch(() => [] as string[]),
-    fetchBlockedUsers().catch(() => [] as { id: string }[]),
-  ]);
-
-  const connectedIds = connectionsResult.connections.map(c => c.id);
-
-  // Build set of user IDs whose posts should be hidden
-  const hiddenIds = new Set([
-    ...blockedMeIds,
-    ...myBlockedUsers.map(u => u.id),
-  ]);
+  // Only connection IDs are needed up front to build the visibility filter.
+  // Block lists are only needed to filter the result afterwards, so they're
+  // fetched in parallel with the posts query itself instead of gating it —
+  // this cuts two blocking round trips off the critical path to first paint.
+  const connectedIds = await fetchConnectionIds().catch(() => [] as string[]);
 
   // Community posts are visible only from self or connections
   const communityIds = [...new Set([myId, ...connectedIds])].filter(Boolean);
@@ -230,8 +221,8 @@ export async function fetchFeedPosts(
     ? `visibility.eq.public,and(visibility.eq.community,user_id.in.(${communityIds.join(',')}))`
     : 'visibility.eq.public';
 
-  // Fetch extra to account for filtered-out blocked posts
-  const fetchTo = to + hiddenIds.size * 2;
+  // Fetch a small buffer of extra rows to account for filtered-out blocked posts
+  const fetchTo = to + 6;
 
   let query = supabase
     .from('posts')
@@ -244,8 +235,18 @@ export async function fetchFeedPosts(
   else if (filter === 'polls') query = query.in('post_type', ['poll', 'question']);
   else if (filter === 'event') query = query.eq('post_type', 'event');
 
-  const { data, error } = await query;
+  const [{ data, error }, blockedMeIds, myBlockedUsers] = await Promise.all([
+    query,
+    fetchBlockedMeIds().catch(() => [] as string[]),
+    fetchBlockedUsers().catch(() => [] as { id: string }[]),
+  ]);
   if (error) throw new Error(error.message);
+
+  // Build set of user IDs whose posts should be hidden
+  const hiddenIds = new Set([
+    ...blockedMeIds,
+    ...myBlockedUsers.map(u => u.id),
+  ]);
 
   return ((data ?? []) as unknown as FeedPost[])
     .map(p => ({

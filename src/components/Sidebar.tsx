@@ -25,7 +25,7 @@ const ROUTE_TO_SUB_ITEM: Record<string, string> = {
 };
 
 const INDIVIDUAL_SETTINGS_SUB_ITEMS = [
-  { label: "Tags & Mentions", section: "tags-mentions" },
+  { label: "Mentions", section: "mentions" },
   { label: "Blocked Accounts", section: "blocked-accounts" },
   { label: "Accounts & Privacy", section: "accounts-privacy" },
 ];
@@ -54,7 +54,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   );
 
   const activeSettingsSection = isOnSettingsRoute
-    ? new URLSearchParams(location.search).get("section") ?? "tags-mentions"
+    ? new URLSearchParams(location.search).get("section") ?? "mentions"
     : "";
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   function handleSettingsClick() {
     setSettingsExpanded((v) => !v);
     if (!isOnSettingsRoute) {
-      navigate("/settings?section=tags-mentions");
+      navigate("/settings?section=mentions");
     }
   }
 

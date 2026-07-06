@@ -12,8 +12,6 @@ type Props = {
   onBookmark: (id: string) => void;
   isBookmarked: boolean;
   onGetStarted?: () => void;
-  onExpand?: (id: string) => void;
-  isExpanded?: boolean;
   isApplied?: boolean;
 };
 
@@ -22,8 +20,6 @@ export default function DiscoverCard({
   onBookmark,
   isBookmarked,
   onGetStarted,
-  onExpand,
-  isExpanded,
   isApplied = false,
 }: Props) {
   const [showMore, setShowMore] = useState(false);
@@ -156,7 +152,7 @@ export default function DiscoverCard({
         <img
           src={item.imageUrl}
           alt=""
-          className="w-full h-[150px] object-cover"
+          className="w-full h-auto max-h-[480px] object-cover"
           onError={e => {
             (e.currentTarget as HTMLImageElement).style.display = "none";
           }}
@@ -174,6 +170,22 @@ export default function DiscoverCard({
         {/* Expanded details — only when showMore */}
         {showMore && (
           <div className="mt-3 space-y-4 border-t border-border-light pt-4">
+            {item.targetAudience && (
+              <section>
+                <h4 className="font-bold text-text-dark text-sm mb-2">Target Audience</h4>
+                <div className="flex flex-wrap gap-2">
+                  {item.targetAudience.split(",").map((a) => (
+                    <span
+                      key={a}
+                      className="px-3 py-1 bg-primary-light text-primary text-xs font-medium rounded-full"
+                    >
+                      {a.trim()}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {item.eligibilityCriteria && (
               <section>
                 <h4 className="font-bold text-text-dark text-sm mb-1">Eligibility criteria</h4>
@@ -255,16 +267,6 @@ export default function DiscoverCard({
             className="text-primary text-sm font-medium hover:underline mt-2 mb-3 block"
           >
             {showMore ? "Show less" : "Show more"}
-          </button>
-        )}
-
-        {/* Seekers: expand for opportunity details */}
-        {item.type === "seeker" && onExpand && (
-          <button
-            onClick={() => onExpand(item.id)}
-            className="text-primary text-sm font-semibold mb-3 block hover:underline"
-          >
-            {isExpanded ? "▲ Hide details" : "▼ View opportunity details"}
           </button>
         )}
 

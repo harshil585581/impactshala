@@ -39,7 +39,6 @@ export interface ProfileData {
   education_level?: string;
   institute_name?: string;
   resume_url?: string;
-  tag_permission?: string;
   mention_permission?: string;
   review_permission?: string[];
   community_visibility?: string;
