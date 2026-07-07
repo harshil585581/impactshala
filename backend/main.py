@@ -1647,6 +1647,59 @@ def _format_user(u: dict) -> dict:
     }
 
 
+def _get_first_degree_ids(user_id: str) -> set[str]:
+    """Return the set of user IDs the given user is directly (1st-degree) connected to."""
+    rows = supabase_admin.table("community_connections").select(
+        "requester_id, addressee_id"
+    ).eq("status", "accepted").or_(
+        f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
+    ).execute()
+
+    first_degree_ids: set[str] = set()
+    for row in (rows.data or []):
+        peer = row["addressee_id"] if row["requester_id"] == user_id else row["requester_id"]
+        first_degree_ids.add(peer)
+    return first_degree_ids
+
+
+def _compute_mutual_counts(first_degree_ids: set[str], target_ids: list[str]) -> dict[str, int]:
+    """For each target ID, count how many of the current user's 1st-degree
+    connections are themselves directly connected to that target — i.e. the
+    number of mutual connections, used to derive LinkedIn-style 2nd-degree status."""
+    mutual_counts: dict[str, int] = {}
+    if not first_degree_ids or not target_ids:
+        return mutual_counts
+
+    target_set = set(target_ids)
+    peer_list = list(first_degree_ids)
+    peer_conn_rows = supabase_admin.table("community_connections").select(
+        "requester_id, addressee_id"
+    ).eq("status", "accepted").or_(
+        f"requester_id.in.({','.join(peer_list)}),addressee_id.in.({','.join(peer_list)})"
+    ).execute()
+
+    for row in (peer_conn_rows.data or []):
+        r, a = row["requester_id"], row["addressee_id"]
+        if r in first_degree_ids and a in target_set:
+            mutual_counts[a] = mutual_counts.get(a, 0) + 1
+        if a in first_degree_ids and r in target_set:
+            mutual_counts[r] = mutual_counts.get(r, 0) + 1
+
+    return mutual_counts
+
+
+def _degree_label(user_id: str, target_id: str, first_degree_ids: set[str], mutual_counts: dict[str, int]) -> str:
+    """LinkedIn-style connection degree: 1st = direct connection, 2nd = connected
+    to at least one of my 1st-degree connections, 3rd+ = everyone else."""
+    if target_id == user_id:
+        return "1st"
+    if target_id in first_degree_ids:
+        return "1st"
+    if mutual_counts.get(target_id, 0) > 0:
+        return "2nd"
+    return "3rd+"
+
+
 @app.get("/api/community/connections")
 async def get_connections(
     q: Optional[str] = None,
@@ -1717,6 +1770,7 @@ async def get_connections(
         formatted["endorsement_count"] = endorsement_counts.get(peer_id, 0)
         formatted["review_count"] = review_counts.get(peer_id, 0)
         formatted["achievement_count"] = achievement_counts.get(peer_id, 0)
+        formatted["degree"] = "1st"
         if q and q.lower() not in formatted["name"].lower():
             continue
         connections.append(formatted)
@@ -1869,6 +1923,9 @@ async def get_pending_requests(authorization: str = Header(None)):
 
     users_map = {u["id"]: u for u in (users_result.data or [])}
 
+    first_degree_ids = _get_first_degree_ids(user_id)
+    mutual_counts = _compute_mutual_counts(first_degree_ids, requester_ids)
+
     requests = []
     for row in rows.data:
         peer = users_map.get(row["requester_id"])
@@ -1877,6 +1934,8 @@ async def get_pending_requests(authorization: str = Header(None)):
         formatted = _format_user(peer)
         formatted["request_id"] = row["id"]
         formatted["requested_at"] = row["created_at"]
+        formatted["mutual_connections"] = mutual_counts.get(row["requester_id"], 0)
+        formatted["degree"] = _degree_label(user_id, row["requester_id"], first_degree_ids, mutual_counts)
         requests.append(formatted)
 
     return {"requests": requests}
@@ -2056,6 +2115,7 @@ async def get_suggestions(authorization: str = Header(None)):
         formatted["review_count"]       = review_counts.get(uid, 0)
         formatted["achievement_count"]  = achievement_counts.get(uid, 0)
         formatted["mutual_connections"] = mutual
+        formatted["degree"]             = "2nd" if mutual > 0 else "3rd+"
         formatted["_score"]             = score
         scored.append(formatted)
 
