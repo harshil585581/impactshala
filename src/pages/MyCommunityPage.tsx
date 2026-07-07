@@ -31,6 +31,26 @@ function Avatar({ url, name, size = 64 }: { url?: string | null; name: string; s
   );
 }
 
+// ─── Degree badge ─────────────────────────────────────────────────────────────
+
+function DegreeBadge({ degree }: { degree?: CommunityUser["degree"] }) {
+  if (!degree) return null;
+  return (
+    <span
+      title={
+        degree === "1st"
+          ? "Direct connection"
+          : degree === "2nd"
+          ? "Connected through a mutual connection"
+          : "Not yet connected through anyone in your community"
+      }
+      className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#eef2f6] text-[#474d57] text-[9px] font-bold leading-none shrink-0"
+    >
+      {degree}
+    </span>
+  );
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function Skeleton({ className }: { className?: string }) {
@@ -94,12 +114,15 @@ function PersonCard({
       <div className="px-4 pb-4 flex flex-col items-center flex-1">
         {/* Fixed-height area keeps stats aligned across all cards in a row */}
         <div className="w-full flex flex-col items-center min-h-[48px]">
-          <button
-            onClick={() => onViewProfile(person.id)}
-            className="text-[#18191c] text-base font-bold text-center leading-snug line-clamp-1 hover:text-[#f77f00] transition-colors"
-          >
-            {person.name}
-          </button>
+          <div className="flex items-center gap-1.5 max-w-full">
+            <button
+              onClick={() => onViewProfile(person.id)}
+              className="text-[#18191c] text-base font-bold text-center leading-snug line-clamp-1 hover:text-[#f77f00] transition-colors"
+            >
+              {person.name}
+            </button>
+            <DegreeBadge degree={person.degree} />
+          </div>
           {subtitle && (
             <p className="text-[#9199a3] text-xs text-center mt-0.5 line-clamp-2 leading-snug">{subtitle}</p>
           )}
@@ -347,14 +370,23 @@ export default function MyCommunityPage() {
                       <Avatar url={req.avatar_url} name={req.name} size={56} />
                     </button>
                     <div className="flex-1 min-w-0">
-                      <button
-                        onClick={() => viewProfile(req.id)}
-                        className="text-[#18191c] text-base font-semibold hover:text-[#f77f00] transition-colors text-left"
-                      >
-                        {req.name}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => viewProfile(req.id)}
+                          className="text-[#18191c] text-base font-semibold hover:text-[#f77f00] transition-colors text-left"
+                        >
+                          {req.name}
+                        </button>
+                        <DegreeBadge degree={req.degree} />
+                      </div>
                       {req.title && <p className="text-[#9199a3] text-sm leading-tight">{req.title}</p>}
                       {req.company && <p className="text-[#9199a3] text-sm leading-tight">{req.company}</p>}
+                      {(req.mutual_connections ?? 0) > 0 && (
+                        <p className="text-[#9199a3] text-xs leading-tight mt-0.5">
+                          <span className="text-[#f77f00] font-semibold">{req.mutual_connections}</span>
+                          {" "}mutual connection{req.mutual_connections !== 1 ? "s" : ""}
+                        </p>
+                      )}
                       <p className="text-[#18191c] text-sm font-semibold mt-0.5">{formatTime(req.requested_at)}</p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">

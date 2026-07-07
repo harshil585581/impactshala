@@ -10,6 +10,8 @@ async function authHeaders(): Promise<Record<string, string>> {
   };
 }
 
+export type ConnectionDegree = "1st" | "2nd" | "3rd+";
+
 export type CommunityUser = {
   id: string;
   name: string;
@@ -21,6 +23,7 @@ export type CommunityUser = {
   review_count?: number;
   achievement_count?: number;
   mutual_connections?: number;
+  degree?: ConnectionDegree;
 };
 
 export type Connection = CommunityUser & {

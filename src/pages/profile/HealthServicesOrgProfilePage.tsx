@@ -10,13 +10,10 @@ import { fetchPersonalAchievements } from '../../services/achievementService';
 import type { PersonalAchievement } from '../../services/achievementService';
 import AddPersonalAchievementModal from '../../components/profile/AddPersonalAchievementModal';
 import AllAchievementsModal from '../../components/profile/AllAchievementsModal';
-import { fetchUserPosts, fetchLikedPostIds, fetchLikesCounts, fetchCommentCounts, togglePostLike, type FeedPost } from '../../services/postService';
+import {fetchUserPosts, fetchLikedPostIds, fetchLikesCounts, fetchCommentCounts, togglePostLike, type FeedPost } from '../../services/postService';
 import { fetchSavedPostIds, savePost, unsavePost } from '../../services/savedService';
 import PostDetailModal from '../../components/profile/PostDetailModal';
-import {
-  fetchCollaborativeAccomplishments,
-  fetchCollaboratorAvatars,
-} from '../../services/collaborativeAccomplishmentService';
+import {fetchCollaborativeAccomplishments, fetchCollaboratorAvatars} from '../../services/collaborativeAccomplishmentService';
 import type { CollaborativeAccomplishment } from '../../services/collaborativeAccomplishmentService';
 import AddCollaborativeAccomplishmentModal from '../../components/profile/AddCollaborativeAccomplishmentModal';
 import CollaborativeAccomplishmentDetailModal from '../../components/profile/CollaborativeAccomplishmentDetailModal';
@@ -37,7 +34,7 @@ import { blockUser, unblockUser, fetchIsBlocked } from '../../services/blockServ
 const postImg1 = 'https://placehold.co/400x300/f5f5f5/cccccc';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-// ── Add Industry Experience modal ────────────────────────────────────────────
+
 function AddIndustryExperienceModal({
   currentIndustries,
   onClose,

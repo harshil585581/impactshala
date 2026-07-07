@@ -205,8 +205,8 @@ export default function DiscoverPage() {
           </div>
 
           {/* ── Right panel ── */}
-          <div className="hidden lg:block w-[354px] shrink-0">
-            <div className="flex flex-col gap-4 sticky top-[84px]">
+          <div className="hidden lg:block w-[354px] shrink-0 self-start sticky top-[84px]">
+            <div className="flex flex-col gap-4">
               <CreatePostDropdown />
               <FilterPanel
                 filters={pendingFilters}

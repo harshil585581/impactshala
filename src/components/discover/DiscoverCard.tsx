@@ -29,6 +29,21 @@ export default function DiscoverCard({
   const [commentCount, setCommentCount] = useState(item.comments);
   const [showShare, setShowShare] = useState(false);
 
+  // De-dupe the category line against the badge (and against itself) so a
+  // value like "Health Camps" doesn't print once as the pill and again here.
+  const badgeKey = item.badge?.trim().toLowerCase();
+  const seenTags = new Set(badgeKey ? [badgeKey] : []);
+  const tagParts = [item.categoryTag, item.subTags]
+    .filter(Boolean)
+    .flatMap((tag) => tag.split("•").map((t) => t.trim()))
+    .filter((tag) => {
+      if (!tag) return false;
+      const key = tag.toLowerCase();
+      if (seenTags.has(key)) return false;
+      seenTags.add(key);
+      return true;
+    });
+
   async function handleLike() {
     const next = !liked;
     setLiked(next);
@@ -117,13 +132,18 @@ export default function DiscoverCard({
         {/* Category tags */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           {item.badge && (
-            <span className="px-3 py-1 border border-border-default rounded-full text-xs text-text-medium font-medium whitespace-nowrap">
+            <span className="px-3 py-1 bg-primary-light text-primary rounded-full text-xs font-medium whitespace-nowrap">
               {item.badge}
             </span>
           )}
-          <span className="text-xs text-text-medium">
-            {[item.categoryTag, item.subTags].filter(Boolean).join(" • ")}
-          </span>
+          {tagParts.map((tag) => (
+            <span
+              key={tag}
+              className="px-3 py-1 bg-primary-light text-primary rounded-full text-xs font-medium whitespace-nowrap"
+            >
+              {tag}
+            </span>
+          ))}
         </div>
 
         {/* Meta grid */}
