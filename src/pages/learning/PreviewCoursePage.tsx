@@ -6,6 +6,7 @@ import { fetchProfile } from '../../services/profileService';
 import type { UserProfile } from '../../types/profile';
 import TopBar from '../../components/TopBar';
 import Sidebar from '../../components/Sidebar';
+import RightPanel from '../../components/RightPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,59 +94,6 @@ function VisibilityDropdown({ value, onChange }: { value: Visibility; onChange: 
   );
 }
 
-function FormSidebar() {
-  const [helpDismissed, setHelpDismissed] = useState(false);
-  return (
-    <aside className="w-[260px] shrink-0 flex flex-col gap-4">
-      <div className="bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden">
-        <div className="h-20 bg-[#14313a] relative">
-          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-[#e2e8f0] border-[3px] border-white overflow-hidden shadow-sm flex items-center justify-center">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#94a3b8" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" fill="#94a3b8" /></svg>
-          </div>
-        </div>
-        <div className="pt-10 pb-4 px-4 text-center">
-          <p className="text-[#18191c] font-bold text-base">Michael Anderson</p>
-          <p className="text-[#6b7280] text-xs mt-0.5">UI/UX Designer • Accenture</p>
-          <div className="flex items-center justify-around mt-3 pt-3 border-t border-[#f3f4f6]">
-            <div className="text-center"><p className="text-[#18191c] font-bold text-sm">183</p><p className="text-[#9ca3af] text-[10px]">Reviews</p></div>
-            <div className="w-px h-8 bg-[#e5e7eb]" />
-            <div className="text-center"><p className="text-[#18191c] font-bold text-sm">56</p><p className="text-[#9ca3af] text-[10px]">Achievement</p></div>
-            <div className="w-px h-8 bg-[#e5e7eb]" />
-            <div className="text-center"><p className="text-[#f77f00] font-bold text-sm">1.2K</p><p className="text-[#9ca3af] text-[10px] leading-tight">Community<br />Members</p></div>
-          </div>
-        </div>
-      </div>
-      <div className="bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden">
-        <p className="px-4 pt-3 pb-2 text-[#18191c] font-bold text-sm">Recommended Post</p>
-        <div className="bg-[#18191c] px-4 py-3">
-          <p className="text-white font-semibold text-sm">Figma Design</p>
-          <p className="text-gray-400 text-[10px] mt-0.5">Learn &amp; Explore more at impactshala.com</p>
-        </div>
-        <div className="px-4 py-3">
-          <h4 className="text-[#18191c] font-bold text-sm mb-2">UI/UX Certification Course</h4>
-          <span className="bg-[#fff3e0] text-[#f77f00] text-xs px-3 py-0.5 rounded-full">Onsite</span>
-          <p className="text-[#6b7280] text-xs mt-2 leading-relaxed">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
-          <button className="mt-3 w-full border border-[#f77f00] text-[#f77f00] text-xs font-semibold py-2 rounded-full hover:bg-[#fff8ee] transition-colors">Know More</button>
-        </div>
-        <div className="flex justify-center gap-1.5 pb-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#f77f00]" /><div className="w-1.5 h-1.5 rounded-full bg-[#d6d6d6]" /><div className="w-1.5 h-1.5 rounded-full bg-[#d6d6d6]" />
-        </div>
-      </div>
-      {!helpDismissed && (
-        <div className="bg-[#fffcf8] border border-[#ffeacc] rounded-2xl p-4 relative">
-          <button onClick={() => setHelpDismissed(true)} className="absolute top-3 right-3 text-[#9ca3af] hover:text-[#6b7280] transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-          </button>
-          <span className="text-xl">📋</span>
-          <p className="text-[#f77f00] font-bold text-sm mt-1">Help Box</p>
-          <p className="text-[#6b7280] text-xs mt-1 leading-relaxed">Not able to find what you're looking for? Let us help you.</p>
-          <button className="mt-3 bg-[#f77f00] text-white text-xs font-semibold px-5 py-2 rounded-full hover:bg-[#e07000] transition-colors">Click Here</button>
-        </div>
-      )}
-    </aside>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PreviewCoursePage() {
@@ -222,8 +170,8 @@ export default function PreviewCoursePage() {
       <TopBar onMenuToggle={() => setSidebarOpen((v) => !v)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px]">
-        <div className="flex gap-5 items-start px-4 sm:px-6 py-6">
+      <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 flex gap-6 items-start">
 
           {/* ── Preview Card ── */}
           <div className="flex-1 min-w-0 bg-white rounded-2xl border border-[#f2f2f3] overflow-hidden">
@@ -432,7 +380,9 @@ export default function PreviewCoursePage() {
           </div>
 
           {/* ── Right Sidebar ── */}
-          <FormSidebar />
+          <div className="hidden xl:block w-[340px] shrink-0 self-start sticky top-[-155px]">
+            <RightPanel />
+          </div>
         </div>
       </div>
     </div>

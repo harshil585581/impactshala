@@ -1295,3 +1295,11 @@ CREATE POLICY IF NOT EXISTS "Admin can manage inquiries"
   ON help_center_inquiries FOR ALL
   USING (true)
   WITH CHECK (true);
+
+-- ============================================================
+-- Call recordings: store the uploaded recording URL for a call
+-- Run this in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE call_logs
+  ADD COLUMN IF NOT EXISTS recording_url TEXT;

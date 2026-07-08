@@ -11,6 +11,8 @@ import {
   unsaveLearningCourse,
   fetchSavedLearningCourseIds,
 } from "../../services/savedService";
+import HelpBox from "../../components/discover/HelpBox";
+import PromoCard from "../../components/discover/PromoCard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,7 @@ interface Course {
   title: string;
   academicLevel: string;
   mode: string;
+  stream: string;
   courseFee: string;
   duration: string;
   applicationDeadline: string;
@@ -59,81 +62,66 @@ interface FilterState {
 const COURSE_IMG = "https://placehold.co/500x200/1e293b/ffffff?text=Course";
 
 const UPSKILLING_STREAMS = [
-  { label: "Technology & IT", count: 32 },
-  { label: "Finance & FinTech", count: 14 },
-  { label: "Marketing & Sales", count: 14 },
-  { label: "Business, Management & Strategy", count: 14 },
-  { label: "Design, Media & Creative", count: 14 },
-  { label: "Legal, Compliance & Public Policy", count: 14 },
-  { label: "Healthcare & Life Sciences", count: 14 },
-  { label: "Education & Training", count: 14 },
-  { label: "Human Resources & People Ops", count: 14 },
-  { label: "Logistics, Supply Chain & Operations", count: 14 },
-  { label: "Social Impact & Development Sector", count: 14 },
-  { label: "Hospitality, Travel & Tourism", count: 14 },
-  { label: "Manufacturing & Engineering", count: 14 },
-  { label: "Media, Entertainment & Content", count: 14 },
-  { label: "Language & Communication", count: 14 },
-  { label: "Others", count: 14 },
+  "Technology & IT",
+  "Finance & FinTech",
+  "Marketing & Sales",
+  "Business, Management & Strategy",
+  "Design, Media & Creative",
+  "Legal, Compliance & Public Policy",
+  "Healthcare & Life Sciences",
+  "Education & Training",
+  "Human Resources & People Ops",
+  "Logistics, Supply Chain & Operations",
+  "Social Impact & Development Sector",
+  "Hospitality, Travel & Tourism",
+  "Manufacturing & Engineering",
+  "Media, Entertainment & Content",
+  "Language & Communication",
+  "Others",
 ];
 
-const LEARNING_MODES = [
-  { label: "Onsite", count: 89 },
-  { label: "Remote", count: 150 },
-  { label: "Hybrid", count: 67 },
-];
+const LEARNING_MODES = ["Onsite", "Remote", "Hybrid"];
 
-const FEES_OPTIONS = [
-  { label: "Individual", count: 32 },
-  { label: "Group", count: 14 },
-  { label: "Open to both", count: 14 },
-];
+// Matches the real `fee_type` values ('range' | 'fixed') stored on a course
+const FEES_OPTIONS = ["Fixed", "Range"];
 
-const SCHOLARSHIP_OPTIONS = [
-  { label: "Yes", count: 22 },
-  { label: "No", count: 14 },
-];
+const SCHOLARSHIP_OPTIONS = ["Yes", "No"];
 
 const SCHOOL_PARTICIPANT_LEVELS = [
-  { label: "Pre-school (Under Grade 5)", count: 32 },
-  { label: "Middle School (Grade 6 to 8)", count: 14 },
-  { label: "High School (Grade 9 to 10)", count: 14 },
-  { label: "Senior Secondary (Grade 11 to 12)", count: 14 },
+  "Pre-School (Pre K - UKG)",
+  "Primary School (Grade 1 to 4)",
+  "Secondary School (Grade 5 to 7)",
+  "Senior Secondary School (Grade 8 to 10)",
+  "High School (Grade 11 to 12)",
 ];
 
 const COLLEGE_PARTICIPANT_LEVELS = [
-  { label: "Undergraduate (UG)", count: 32 },
-  { label: "Postgraduate (PG)", count: 14 },
-  { label: "Diploma / Certificate", count: 14 },
-  { label: "Doctoral (PhD)", count: 14 },
+  "High School (Grade 11 to 12)",
+  "Diploma",
+  "Under Graduate",
+  "Post Graduate",
+  "PhD",
 ];
 
-const PROFESSIONAL_PARTICIPANT_LEVELS = [
-  { label: "Beginner", count: 32 },
-  { label: "Intermediate", count: 14 },
-  { label: "Advanced", count: 14 },
-];
+const PROFESSIONAL_PARTICIPANT_LEVELS = ["Beginner", "Intermediate", "Advanced"];
 
-const EDUCATION_BOARD_OPTIONS = [
-  { label: "Indian Education Board", count: 32 },
-  { label: "International Education Board", count: 14 },
-];
+const EDUCATION_BOARD_OPTIONS = ["Indian Education Board", "International Education Board"];
 
 const HIGHER_EDUCATION_STREAMS = [
-  { label: "STEM (Science, Technology, Engineering & Math)", count: 32 },
-  { label: "Commerce, Finance & Business", count: 14 },
-  { label: "Arts, Humanities & Social Sciences", count: 14 },
-  { label: "Law, Governance & Public Policy", count: 14 },
-  { label: "Health, Medicine & Allied Sciences", count: 14 },
-  { label: "Design, Media & Creative Arts", count: 14 },
-  { label: "Education & Teaching", count: 14 },
-  { label: "Vocational, Skill-based & Technical Training", count: 14 },
-  { label: "Technology & Digital Skills", count: 14 },
-  { label: "Professional Development & Soft Skills", count: 14 },
-  { label: "Entrepreneurship & Startup Skills", count: 14 },
-  { label: "Test Prep & Competitive Exams", count: 14 },
-  { label: "Personal Growth & Wellbeing", count: 14 },
-  { label: "Others", count: 14 },
+  "STEM (Science, Technology, Engineering & Math)",
+  "Commerce, Finance & Business",
+  "Arts, Humanities & Social Sciences",
+  "Law, Governance & Public Policy",
+  "Health, Medicine & Allied Sciences",
+  "Design, Media & Creative Arts",
+  "Education & Teaching",
+  "Vocational, Skill-based & Technical Training",
+  "Technology & Digital Skills",
+  "Professional Development & Soft Skills",
+  "Entrepreneurship & Startup Skills",
+  "Test Prep & Competitive Exams",
+  "Personal Growth & Wellbeing",
+  "Others",
 ];
 
 const GRADE_PILL_LABELS: Record<string, string> = {
@@ -605,6 +593,7 @@ function DocumentsModal({
 
 function LearningRightSidebar({
   mainTab,
+  courses,
   filters,
   onToggleStream,
   onToggleMode,
@@ -615,6 +604,7 @@ function LearningRightSidebar({
   onReset,
 }: {
   mainTab: MainTab;
+  courses: Course[];
   filters: FilterState;
   onToggleStream: (s: string) => void;
   onToggleMode: (m: string) => void;
@@ -653,9 +643,9 @@ function LearningRightSidebar({
       : PROFESSIONAL_PARTICIPANT_LEVELS;
 
   return (
-    <aside className="w-[260px] shrink-0 flex flex-col gap-4">
+    <aside className="w-full shrink-0 flex flex-col gap-4">
       {/* Filter Card */}
-      <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4">
+      <div className="bg-white border border-[#f2f2f3] rounded-2xl p-4">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[#18191c] font-bold text-base">Filter</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -674,13 +664,13 @@ function LearningRightSidebar({
             isOpen={modeOpen}
             onToggle={() => setModeOpen((v) => !v)}
           >
-            {LEARNING_MODES.map((m) => (
+            {LEARNING_MODES.map((label) => (
               <FilterCheckbox
-                key={m.label}
-                label={m.label}
-                count={m.count}
-                checked={filters.modes.includes(m.label)}
-                onChange={() => onToggleMode(m.label)}
+                key={label}
+                label={label}
+                count={courses.filter((c) => c.mode.toLowerCase().includes(label.toLowerCase())).length}
+                checked={filters.modes.includes(label)}
+                onChange={() => onToggleMode(label)}
               />
             ))}
           </FilterAccordion>
@@ -690,13 +680,13 @@ function LearningRightSidebar({
             isOpen={streamOpen}
             onToggle={() => setStreamOpen((v) => !v)}
           >
-            {streamOptions.map((s) => (
+            {streamOptions.map((label) => (
               <FilterCheckbox
-                key={s.label}
-                label={s.label}
-                count={s.count}
-                checked={filters.streams.includes(s.label)}
-                onChange={() => onToggleStream(s.label)}
+                key={label}
+                label={label}
+                count={courses.filter((c) => c.stream === label).length}
+                checked={filters.streams.includes(label)}
+                onChange={() => onToggleStream(label)}
               />
             ))}
           </FilterAccordion>
@@ -706,13 +696,13 @@ function LearningRightSidebar({
             isOpen={scholarshipOpen}
             onToggle={() => setScholarshipOpen((v) => !v)}
           >
-            {SCHOLARSHIP_OPTIONS.map((s) => (
+            {SCHOLARSHIP_OPTIONS.map((label) => (
               <FilterCheckbox
-                key={s.label}
-                label={s.label}
-                count={s.count}
-                checked={filters.scholarships.includes(s.label)}
-                onChange={() => onToggleScholarship(s.label)}
+                key={label}
+                label={label}
+                count={courses.filter((c) => (isOnlineCourse(c) ? "Yes" : "No") === label).length}
+                checked={filters.scholarships.includes(label)}
+                onChange={() => onToggleScholarship(label)}
               />
             ))}
           </FilterAccordion>
@@ -722,13 +712,13 @@ function LearningRightSidebar({
             isOpen={feesOpen}
             onToggle={() => setFeesOpen((v) => !v)}
           >
-            {FEES_OPTIONS.map((f) => (
+            {FEES_OPTIONS.map((label) => (
               <FilterCheckbox
-                key={f.label}
-                label={f.label}
-                count={f.count}
-                checked={filters.fees.includes(f.label)}
-                onChange={() => onToggleFee(f.label)}
+                key={label}
+                label={label}
+                count={courses.filter((c) => c.courseFee.toLowerCase() === label.toLowerCase()).length}
+                checked={filters.fees.includes(label)}
+                onChange={() => onToggleFee(label)}
               />
             ))}
           </FilterAccordion>
@@ -738,13 +728,13 @@ function LearningRightSidebar({
             isOpen={participantLevelOpen}
             onToggle={() => setParticipantLevelOpen((v) => !v)}
           >
-            {participantLevels.map((l) => (
+            {participantLevels.map((label) => (
               <FilterCheckbox
-                key={l.label}
-                label={l.label}
-                count={l.count}
-                checked={filters.participantLevels.includes(l.label)}
-                onChange={() => onToggleParticipantLevel(l.label)}
+                key={label}
+                label={label}
+                count={courses.filter((c) => c.academicLevel.toLowerCase().includes(label.toLowerCase())).length}
+                checked={filters.participantLevels.includes(label)}
+                onChange={() => onToggleParticipantLevel(label)}
               />
             ))}
           </FilterAccordion>
@@ -766,60 +756,11 @@ function LearningRightSidebar({
         </div>
       </div>
 
-      {/* Help Box */}
-      {!helpDismissed && (
-        <div className="bg-[#fffcf8] border border-[#ffeacc] rounded-2xl p-4 relative">
-          <button
-            onClick={() => setHelpDismissed(true)}
-            className="absolute top-3 right-3 text-[#9ca3af] hover:text-[#6b7280] transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M18 6L6 18M6 6l12 12"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl">📋</span>
-          </div>
-          <p className="text-[#f77f00] font-bold text-sm">Help Box</p>
-          <p className="text-[#6b7280] text-xs mt-1 leading-relaxed">
-            Not able to find what you're looking for? Let us help you.
-          </p>
-          <button className="mt-3 bg-[#f77f00] text-white text-xs font-semibold px-5 py-2 rounded-full hover:bg-[#e07000] transition-colors">
-            Click Here
-          </button>
-        </div>
-      )}
-
       {/* Promo Card */}
-      <div className="bg-[#18191c] text-white rounded-2xl overflow-hidden">
-        <div className="px-4 pt-4 pb-2">
-          <p className="text-xs text-gray-400 mb-0.5">Figma Design</p>
-          <p className="text-[10px] text-gray-500">Learn & Explore more at impactshala .com</p>
-        </div>
-        <div className="px-4 pb-4">
-          <h4 className="text-white font-semibold text-sm mb-1">UI/UX Certification Course</h4>
-          <span className="bg-[#2d2e30] text-[#9ca3af] text-xs px-2 py-0.5 rounded-full">
-            Onsite
-          </span>
-          <p className="text-gray-400 text-xs mt-2 leading-relaxed line-clamp-3">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla facilisi. Vivamus ac
-            tellus nec velit finibus egestas.
-          </p>
-          <button className="mt-3 border border-[#f77f00] text-[#f77f00] text-xs font-semibold px-5 py-2 rounded-full hover:bg-[#f77f00] hover:text-white transition-colors">
-            Know More
-          </button>
-        </div>
-        <div className="flex justify-center gap-1.5 pb-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#f77f00]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#4b5563]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#4b5563]" />
-        </div>
-      </div>
+      <PromoCard />
+
+      {/* Help Box */}
+      {!helpDismissed && <HelpBox onDismiss={() => setHelpDismissed(true)} />}
     </aside>
   );
 }
@@ -828,6 +769,20 @@ function LearningRightSidebar({
 
 function toggle<T>(arr: T[], item: T): T[] {
   return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item];
+}
+
+function isOnlineCourse(c: Course): boolean {
+  return (
+    c.mode.toLowerCase().includes("remote") ||
+    c.mode.toLowerCase().includes("hybrid") ||
+    !!c.onlineAccess
+  );
+}
+
+function boardLabel(board: string | null): string {
+  if (board === "indian") return "Indian Education Board";
+  if (board === "international") return "International Education Board";
+  return "";
 }
 
 function mapApiCourse(record: CourseRecord): Course {
@@ -843,6 +798,12 @@ function mapApiCourse(record: CourseRecord): Course {
     record.user?.org_name ||
     [record.user?.first_name, record.user?.last_name].filter(Boolean).join(" ") ||
     "Unknown";
+  const stream =
+    record.program_level === "school"
+      ? boardLabel(record.education_board)
+      : record.program_level === "college"
+      ? record.college_stream || ""
+      : record.pro_stream || "";
 
   return {
     id: record.id,
@@ -851,6 +812,7 @@ function mapApiCourse(record: CourseRecord): Course {
     title: record.title,
     academicLevel: levelLabel,
     mode: displayMode,
+    stream,
     courseFee: record.fee_type
       ? record.fee_type.charAt(0).toUpperCase() + record.fee_type.slice(1)
       : "Contact for details",
@@ -947,7 +909,9 @@ export default function LearningDirectoryPage() {
   }, [searchParams]);
 
   // Client-side filter on top of the fetched list
-  const displayedCourses = useMemo(() => {
+  // Scoped to the current tab / sub-tab, before the sidebar checkbox filters —
+  // used both as the base for those filters and to compute their facet counts.
+  const tabScopedCourses = useMemo(() => {
     let result = courses;
     if (mainTab === "school") {
       const label = GRADE_PILL_LABELS[gradeLevel];
@@ -959,9 +923,27 @@ export default function LearningDirectoryPage() {
       const label = levelTab.charAt(0).toUpperCase() + levelTab.slice(1);
       result = result.filter((c) => c.allCourseLevels.includes(label));
     }
+    return result;
+  }, [courses, mainTab, gradeLevel, academicLevel, levelTab]);
+
+  const displayedCourses = useMemo(() => {
+    let result = tabScopedCourses;
     if (filters.modes.length > 0) {
       result = result.filter((c) =>
         filters.modes.some((m) => c.mode.toLowerCase().includes(m.toLowerCase())),
+      );
+    }
+    if (filters.streams.length > 0) {
+      result = result.filter((c) => filters.streams.includes(c.stream));
+    }
+    if (filters.scholarships.length > 0) {
+      result = result.filter((c) =>
+        filters.scholarships.includes(isOnlineCourse(c) ? "Yes" : "No"),
+      );
+    }
+    if (filters.fees.length > 0) {
+      result = result.filter((c) =>
+        filters.fees.some((f) => c.courseFee.toLowerCase() === f.toLowerCase()),
       );
     }
     if (filters.participantLevels.length > 0) {
@@ -972,7 +954,7 @@ export default function LearningDirectoryPage() {
       );
     }
     return result;
-  }, [courses, filters, mainTab, gradeLevel, academicLevel, levelTab]);
+  }, [tabScopedCourses, filters]);
 
   async function openApplication(course: Course) {
     setApplyError(null);
@@ -1048,11 +1030,12 @@ export default function LearningDirectoryPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
-        <div className="px-4 sm:px-6 py-6">
-          {/* Header row: tabs left, button right */}
-          <div className="flex items-end justify-between gap-4 mb-0">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 flex gap-6">
+
+          {/* Center Content */}
+          <div className="flex-1 min-w-0">
             {/* Main tabs */}
-            <div className="flex items-center gap-0 border-b border-[#e5e7eb] overflow-x-auto flex-1 min-w-0">
+            <div className="flex items-center gap-0 border-b border-[#e5e7eb] overflow-x-auto">
               {(
                 [
                   { key: "school", label: "School Admission" },
@@ -1074,19 +1057,7 @@ export default function LearningDirectoryPage() {
               ))}
             </div>
 
-            {isOrg && (
-              <button
-                onClick={() => navigate('/learning-directory/list-course', { state: { programLevel: mainTab } })}
-                className="shrink-0 bg-[#f77f00] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#e07000] transition-colors mb-1"
-              >
-                List your course
-              </button>
-            )}
-          </div>
-
-          <div className="flex gap-5 items-start mt-5">
-            {/* Main Content */}
-            <div className="flex-1 min-w-0">
+            <div className="mt-5">
               {/* Sub-tab pills */}
               {mainTab === "professional" && (
                 <div className="flex gap-3 mb-5 overflow-x-auto pb-1">
@@ -1176,10 +1147,21 @@ export default function LearningDirectoryPage() {
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Right Sidebar */}
+          {/* Right Sidebar */}
+          <div className="hidden lg:flex lg:flex-col gap-4 w-[354px] shrink-0 self-start sticky top-[84px]">
+            {isOrg && (
+              <button
+                onClick={() => navigate('/learning-directory/list-course', { state: { programLevel: mainTab } })}
+                className="w-full bg-[#f77f00] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#e07000] transition-colors"
+              >
+                List your course
+              </button>
+            )}
             <LearningRightSidebar
               mainTab={mainTab}
+              courses={tabScopedCourses}
               filters={filters}
               onToggleStream={(s) => setFilters((f) => ({ ...f, streams: toggle(f.streams, s) }))}
               onToggleMode={(m) => setFilters((f) => ({ ...f, modes: toggle(f.modes, m) }))}

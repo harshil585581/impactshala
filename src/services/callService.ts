@@ -9,6 +9,7 @@ export type CallLogDB = {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
+  recording_url: string | null;
   caller: { first_name: string | null; last_name: string | null; org_name: string | null; avatar_url: string | null } | null;
   callee: { first_name: string | null; last_name: string | null; org_name: string | null; avatar_url: string | null } | null;
 };
@@ -65,4 +66,27 @@ export async function endCall(callId: string, durationSeconds: number): Promise<
     })
     .eq('id', callId);
   if (error) throw new Error(error.message);
+}
+
+export async function uploadCallRecording(callId: string, blob: Blob): Promise<string> {
+  const session = await getAuthenticatedSession();
+  if (!session) throw new Error('Not logged in');
+  const db = getAuthedClient();
+  const path = `${session.user.id}/call-recordings/${callId}.webm`;
+
+  const { error: uploadError } = await db.storage
+    .from('post-media')
+    .upload(path, blob, { cacheControl: '3600', upsert: true, contentType: blob.type || 'audio/webm' });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data } = db.storage.from('post-media').getPublicUrl(path);
+  const url = data.publicUrl;
+
+  const { error: updateError } = await db
+    .from('call_logs')
+    .update({ recording_url: url })
+    .eq('id', callId);
+  if (updateError) throw new Error(updateError.message);
+
+  return url;
 }

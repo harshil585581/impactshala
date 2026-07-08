@@ -14,7 +14,7 @@ import {
   type DirectMessage,
 } from "../services/messageService";
 import { fetchConnections, type Connection } from "../services/communityService";
-import { fetchCallLogs, logCall, endCall as endCallDB, type CallLogDB } from "../services/callService";
+import { fetchCallLogs, logCall, endCall as endCallDB, uploadCallRecording, type CallLogDB } from "../services/callService";
 import { webrtcCallService, callEndReasonText, type IncomingCallData, type CallState, type CallEndReason } from "../services/webrtcCallService";
 import {
   fetchUserGroups,
@@ -155,6 +155,7 @@ type CallLog = {
   date: string;
   type: "outgoing" | "missed";
   missedCount?: number;
+  recordingUrl?: string | null;
 };
 
 type Contact = {
@@ -429,6 +430,10 @@ export default function MessagesPage() {
   const callSecondsRef = useRef(0);
   const [webrtcState, setWebrtcState] = useState<CallState>('idle');
   const [callEndReason, setCallEndReason] = useState<CallEndReason | null>(null);
+  const [isCallRecording, setIsCallRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordAudioCtxRef = useRef<AudioContext | null>(null);
 
   type IncomingCallInfo = {
     callerId: string;
@@ -547,6 +552,7 @@ export default function MessagesPage() {
       avatarColor: colorFromId(isOutgoing ? log.callee_id : log.caller_id),
       date,
       type: isOutgoing ? 'outgoing' : (log.status === 'missed' ? 'missed' : 'outgoing'),
+      recordingUrl: log.recording_url,
     };
   }
 
@@ -578,6 +584,7 @@ export default function MessagesPage() {
           setCallEndReason(reason ?? null);
           // Stop timer and log duration to DB
           if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
+          if (recorderRef.current) stopCallRecording().catch(() => {});
           const callId = currentCallIdRef.current;
           if (callId) { endCallDB(callId, callSecondsRef.current).catch(() => {}); currentCallIdRef.current = null; }
 
@@ -591,6 +598,7 @@ export default function MessagesPage() {
             setCallHeld(false);
             setCallSeconds(0);
             callSecondsRef.current = 0;
+            setIsCallRecording(false);
             webrtcCallService.reset();
           };
           if (isQuick) { close(); }
@@ -1650,6 +1658,57 @@ export default function MessagesPage() {
     const next = !callMuted;
     webrtcCallService.setAudioMuted(next);
     setCallMuted(next);
+  }
+
+  function startCallRecording() {
+    const local = localStreamRef.current;
+    const remote = remoteStreamRef.current;
+    const localAudio = local?.getAudioTracks() ?? [];
+    const remoteAudio = remote?.getAudioTracks() ?? [];
+    if (!localAudio.length && !remoteAudio.length) return;
+
+    const ctx = new AudioContext();
+    const dest = ctx.createMediaStreamDestination();
+    if (localAudio.length) ctx.createMediaStreamSource(new MediaStream(localAudio)).connect(dest);
+    if (remoteAudio.length) ctx.createMediaStreamSource(new MediaStream(remoteAudio)).connect(dest);
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    const recorder = new MediaRecorder(dest.stream, { mimeType });
+    recordedChunksRef.current = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+    recorder.start();
+
+    recordAudioCtxRef.current = ctx;
+    recorderRef.current = recorder;
+    setIsCallRecording(true);
+  }
+
+  async function stopCallRecording() {
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    const callId = currentCallIdRef.current; // capture now — caller may clear the ref before this resolves
+
+    const blob: Blob = await new Promise((resolve) => {
+      recorder.onstop = () => resolve(new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' }));
+      recorder.stop();
+    });
+
+    recordAudioCtxRef.current?.close().catch(() => {});
+    recordAudioCtxRef.current = null;
+    recorderRef.current = null;
+    setIsCallRecording(false);
+
+    if (callId && blob.size > 0) {
+      try {
+        const url = await uploadCallRecording(callId, blob);
+        setCallLogs((prev) => prev.map((c) => (c.id === callId ? { ...c, recordingUrl: url } : c)));
+      } catch { /* non-critical */ }
+    }
+  }
+
+  function toggleRecordCall() {
+    if (isCallRecording) stopCallRecording();
+    else startCallRecording();
   }
 
   async function handleEndCall() {
@@ -3404,6 +3463,24 @@ export default function MessagesPage() {
                 </button>
                 <span className="text-[11px] text-[#9ca3af]">{callHeld ? "Resume" : "Hold"}</span>
               </div>
+
+              {/* Record */}
+              {webrtcState === 'active' && (
+                <div className="flex flex-col items-center gap-1.5">
+                  <button
+                    onClick={toggleRecordCall}
+                    className={`w-[54px] h-[54px] rounded-full flex items-center justify-center transition-all ${isCallRecording ? "bg-red-50 text-red-500 shadow-md" : "bg-[#f3f4f6] text-[#374151] hover:bg-[#e5e7eb]"}`}
+                    aria-label={isCallRecording ? "Stop recording" : "Start recording"}
+                  >
+                    {isCallRecording ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+                    )}
+                  </button>
+                  <span className="text-[11px] text-[#9ca3af]">{isCallRecording ? "Stop" : "Record"}</span>
+                </div>
+              )}
             </div>
 
           </div>
@@ -3935,6 +4012,16 @@ function RightEmptyState({ tab }: { tab: Tab }) {
 
 function CallDetailView({ call }: { call: CallLog }) {
   const [detailTab, setDetailTab] = useState<"Participants" | "Recording" | "History">("Recording");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  function toggleAudioPlayback() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) audio.pause();
+    else audio.play().catch(() => {});
+  }
+
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="px-6 pt-6 pb-4 border-b border-[#e5e7eb]">
@@ -3985,20 +4072,36 @@ function CallDetailView({ call }: { call: CallLog }) {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {detailTab === "Recording" && (
-          <div className="flex items-center justify-between py-3 border-b border-[#e5e7eb]">
-            <div>
-              <p className="font-semibold text-[14px] text-[#18191c]">Record1200024</p>
-              <p className="text-[12px] text-[#9ca3af]">{call.date}</p>
+          call.recordingUrl ? (
+            <div className="flex items-center justify-between py-3 border-b border-[#e5e7eb]">
+              <div>
+                <p className="font-semibold text-[14px] text-[#18191c]">Call recording</p>
+                <p className="text-[12px] text-[#9ca3af]">{call.date}</p>
+              </div>
+              <div className="flex items-center gap-3 text-[#f77f00]">
+                <button onClick={toggleAudioPlayback} className="hover:text-[#e06c00] transition-colors" aria-label={isPlaying ? "Pause" : "Play"}>
+                  {isPlaying ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polygon points="5 3 19 12 5 21 5 3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                  )}
+                </button>
+                <a href={call.recordingUrl} download className="hover:text-[#e06c00] transition-colors" aria-label="Download">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </a>
+              </div>
+              <audio
+                ref={audioRef}
+                src={call.recordingUrl}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onEnded={() => setIsPlaying(false)}
+                className="hidden"
+              />
             </div>
-            <div className="flex items-center gap-3 text-[#f77f00]">
-              <button className="hover:text-[#e06c00] transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polygon points="5 3 19 12 5 21 5 3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-              </button>
-              <button className="hover:text-[#e06c00] transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </button>
-            </div>
-          </div>
+          ) : (
+            <p className="text-[14px] text-[#9ca3af] text-center py-8">No recording available for this call</p>
+          )
         )}
         {detailTab === "Participants" && (
           <p className="text-[14px] text-[#9ca3af] text-center py-8">No participant data available</p>

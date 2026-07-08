@@ -25,6 +25,8 @@ import {
 import type { Toast } from '../../types/profile';
 import { fetchMyProfile } from '../../services/accountService';
 import ToastContainer from '../../components/ui/Toast';
+import HelpBox from '../../components/discover/HelpBox';
+import PromoCard from '../../components/discover/PromoCard';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -2241,8 +2243,7 @@ export default function EmploymentHubDiscoveryPage() {
             />
           </div>
         ) : (
-        <div className="px-4 sm:px-6 py-6">
-          <div className="flex gap-5 items-start">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 flex gap-6 items-start">
 
             {/* ── Left: tabs + career pills + cards ── */}
             <div className="flex-1 min-w-0">
@@ -2363,7 +2364,7 @@ export default function EmploymentHubDiscoveryPage() {
             </div>
 
             {/* ── Right panel ── */}
-            <div className="hidden lg:flex flex-col gap-4 w-[280px] xl:w-[300px] shrink-0 sticky top-[90px] self-start">
+            <div className="hidden lg:flex lg:flex-col gap-4 w-[354px] shrink-0 self-start sticky top-[84px]">
 
               {/* Create Post */}
               <button
@@ -2452,73 +2453,12 @@ export default function EmploymentHubDiscoveryPage() {
                 </div>
               </div>
 
-              {/* Help Box */}
-              {showHelpBox && (
-                <div className="bg-white rounded-2xl border border-[#f2f2f3] p-5 relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowHelpBox(false)}
-                    className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center text-[#6b6b6b] hover:text-[#18191c] rounded-full hover:bg-[#f5f5f5] transition-colors"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M18 6L6 18M6 6l12 12"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">📖</span>
-                    <span className="font-bold text-[#f77f00]">Help Box</span>
-                  </div>
-                  <p className="text-sm text-[#6b6b6b] mb-4">
-                    Not able to find what you're looking for? Let us help you.
-                  </p>
-                  <button
-                    type="button"
-                    className="bg-[#f77f00] text-white text-sm font-semibold h-9 px-6 rounded-full hover:bg-[#e68500] transition-colors"
-                  >
-                    Click Here
-                  </button>
-                </div>
-              )}
+              {/* Promo Card */}
+              <PromoCard />
 
-              {/* Course card */}
-              <div className="bg-white rounded-2xl border border-[#f2f2f3] overflow-hidden">
-                <div className="bg-[#1a1a2e] text-center py-5 px-4">
-                  <p className="text-white font-bold text-xl">Figma Design</p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Learn &amp; Explore more at impactshala.com
-                  </p>
-                </div>
-                <div className="p-4">
-                  <p className="font-semibold text-[#18191c] text-sm mb-2">
-                    UI/UX Certification Course
-                  </p>
-                  <span className="inline-block bg-[#fff3e0] text-[#f77f00] text-xs font-medium px-3 py-1 rounded-full mb-2">
-                    Onsite
-                  </span>
-                  <p className="text-[#6b6b6b] text-xs leading-relaxed mb-4 line-clamp-3">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla facilisi.
-                    Vivamus ac tellus nec velit finibus egestas.
-                  </p>
-                  <button
-                    type="button"
-                    className="w-full border border-[#f77f00] text-[#f77f00] text-sm font-semibold h-9 rounded-full hover:bg-[#fff8ee] transition-colors"
-                  >
-                    Know More
-                  </button>
-                  <div className="flex justify-center gap-2 mt-3">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#f77f00]" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#e4e5e8]" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#e4e5e8]" />
-                  </div>
-                </div>
-              </div>
+              {/* Help Box */}
+              {showHelpBox && <HelpBox onDismiss={() => setShowHelpBox(false)} />}
             </div>
-          </div>
         </div>
         )}
       </div>

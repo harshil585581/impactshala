@@ -240,6 +240,7 @@ export default function HealthServicesOrgProfilePage() {
     setSavedPostIds((prev) => { const next = new Set(prev); if (willSave) next.add(postId); else next.delete(postId); return next; });
     if (willSave) savePost(postId).catch(() => {}); else unsavePost(postId).catch(() => {});
   };
+
   const loadCollabAccomplishments = () => {
     if (!resolvedUserId) return;
     fetchCollaborativeAccomplishments(resolvedUserId).then(data => {
@@ -248,6 +249,7 @@ export default function HealthServicesOrgProfilePage() {
       fetchCollaboratorAvatars(ids).then(setCollabAvatars).catch(() => { });
     }).catch(() => { });
   };
+
   const loadReviews = () => {
     if (!resolvedUserId) return;
     fetchReviews(resolvedUserId).then(setReviews).catch(() => {});
@@ -363,7 +365,6 @@ export default function HealthServicesOrgProfilePage() {
   const reachForTags = profile?.reachFor ?? [];
   const facilityTypes = profile?.applicableIndustries ?? [];
 
-  // Show-more logic for facility types (first row only)
   const facilityMeasureRef = useRef<HTMLDivElement>(null);
   const [facilityLimit, setFacilityLimit] = useState(facilityTypes.length || 20);
 
