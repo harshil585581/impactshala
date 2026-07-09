@@ -1,8 +1,12 @@
+import { useState } from "react";
 import helpIcon from "../../assets/images/svg/h-help.svg";
+import GetInTouchModal from "../GetInTouchModal";
 
 type Props = { onDismiss: () => void };
 
 export default function HelpBox({ onDismiss }: Props) {
+  const [getInTouchOpen, setGetInTouchOpen] = useState(false);
+
   return (
     <div className="bg-white border border-[#f2f2f3] rounded-[14px] p-4 flex flex-col gap-2 relative shadow-sm">
       <div className="flex items-start justify-between">
@@ -22,9 +26,14 @@ export default function HelpBox({ onDismiss }: Props) {
           Not able to find what you're looking for? Let us help you.
         </p>
       </div>
-      <button className="bg-[#FF9400] text-white text-sm font-semibold px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-all shadow-md active:scale-95">
+      <button
+        onClick={() => setGetInTouchOpen(true)}
+        className="bg-[#FF9400] text-white text-sm font-semibold px-6 py-2 rounded-full w-fit hover:bg-[#e68500] transition-all shadow-md active:scale-95"
+      >
         Click Here
       </button>
+
+      <GetInTouchModal isOpen={getInTouchOpen} onClose={() => setGetInTouchOpen(false)} />
     </div>
   );
 }
