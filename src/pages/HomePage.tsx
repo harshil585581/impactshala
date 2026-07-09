@@ -186,7 +186,15 @@ export default function HomePage() {
           fetchLikesCounts(ids).catch(() => ({})),
           fetchCommentCounts(ids).catch(() => ({})),
         ]).then(([counts, cCounts]) => {
-          if (!cancelled) { setLikesCounts(counts); setCommentCounts(cCounts); }
+          // Merge with existing (locally-updated) counts winning over this
+          // snapshot — a like/comment made while this background fetch was
+          // in flight would otherwise get clobbered by the now-stale data
+          // it resolves with. New ids (not yet in state) still take the
+          // fetched value normally.
+          if (!cancelled) {
+            setLikesCounts(prev => ({ ...counts, ...prev }));
+            setCommentCounts(prev => ({ ...cCounts, ...prev }));
+          }
         });
       })
       .catch((err) => {

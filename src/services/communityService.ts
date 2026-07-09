@@ -1,4 +1,5 @@
 import { getFreshToken } from "../lib/authToken";
+import { supabase, getAuthenticatedSession } from "../lib/supabase";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -50,10 +51,19 @@ export async function fetchConnections(q?: string): Promise<{ connections: Conne
 }
 
 export async function fetchConnectionIds(): Promise<string[]> {
-  const res = await fetch(`${API_URL}/api/community/connection-ids`, { headers: await authHeaders() });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.ids as string[];
+  // Queried directly against Supabase (instead of proxying through the FastAPI
+  // backend) since this sits on the home feed's critical path — one hop
+  // instead of browser -> backend -> Supabase -> backend -> browser.
+  const session = await getAuthenticatedSession();
+  if (!session) return [];
+  const userId = session.user.id;
+  const { data, error } = await supabase
+    .from('community_connections')
+    .select('requester_id, addressee_id')
+    .eq('status', 'accepted')
+    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+  if (error || !data) return [];
+  return data.map((c) => (c.requester_id === userId ? c.addressee_id : c.requester_id));
 }
 
 export async function fetchPendingRequests(): Promise<{ requests: PendingRequest[] }> {

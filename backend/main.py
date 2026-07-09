@@ -6,6 +6,8 @@ import urllib.request
 from datetime import datetime, timezone, timedelta
 from typing import Any, List, Optional
 
+import jwt as pyjwt
+from jwt import PyJWKClient
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +22,10 @@ SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+# Cached JWKS client — verifies user tokens locally against Supabase's published
+# signing key instead of making a live /auth/v1/user round trip on every request.
+_jwks_client = PyJWKClient(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json")
 
 app = FastAPI(title="Impactshaala API")
 
@@ -137,10 +143,33 @@ class ProfileUpdate(BaseModel):
 
 
 def get_user_id(authorization: str) -> str:
-    """Extract and validate user from Bearer token."""
+    """Extract and validate user from Bearer token.
+
+    Verifies the JWT signature locally against Supabase's published signing
+    key (cached in-process by PyJWKClient) instead of calling
+    supabase.auth.get_user(), which hits Supabase's Auth API over the network
+    on every single request. Falls back to that remote check only if local
+    verification can't run (e.g. JWKS fetch failure, unexpected token format)
+    so auth never breaks even if the fast path has a problem.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")
     token = authorization.split(" ", 1)[1]
+
+    try:
+        signing_key = _jwks_client.get_signing_key_from_jwt(token)
+        payload = pyjwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["ES256", "RS256"],
+            options={"verify_aud": False},
+        )
+        user_id = payload.get("sub")
+        if user_id:
+            return user_id
+    except Exception:
+        pass  # fall through to the remote check below
+
     try:
         user_resp = supabase.auth.get_user(token)
     except Exception:
