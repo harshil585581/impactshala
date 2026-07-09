@@ -277,8 +277,12 @@ export async function togglePostLike(postId: string, like: boolean): Promise<voi
   if (!userId) throw new Error('Not logged in');
   await getAuthenticatedSession();
   if (like) {
-    const { error } = await supabase.from('post_likes').upsert({ post_id: postId, user_id: userId });
-    if (error) throw new Error(error.message);
+    // Plain insert instead of upsert — post_likes only has INSERT/DELETE RLS
+    // policies (no UPDATE), and upsert falls back to an UPDATE when the row
+    // already exists, which RLS would silently reject. A duplicate-key error
+    // just means it's already liked, which is the outcome we want anyway.
+    const { error } = await supabase.from('post_likes').insert({ post_id: postId, user_id: userId });
+    if (error && error.code !== '23505') throw new Error(error.message);
   } else {
     const { error } = await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId);
     if (error) throw new Error(error.message);

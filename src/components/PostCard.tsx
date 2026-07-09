@@ -176,6 +176,19 @@ export default function PostCard({
 
   // string allows both REACTIONS ids and custom emoji characters from the full picker
   const [reactionType, setReactionType] = useState<string | null>(isLiked ? 'like' : null);
+  // isLiked arrives from a separate async fetch that resolves after this card
+  // already mounted (with isLiked still false), so resync once it lands —
+  // otherwise the button always renders as "not liked" after a fresh page load.
+  // When already reacted, keep whatever specific emoji is locally selected
+  // instead of collapsing it back to generic 'like' every time isLiked flips
+  // true (post_likes has no reaction-type column, so 'like' is just the
+  // fallback for "we don't know which emoji this was" on first sync).
+  useEffect(() => {
+    setReactionType((prev) => {
+      if (!isLiked) return null;
+      return prev !== null ? prev : 'like';
+    });
+  }, [isLiked]);
   const [showPicker, setShowPicker] = useState(false);
   const [showFullPicker, setShowFullPicker] = useState(false);
   const pickerTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -189,9 +202,21 @@ export default function PostCard({
   const displayColor  = activeReaction ? activeReaction.color : '#FF9400';
 
   function applyReaction(id: string) {
-    const next = reactionType === id ? null : id;
-    setReactionType(next);
-    onLikeToggle?.(post.id, next !== null);
+    if (reactionType === id) {
+      // Clicking the active reaction again — unlike.
+      setReactionType(null);
+      onLikeToggle?.(post.id, false);
+    } else if (reactionType === null) {
+      // Not reacted yet — new like.
+      setReactionType(id);
+      onLikeToggle?.(post.id, true);
+    } else {
+      // Switching between reaction types while already liked. post_likes has
+      // no reaction-type column, so the underlying "liked" row doesn't
+      // change — only update the local display, don't fire another
+      // like/count toward the same user's single allowed reaction.
+      setReactionType(id);
+    }
     setShowPicker(false);
     setShowFullPicker(false);
   }
@@ -208,6 +233,7 @@ export default function PostCard({
   }, [showFullPicker]);
 
   const [saved, setSaved] = useState(isSaved);
+  useEffect(() => { setSaved(isSaved); }, [isSaved]);
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(commentsCount);
   useEffect(() => { setCommentCount(commentsCount); }, [commentsCount]);

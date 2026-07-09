@@ -1,5 +1,8 @@
 import { supabase, getAuthenticatedSession } from '../lib/supabase';
 
+// The DB constraint now accepts any non-empty string (see supabase_migration.sql —
+// dashboard-created triggers insert types like 'like' that this enum never covered).
+// Keep the known literals for autocomplete while still accepting whatever the DB sends.
 export type NotificationType =
   | 'message'
   | 'job_alert'
@@ -7,7 +10,8 @@ export type NotificationType =
   | 'application'
   | 'payment'
   | 'course'
-  | 'system';
+  | 'system'
+  | (string & {});
 
 export interface Notification {
   id: string;

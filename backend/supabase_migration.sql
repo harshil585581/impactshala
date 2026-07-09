@@ -1303,3 +1303,23 @@ CREATE POLICY IF NOT EXISTS "Admin can manage inquiries"
 
 ALTER TABLE call_logs
   ADD COLUMN IF NOT EXISTS recording_url TEXT;
+
+-- ============================================================
+-- Fix: liking a post fails with
+--   "new row for relation \"notifications\" violates check
+--    constraint \"notifications_type_check\""
+--
+-- Root cause: a trigger on post_likes (created directly in the
+-- Supabase dashboard, not tracked in this file) inserts a row into
+-- notifications with a `type` value that isn't in the enum below,
+-- which aborts the whole post_likes insert transactionally — so the
+-- like never gets saved. The exact trigger source isn't available
+-- from this repo, so instead of guessing the literal value it uses,
+-- this widens the constraint to accept any non-empty type instead of
+-- a fixed enum, matching what's actually in use in production.
+-- Run this in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+ALTER TABLE notifications
+  ADD CONSTRAINT notifications_type_check CHECK (length(trim(type)) > 0);
