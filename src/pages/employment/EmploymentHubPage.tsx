@@ -803,8 +803,8 @@ export default function EmploymentHubPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <ToastContainer toasts={toasts} onRemove={(id) => setToasts((p) => p.filter((t) => t.id !== id))} />
 
-      <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px]">
-        <div className="px-4 sm:px-6 py-6 flex gap-5 items-start">
+      <div className="pt-[64px] sm:pt-[72px] lg:pt-[78px] lg:pl-[280px] min-h-screen">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 flex gap-6 items-start">
 
           <div className="flex-1 min-w-0 bg-white rounded-2xl border border-[#f2f2f3]">
             <div className="px-6 pt-6 pb-2">
@@ -861,7 +861,7 @@ export default function EmploymentHubPage() {
             </div>
           </div>
 
-          <div className="hidden lg:block shrink-0 sticky top-[90px] self-start">
+          <div className="hidden xl:block w-[340px] shrink-0 self-start sticky top-[-155px]">
             <RightPanel />
           </div>
 
