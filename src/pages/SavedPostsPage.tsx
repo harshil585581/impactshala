@@ -7,10 +7,12 @@ import {
   fetchSavedDiscoverItems,
   fetchSavedLearningCourses,
   fetchSavedEmploymentPostings,
+  fetchSavedSeekerProfiles,
   unsavePost,
   unsaveDiscoverItem,
   unsaveLearningCourse,
   unsaveEmploymentPosting,
+  unsaveSeekerProfile,
   type SavedDiscoverSnapshot,
   type SavedLearningSnapshot,
 } from '../services/savedService';
@@ -25,7 +27,7 @@ import {
   fetchSavedPostIds,
   savePost,
 } from '../services/savedService';
-import type { EmployerPosting } from '../services/employmentService';
+import type { EmployerPosting, SeekerProfile } from '../services/employmentService';
 import ApplyModal from '../components/discover/ApplyModal';
 import PostDetailModal from '../components/profile/PostDetailModal';
 import SavedDiscoverCard from '../components/discover/SavedDiscoverCard';
@@ -401,6 +403,84 @@ function EmploymentMiniCard({ post, onUnsave, onGetStarted }: { post: EmployerPo
   );
 }
 
+function SeekerMiniCard({ profile, onUnsave, onGetStarted }: { profile: SeekerProfile; onUnsave: (id: string) => void; onGetStarted: (id: string) => void }) {
+  const initial = profile.name?.[0]?.toUpperCase() ?? 'U';
+
+  return (
+    <div className="bg-white border border-[#c5c5c5] rounded-xl p-6 flex flex-col gap-5 hover:shadow-md transition-shadow cursor-pointer min-h-[200px]">
+
+      {/* Header: avatar + info + actions */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-[#1d3557] flex items-center justify-center text-white font-bold text-sm shrink-0">
+            {initial}
+          </div>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <p className="text-[#18191c] text-sm font-semibold leading-tight truncate">{profile.name || 'Anonymous'}</p>
+            <p className="text-[#18191c] text-xs leading-tight">{profile.job_industry}</p>
+            {profile.preferred_work_mode && <p className="text-[#18191c] text-xs leading-tight">({profile.preferred_work_mode})</p>}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => onGetStarted(profile.id)} className="bg-[#f77f00] text-white text-sm font-semibold px-6 py-2.5 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap border border-white">
+            Get Started
+          </button>
+          <button
+            onClick={() => onUnsave(profile.id)}
+            className="text-[#f77f00] hover:opacity-75 transition-opacity"
+            aria-label="Unsave"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Exp · Salary · Type */}
+      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs">
+        {profile.current_status && (
+          <>
+            <span className="text-[#f77f00] font-medium">Exp -</span>
+            <span className="text-[#18191c] font-semibold">{profile.current_status}</span>
+            <span className="text-[#e0dedd] font-medium text-sm">|</span>
+          </>
+        )}
+        {profile.expected_salary && (
+          <>
+            <span className="text-[#f77f00] font-medium">Salary -</span>
+            <span className="text-[#18191c] font-semibold">{profile.expected_salary}</span>
+            <span className="text-[#e0dedd] font-medium text-sm">|</span>
+          </>
+        )}
+        {profile.job_type && (
+          <>
+            <span className="text-[#f77f00] font-medium">Type -</span>
+            <span className="text-[#18191c] font-semibold">{profile.job_type}</span>
+          </>
+        )}
+      </div>
+
+      {/* Skills */}
+      {profile.technical_skills.length > 0 && (
+        <div className="flex items-center flex-wrap gap-1.5">
+          <span className="text-[#f77f00] text-xs font-medium">Skills -</span>
+          {profile.technical_skills.map(s => (
+            <span key={s} className="bg-[#f3f2f1] text-[#18191c] text-[11px] px-2 py-0.5 rounded-[3px]">{s}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Footer: posted time + show more */}
+      <div className="flex items-center justify-between pt-0.5 border-t border-[#f2f2f3]">
+        <span className="text-[#6e6e6e] text-xs">{relativeTime(profile.created_at)}</span>
+        <button className="text-[#f77f00] text-xs font-medium hover:opacity-80 transition-opacity">Show more</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SavedPostsPage() {
@@ -417,10 +497,12 @@ export default function SavedPostsPage() {
   const [discoverPosts, setDiscoverPosts] = useState<SavedDiscoverSnapshot[]>([]);
   const [learningCourses, setLearningCourses] = useState<SavedLearningSnapshot[]>([]);
   const [employmentPostings, setEmploymentPostings] = useState<EmployerPosting[]>([]);
+  const [seekerProfiles, setSeekerProfiles] = useState<SeekerProfile[]>([]);
   const [loadingCommunity, setLoadingCommunity] = useState(true);
   const [loadingDiscover, setLoadingDiscover] = useState(true);
   const [loadingLearning, setLoadingLearning] = useState(true);
   const [loadingEmployment, setLoadingEmployment] = useState(true);
+  const [loadingSeekers, setLoadingSeekers] = useState(true);
 
   useEffect(() => {
     setLoadingCommunity(true);
@@ -460,6 +542,12 @@ export default function SavedPostsPage() {
       .then(setEmploymentPostings)
       .catch(() => {})
       .finally(() => setLoadingEmployment(false));
+
+    setLoadingSeekers(true);
+    fetchSavedSeekerProfiles()
+      .then(setSeekerProfiles)
+      .catch(() => {})
+      .finally(() => setLoadingSeekers(false));
   }, []);
 
   function handleCommunityUnsave(postId: string) {
@@ -491,6 +579,11 @@ export default function SavedPostsPage() {
   function handleEmploymentUnsave(postingId: string) {
     unsaveEmploymentPosting(postingId).catch(() => {});
     setEmploymentPostings(prev => prev.filter(p => p.id !== postingId));
+  }
+
+  function handleSeekerUnsave(profileId: string) {
+    unsaveSeekerProfile(profileId).catch(() => {});
+    setSeekerProfiles(prev => prev.filter(p => p.id !== profileId));
   }
 
   return (
@@ -580,6 +673,25 @@ export default function SavedPostsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {employmentPostings.slice(0, 4).map(p => (
                   <EmploymentMiniCard key={p.id} post={p} onUnsave={handleEmploymentUnsave} onGetStarted={(id) => navigate(`/employment-hub?apply=${id}`)} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Open To Work profiles */}
+          <section>
+            <SectionHeader title="Open To Work" count={seekerProfiles.length} onViewAll={() => navigate('/saved/seekers')} />
+            {loadingSeekers ? (
+              <LoadingState />
+            ) : seekerProfiles.length === 0 ? (
+              <EmptyState
+                message="No saved profiles"
+                sub="Bookmark any Open To Work profile on the Employment Hub page and it will appear here."
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {seekerProfiles.slice(0, 4).map(p => (
+                  <SeekerMiniCard key={p.id} profile={p} onUnsave={handleSeekerUnsave} onGetStarted={(id) => navigate(`/employment-hub?seeker=${id}`)} />
                 ))}
               </div>
             )}

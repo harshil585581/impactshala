@@ -1323,3 +1323,30 @@ ALTER TABLE call_logs
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
 ALTER TABLE notifications
   ADD CONSTRAINT notifications_type_check CHECK (length(trim(type)) > 0);
+
+-- ============================================================
+-- Saved Seeker Profiles ("Open To Work" bookmark)
+--
+-- The Open To Work bookmark button was reusing saveEmploymentPosting(),
+-- which inserts into saved_employment_postings.posting_id — a column
+-- with a foreign key to employment_hub_postings. Seeker profile ids
+-- live in job_seeker_profiles, a different table, so that insert
+-- always failed its FK check silently and the save never persisted.
+-- This adds a dedicated table mirroring saved_employment_postings.
+-- Run this in Supabase Dashboard → SQL Editor
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS saved_seeker_profiles (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  profile_id  UUID        NOT NULL REFERENCES job_seeker_profiles(id) ON DELETE CASCADE,
+  saved_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, profile_id)
+);
+
+ALTER TABLE saved_seeker_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own saved_seeker_profiles"
+  ON saved_seeker_profiles FOR ALL
+  USING     (auth.uid() = user_id)
+  WITH CHECK(auth.uid() = user_id);

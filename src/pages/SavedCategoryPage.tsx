@@ -15,11 +15,13 @@ import {
   unsaveLearningCourse,
   fetchSavedEmploymentPostings,
   unsaveEmploymentPosting,
+  fetchSavedSeekerProfiles,
+  unsaveSeekerProfile,
   type SavedDiscoverSnapshot,
   type SavedLearningSnapshot,
 } from '../services/savedService';
 import { applyToCourse } from '../services/learningService';
-import { submitApplication, type EmployerPosting } from '../services/employmentService';
+import { submitApplication, type EmployerPosting, type SeekerProfile } from '../services/employmentService';
 import {
   fetchLikedPostIds,
   fetchLikesCounts,
@@ -504,6 +506,102 @@ function EmploymentCard({ posting, onUnsave }: { posting: EmployerPosting; onUns
   );
 }
 
+function SeekerCard({ profile, onUnsave, onView }: { profile: SeekerProfile; onUnsave: (id: string) => void; onView: (id: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const initial = profile.name?.[0]?.toUpperCase() ?? 'U';
+  const skills = profile.technical_skills;
+
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `${minutes || 1} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+    const months = Math.floor(days / 30);
+    return `${months} month${months !== 1 ? 's' : ''} ago`;
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#f2f2f3] p-5">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="w-12 h-12 rounded-full bg-[#1d3557] flex items-center justify-center text-white font-bold text-base shrink-0">
+          {initial}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[#18191c] font-bold text-base leading-tight">{profile.name || 'Anonymous'}</h3>
+          <p className="text-[#6b6b6b] text-sm">{profile.job_industry}</p>
+          {profile.preferred_work_mode && <p className="text-[#6b6b6b] text-sm">({profile.preferred_work_mode})</p>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => onView(profile.id)} className="bg-[#f77f00] text-white text-sm font-semibold px-5 h-10 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap">
+            Get Started
+          </button>
+          <button onClick={() => onUnsave(profile.id)} className="w-10 h-10 flex items-center justify-center rounded-full border border-[#f77f00] bg-[#fff8ee] text-[#f77f00] transition-colors">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm mb-3">
+        {profile.current_status && (
+          <span><span className="text-[#f77f00] font-semibold">Exp - </span><span className="text-[#18191c] font-semibold">{profile.current_status}</span></span>
+        )}
+        {profile.expected_salary && (
+          <span><span className="text-[#f77f00] font-semibold">Salary - </span><span className="text-[#18191c] font-semibold">{profile.expected_salary}</span></span>
+        )}
+        {profile.job_type && (
+          <span><span className="text-[#f77f00] font-semibold">Type - </span><span className="text-[#18191c] font-semibold">{profile.job_type}</span></span>
+        )}
+      </div>
+
+      {profile.looking_for_roles && (
+        <div className="mb-3 text-sm">
+          <span className="text-[#f77f00] font-semibold">Looking For - </span>
+          <span className="text-[#18191c] font-semibold">{profile.looking_for_roles}</span>
+        </div>
+      )}
+
+      {skills.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-[#f77f00] font-semibold text-sm">Skills -</span>
+          {skills.slice(0, 4).map((s, i) => <ESkillPill key={i} label={s} />)}
+          {skills.length > 4 && <span className="text-[#f77f00] text-xs font-medium">+{skills.length - 4} more</span>}
+        </div>
+      )}
+
+      {expanded && (
+        <div className="border-t border-[#f2f2f3] pt-3 mt-2 space-y-2">
+          {profile.current_location && (
+            <p className="text-sm text-[#18191c]"><span className="font-medium">Current Location :&nbsp; </span>{profile.current_location}</p>
+          )}
+          {profile.preferred_base_city && (
+            <p className="text-sm text-[#18191c]"><span className="font-medium">Preferred Base City :&nbsp; </span>{profile.preferred_base_city}</p>
+          )}
+          {profile.expected_salary && (
+            <p className="text-sm text-[#18191c]"><span className="font-medium">Expected Salary :&nbsp; </span>{profile.expected_salary}</p>
+          )}
+          {profile.career_goals && (
+            <p className="text-sm text-[#18191c]"><span className="font-medium">Career Goals :&nbsp; </span>{profile.career_goals}</p>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between text-sm pt-3 mt-2 border-t border-[#f2f2f3]">
+        <span className="text-[#9f9f9f]">{timeAgo(profile.created_at)}</span>
+        <button onClick={() => setExpanded(v => !v)} className="text-[#f77f00] font-medium hover:underline">
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ message, sub }: { message: string; sub: string }) {
   return (
     <div className="col-span-2 flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[#e5e7eb] rounded-2xl">
@@ -737,6 +835,7 @@ const CATEGORY_META: Record<string, { title: string }> = {
   discover:  { title: 'Saved Discover Posts' },
   learning:  { title: 'Learning Directory' },
   employment:{ title: 'Employment Hub' },
+  seekers:   { title: 'Open To Work' },
 };
 
 export default function SavedCategoryPage() {
@@ -748,6 +847,7 @@ export default function SavedCategoryPage() {
   const [communityPosts, setCommunityPosts] = useState<FeedPost[]>([]);
   const [learningCourses, setLearningCourses] = useState<SavedLearningSnapshot[]>([]);
   const [employmentPostings, setEmploymentPostings] = useState<EmployerPosting[]>([]);
+  const [seekerProfiles, setSeekerProfiles] = useState<SeekerProfile[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
@@ -804,6 +904,11 @@ export default function SavedCategoryPage() {
         .then(setEmploymentPostings)
         .catch(() => {})
         .finally(() => setLoading(false));
+    } else if (category === 'seekers') {
+      fetchSavedSeekerProfiles()
+        .then(setSeekerProfiles)
+        .catch(() => {})
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
@@ -827,6 +932,11 @@ export default function SavedCategoryPage() {
   function handleEmploymentUnsave(id: string) {
     unsaveEmploymentPosting(id).catch(() => {});
     setEmploymentPostings(prev => prev.filter(p => p.id !== id));
+  }
+
+  function handleSeekerUnsave(id: string) {
+    unsaveSeekerProfile(id).catch(() => {});
+    setSeekerProfiles(prev => prev.filter(p => p.id !== id));
   }
 
   function handlePostLikeToggle(postId: string, willLike: boolean) {
@@ -939,6 +1049,26 @@ export default function SavedCategoryPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
           {employmentPostings.map(p => (
             <EmploymentCard key={p.id} posting={p} onUnsave={handleEmploymentUnsave} />
+          ))}
+        </div>
+      );
+    }
+
+    if (category === 'seekers') {
+      if (seekerProfiles.length === 0) {
+        return (
+          <div className="grid grid-cols-1">
+            <EmptyState
+              message="No saved profiles"
+              sub="Bookmark any Open To Work profile on the Employment Hub and it will appear here."
+            />
+          </div>
+        );
+      }
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+          {seekerProfiles.map(p => (
+            <SeekerCard key={p.id} profile={p} onUnsave={handleSeekerUnsave} onView={(id) => navigate(`/employment-hub?seeker=${id}`)} />
           ))}
         </div>
       );
