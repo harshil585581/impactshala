@@ -4,7 +4,7 @@ import TopBar from '../../components/TopBar';
 import Sidebar from '../../components/Sidebar';
 import { cn } from '@/lib/cn';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
-import { getAuthenticatedSession } from '../../lib/supabase';
+import { fetchProfile } from '../../services/profileService';
 import { createOrUpdateSeekerProfile, fetchMySeekerProfile } from '../../services/employmentService';
 import type { Toast } from '../../types/profile';
 import ToastContainer from '../../components/ui/Toast';
@@ -931,17 +931,20 @@ export default function JobSeekerHubPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Pre-fill name from auth session on mount
+  // Pre-fill name from the user's real profile on mount.
+  // Auth session user_metadata is never populated (signup only sets
+  // email/password there — first/last name live in the users table), so
+  // reading from it here always silently returned nothing, leaving this
+  // read-only field permanently blank and every seeker post "Anonymous".
   useEffect(() => {
     let cancelled = false;
-    getAuthenticatedSession().then((session) => {
-      if (cancelled || !session) return;
-      const meta = session.user.user_metadata ?? {};
-      const name = [meta.first_name, meta.last_name]
+    fetchProfile('me').then((profile) => {
+      if (cancelled) return;
+      const name = [profile.firstName, profile.lastName]
         .filter((s): s is string => !!s && s !== 'unknown')
-        .join(' ');
+        .join(' ') || profile.orgName || '';
       if (name) setFormData((prev) => ({ ...prev, name }));
-    });
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 

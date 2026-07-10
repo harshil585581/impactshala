@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { FeedPost } from './postService';
 import { toggleBookmark } from './discoverService';
-import type { EmployerPosting } from './employmentService';
+import type { EmployerPosting, SeekerProfile } from './employmentService';
 
 // ─── Supabase helpers ─────────────────────────────────────────────────────────
 
@@ -261,4 +261,65 @@ export async function fetchSavedEmploymentPostings(): Promise<EmployerPosting[]>
   // Preserve saved_at order
   const byId = new Map((data ?? []).map((p) => [p.id as string, p]));
   return ids.map((id) => byId.get(id)).filter(Boolean) as EmployerPosting[];
+}
+
+// ─── Seeker profiles ("Open To Work") ─────────────────────────────────────────
+//
+// Kept separate from saved_employment_postings — job_seeker_profiles ids live
+// in a different table than employment_hub_postings, so reusing the postings
+// save functions here would (and did) fail their foreign key check silently.
+
+export async function fetchSavedSeekerProfileIds(): Promise<Set<string>> {
+  const userId = getUserId();
+  if (!userId) return new Set();
+  const { data } = await supabase
+    .from('saved_seeker_profiles')
+    .select('profile_id')
+    .eq('user_id', userId);
+  return new Set((data ?? []).map(r => r.profile_id as string));
+}
+
+export async function saveSeekerProfile(profileId: string): Promise<void> {
+  const userId = getUserId();
+  if (!userId) return;
+  const { error } = await supabase
+    .from('saved_seeker_profiles')
+    .upsert({ user_id: userId, profile_id: profileId }, { onConflict: 'user_id,profile_id' });
+  if (error) throw new Error(error.message);
+}
+
+export async function unsaveSeekerProfile(profileId: string): Promise<void> {
+  const userId = getUserId();
+  if (!userId) return;
+  const { error } = await supabase
+    .from('saved_seeker_profiles')
+    .delete()
+    .eq('user_id', userId)
+    .eq('profile_id', profileId);
+  if (error) throw new Error(error.message);
+}
+
+export async function fetchSavedSeekerProfiles(): Promise<SeekerProfile[]> {
+  const userId = getUserId();
+  if (!userId) return [];
+
+  const { data: savedRows, error: savedError } = await supabase
+    .from('saved_seeker_profiles')
+    .select('profile_id, saved_at')
+    .eq('user_id', userId)
+    .order('saved_at', { ascending: false });
+  if (savedError) throw new Error(savedError.message);
+
+  const ids = (savedRows ?? []).map((r) => r.profile_id as string);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('job_seeker_profiles')
+    .select('*')
+    .in('id', ids);
+  if (error) throw new Error(error.message);
+
+  // Preserve saved_at order
+  const byId = new Map((data ?? []).map((p) => [p.id as string, p]));
+  return ids.map((id) => byId.get(id)).filter(Boolean) as SeekerProfile[];
 }

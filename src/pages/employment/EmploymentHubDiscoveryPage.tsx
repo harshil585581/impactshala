@@ -21,6 +21,9 @@ import {
   fetchSavedEmploymentPostingIds,
   saveEmploymentPosting,
   unsaveEmploymentPosting,
+  fetchSavedSeekerProfileIds,
+  saveSeekerProfile,
+  unsaveSeekerProfile,
 } from '../../services/savedService';
 import type { Toast } from '../../types/profile';
 import { fetchMyProfile } from '../../services/accountService';
@@ -57,7 +60,11 @@ type Filters = {
 const EMPTY_FILTERS: Filters = { industry: '', jobType: '', workMode: '' };
 const JOB_TYPES = ['Full Time', 'Part Time', 'Freelance', 'Contract'];
 const WORK_MODES = ['Onsite', 'Remote', 'Hybrid'];
-const CAREER_PILLS = ['Early Career', 'Mid Career', 'Senior Career'];
+// Matches the exact career_level values postings are created with (see
+// CAREER_LEVELS in EmploymentHubPage.tsx) — the previous pill labels
+// ('Early Career' etc.) didn't correspond to any real stored value, so
+// most of them silently matched nothing.
+const CAREER_PILLS = ['Entry Level', 'Junior Level', 'Mid Level', 'Senior Level', 'Manager', 'Executive'];
 const PAGE_SIZE = 5;
 
 const ALL_INDUSTRIES = [
@@ -2116,19 +2123,29 @@ export default function EmploymentHubDiscoveryPage() {
   }
 
   function handleToggleSave(id: string) {
+    // Side effects (network calls, toasts) must live outside the setState
+    // updater — React 18 Strict Mode double-invokes functional updaters in
+    // dev to catch exactly this kind of impurity, which was firing the
+    // toast (and the save/unsave request) twice per click.
+    const wasSaved = savedIds.has(id);
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        unsaveEmploymentPosting(id).catch(() => {});
-        addToast('info', 'Removed from saved');
-      } else {
-        next.add(id);
-        saveEmploymentPosting(id).catch(() => {});
-        addToast('success', 'Saved successfully');
-      }
+      if (wasSaved) next.delete(id); else next.add(id);
       return next;
     });
+
+    // Employer postings and seeker profiles live in different tables with
+    // their own save tables — route based on which tab is active.
+    const save = tab === 'hire' ? saveEmploymentPosting : saveSeekerProfile;
+    const unsave = tab === 'hire' ? unsaveEmploymentPosting : unsaveSeekerProfile;
+
+    if (wasSaved) {
+      unsave(id).catch(() => {});
+      addToast('info', 'Removed from saved');
+    } else {
+      save(id).catch(() => {});
+      addToast('success', 'Saved successfully');
+    }
   }
 
   useEffect(() => {
@@ -2143,9 +2160,12 @@ export default function EmploymentHubDiscoveryPage() {
       )
       .finally(() => setLoading(false));
 
-    fetchSavedEmploymentPostingIds()
-      .then(setSavedIds)
-      .catch(() => {});
+    Promise.all([
+      fetchSavedEmploymentPostingIds().catch(() => new Set<string>()),
+      fetchSavedSeekerProfileIds().catch(() => new Set<string>()),
+    ]).then(([postingIds, profileIds]) => {
+      setSavedIds(new Set([...postingIds, ...profileIds]));
+    });
   }, []);
 
   // Auto-open apply modal when navigated with ?apply=<jobId>
@@ -2160,16 +2180,25 @@ export default function EmploymentHubDiscoveryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postings, searchParams]);
 
+  // Auto-open seeker detail modal when navigated with ?seeker=<profileId>
+  useEffect(() => {
+    const seekerId = searchParams.get('seeker');
+    if (!seekerId || profiles.length === 0) return;
+    const match = profiles.find(p => p.id === seekerId);
+    if (match) {
+      setTab('work');
+      setDetailProfile(match);
+      setSearchParams(prev => { prev.delete('seeker'); return prev; }, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profiles, searchParams]);
+
   useEffect(() => {
     setPage(1);
   }, [tab, appliedFilters, careerLevel]);
 
   const filteredPostings = postings.filter((p) => {
-    if (
-      careerLevel &&
-      !p.career_level?.toLowerCase().includes(careerLevel.toLowerCase().split(' ')[0])
-    )
-      return false;
+    if (careerLevel && p.career_level?.toLowerCase() !== careerLevel.toLowerCase()) return false;
     if (appliedFilters.industry && p.industry !== appliedFilters.industry) return false;
     if (appliedFilters.jobType && p.job_type !== appliedFilters.jobType) return false;
     if (appliedFilters.workMode && p.work_mode !== appliedFilters.workMode) return false;
