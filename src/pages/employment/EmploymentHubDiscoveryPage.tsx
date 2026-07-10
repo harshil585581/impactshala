@@ -10,6 +10,7 @@ import {
   submitApplication,
   fetchApplicationsForPosting,
   updateApplicationStatus,
+  fetchMyApplicationsAsSeeker,
 } from '../../services/employmentService';
 import type {
   EmployerPosting,
@@ -266,9 +267,11 @@ function ESection({ title, children }: { title: string; children: React.ReactNod
 function EmployerExpandedContent({
   posting,
   onApply,
+  isApplied = false,
 }: {
   posting: EmployerPosting;
   onApply: () => void;
+  isApplied?: boolean;
 }) {
   const skills = posting.preferred_skillsets
     ? posting.preferred_skillsets.split(',').map((s) => s.trim()).filter(Boolean)
@@ -369,13 +372,23 @@ function EmployerExpandedContent({
 
       {/* Apply CTA inside expanded view */}
       <div className="mt-5 pt-4 border-t border-[#f2f2f3]">
-        <button
-          type="button"
-          onClick={onApply}
-          className="bg-[#f77f00] text-white text-sm font-semibold px-8 h-10 rounded-full hover:bg-[#e68500] transition-colors"
-        >
-          Apply Now
-        </button>
+        {isApplied ? (
+          <button
+            type="button"
+            disabled
+            className="border border-[#f77f00] text-[#f77f00] text-sm font-semibold px-8 h-10 rounded-full opacity-60 cursor-not-allowed"
+          >
+            Applied
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onApply}
+            className="bg-[#f77f00] text-white text-sm font-semibold px-8 h-10 rounded-full hover:bg-[#e68500] transition-colors"
+          >
+            Apply Now
+          </button>
+        )}
       </div>
     </div>
   );
@@ -537,6 +550,7 @@ function EmployerJobCard({
   currentUserId,
   isSaved = false,
   onToggleSave,
+  isApplied = false,
 }: {
   posting: EmployerPosting;
   onDetails: (p: EmployerPosting) => void;
@@ -545,6 +559,7 @@ function EmployerJobCard({
   currentUserId?: string;
   isSaved?: boolean;
   onToggleSave?: (id: string) => void;
+  isApplied?: boolean;
 }) {
   const isOwner = !!currentUserId && posting.user_id === currentUserId;
   const [expanded, setExpanded] = useState(false);
@@ -569,17 +584,27 @@ function EmployerJobCard({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() =>
-              isOwner && onViewApplicants
-                ? onViewApplicants(posting)
-                : onDetails(posting)
-            }
-            className="bg-[#f77f00] text-white text-sm font-semibold px-5 h-10 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
-          >
-            {isOwner ? 'View Applicants' : 'Get Started'}
-          </button>
+          {!isOwner && isApplied ? (
+            <button
+              type="button"
+              disabled
+              className="border border-[#f77f00] text-[#f77f00] text-sm font-semibold px-5 h-10 rounded-full opacity-60 cursor-not-allowed whitespace-nowrap"
+            >
+              Applied
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                isOwner && onViewApplicants
+                  ? onViewApplicants(posting)
+                  : onDetails(posting)
+              }
+              className="bg-[#f77f00] text-white text-sm font-semibold px-5 h-10 rounded-full hover:bg-[#e68500] transition-colors whitespace-nowrap"
+            >
+              {isOwner ? 'View Applicants' : 'Get Started'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onToggleSave?.(posting.id)}
@@ -630,7 +655,7 @@ function EmployerJobCard({
 
       {/* Expanded employer sections */}
       {expanded && (
-        <EmployerExpandedContent posting={posting} onApply={() => onApply(posting)} />
+        <EmployerExpandedContent posting={posting} onApply={() => onApply(posting)} isApplied={!isOwner && isApplied} />
       )}
 
       <div className="flex items-center justify-between text-sm pt-3 mt-2 border-t border-[#f2f2f3]">
@@ -939,10 +964,12 @@ function EmployerDetailModal({
   posting,
   onClose,
   onApply,
+  isApplied = false,
 }: {
   posting: EmployerPosting;
   onClose: () => void;
   onApply: () => void;
+  isApplied?: boolean;
 }) {
   const initial = posting.org_name ? posting.org_name.charAt(0).toUpperCase() : 'O';
 
@@ -1073,13 +1100,23 @@ function EmployerDetailModal({
 
         <div className="sticky bottom-0 bg-white border-t border-[#f2f2f3] px-6 py-4 flex items-center justify-between">
           <p className="text-xs text-[#9f9f9f]">Posted {timeAgo(posting.created_at)}</p>
-          <button
-            type="button"
-            onClick={onApply}
-            className="bg-[#f77f00] text-white text-sm font-semibold px-6 h-9 rounded-full hover:bg-[#e07000] transition-colors"
-          >
-            Apply Now
-          </button>
+          {isApplied ? (
+            <button
+              type="button"
+              disabled
+              className="border border-[#f77f00] text-[#f77f00] text-sm font-semibold px-6 h-9 rounded-full opacity-60 cursor-not-allowed"
+            >
+              Applied
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onApply}
+              className="bg-[#f77f00] text-white text-sm font-semibold px-6 h-9 rounded-full hover:bg-[#e07000] transition-colors"
+            >
+              Apply Now
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1329,10 +1366,12 @@ function ApplyModal({
   posting,
   onClose,
   addToast,
+  onSuccess,
 }: {
   posting: EmployerPosting;
   onClose: () => void;
   addToast: (type: 'success' | 'error' | 'info', msg: string) => void;
+  onSuccess?: (postingId: string) => void;
 }) {
   const [step, setStep] = useState<ApplyStep>(2);
   const [form, setForm] = useState<ApplyForm>({ name: '', email: '', mobile: '' });
@@ -1378,6 +1417,7 @@ function ApplyModal({
         docNames,
       );
       addToast('success', 'Application submitted successfully!');
+      onSuccess?.(posting.id);
       onClose();
     } catch (err) {
       addToast('error', err instanceof Error ? err.message : 'Failed to submit application');
@@ -2114,6 +2154,7 @@ export default function EmploymentHubDiscoveryPage() {
   }
 
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [appliedPostIds, setAppliedPostIds] = useState<Set<string>>(new Set());
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   function addToast(type: Toast['type'], message: string) {
@@ -2166,6 +2207,10 @@ export default function EmploymentHubDiscoveryPage() {
     ]).then(([postingIds, profileIds]) => {
       setSavedIds(new Set([...postingIds, ...profileIds]));
     });
+
+    fetchMyApplicationsAsSeeker()
+      .then((apps) => setAppliedPostIds(new Set(apps.map((a) => a.posting_id))))
+      .catch(() => {});
   }, []);
 
   // Auto-open apply modal when navigated with ?apply=<jobId>
@@ -2375,6 +2420,7 @@ export default function EmploymentHubDiscoveryPage() {
                             currentUserId={currentUserId}
                             isSaved={savedIds.has(p.id)}
                             onToggleSave={handleToggleSave}
+                            isApplied={appliedPostIds.has(p.id)}
                           />
                         ))
                       : (pagedItems as SeekerProfile[]).map((p) => (
@@ -2501,6 +2547,7 @@ export default function EmploymentHubDiscoveryPage() {
             setApplyPosting(detailPosting);
             setDetailPosting(null);
           }}
+          isApplied={appliedPostIds.has(detailPosting.id)}
         />
       )}
       {detailProfile && (
@@ -2511,6 +2558,7 @@ export default function EmploymentHubDiscoveryPage() {
           posting={applyPosting}
           onClose={() => setApplyPosting(null)}
           addToast={addToast}
+          onSuccess={(id) => setAppliedPostIds((prev) => new Set(prev).add(id))}
         />
       )}
     </div>

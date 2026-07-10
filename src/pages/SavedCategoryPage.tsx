@@ -349,6 +349,122 @@ function EmployerExpandedDetails({ posting, onApply }: { posting: EmployerPostin
   );
 }
 
+function MediaPreview({ src, className }: { src: string; className?: string }) {
+  const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp|avif)(\?.*)?$/i.test(src);
+  if (isImage) {
+    return <img src={src} alt="media" className={className} style={{ objectFit: 'cover' }} />;
+  }
+  return <video src={src} controls className={className} />;
+}
+
+function SeekerExpandedDetails({ profile }: { profile: SeekerProfile }) {
+  return (
+    <div>
+      <ESection title="More Details">
+        <EField label="Opportunity Domain" value={profile.job_industry} />
+        {profile.certifications?.length > 0 && (
+          <EField label="Certification / Accreditation" value={profile.certifications} />
+        )}
+      </ESection>
+
+      <ESection title="Personal Information">
+        <EField label="Looking For Roles In" value={profile.looking_for_roles} />
+        <EField label="Current Location" value={profile.current_location} />
+        <EField label="Preferred Base City" value={profile.preferred_base_city} />
+        <EField label="Current Status" value={profile.current_status} />
+        <EField label="Work Location Type" value={profile.preferred_work_mode} />
+        <EField label="Job Type" value={profile.job_type} />
+      </ESection>
+
+      <ESection title="Desired Role & Work Preferences">
+        <EBullets label="Are you looking for a specific JD or open to dynamic roles?" value={profile.specific_jd} />
+        <EField label="Reporting To" value={profile.reporting_comfort} />
+        <EField label="Training Expectation" value={profile.training_expectation} />
+        <EField label="Work Hours Flexibility" value={profile.work_hours_flexibility} />
+        <EField label="Leave Expectation" value={profile.leave_expectation} />
+      </ESection>
+
+      <ESection title="Compensation & Availability">
+        <EField label="Expected Salary / Stipend Range" value={profile.expected_salary} />
+        <EField label="Open to Negotiation?" value={profile.open_to_negotiation} />
+        {(profile.department || profile.available_from) && (
+          <div className="flex flex-wrap gap-x-8 gap-y-1">
+            {profile.department && (
+              <p className="text-sm text-[#18191c]"><span className="font-medium">Department :&nbsp; </span>{profile.department}</p>
+            )}
+            {profile.available_from && (
+              <p className="text-sm text-[#18191c]"><span className="font-medium">Available From :&nbsp; </span>{profile.available_from}</p>
+            )}
+          </div>
+        )}
+        <EField label="Weekly Commitment" value={profile.weekly_commitment} />
+      </ESection>
+
+      <ESection title="Skills, Tools & Attributes">
+        {profile.technical_skills?.length > 0 && (
+          <p className="text-sm text-[#18191c]"><span className="font-medium">Top 3 Technical Skills :&nbsp; </span>{profile.technical_skills.join(', ')}</p>
+        )}
+        {profile.soft_skills?.length > 0 && (
+          <div>
+            <p className="text-sm font-medium text-[#18191c] mb-1">Top 3 Soft Skills / Traits :</p>
+            <p className="text-sm text-[#18191c]">{profile.soft_skills.join(', ')}</p>
+          </div>
+        )}
+        {profile.certifications?.length > 0 && (
+          <EField label="Certifications / Courses" value={profile.certifications} />
+        )}
+        <EField label="Tools / Platforms Familiar With" value={profile.tools_platforms} />
+        {profile.portfolio_link && (
+          <p className="text-sm text-[#18191c]">
+            <span className="font-medium">Portfolio / GitHub / Behance :&nbsp; </span>
+            <a href={profile.portfolio_link} target="_blank" rel="noopener noreferrer" className="text-[#f77f00] hover:underline break-all">
+              {profile.portfolio_link}
+            </a>
+          </p>
+        )}
+        {profile.profile_link && (
+          <p className="text-sm text-[#18191c]">
+            <span className="font-medium">Impactshaala / Profile Link :&nbsp; </span>
+            <a href={profile.profile_link} target="_blank" rel="noopener noreferrer" className="text-[#f77f00] hover:underline break-all">
+              {profile.profile_link}
+            </a>
+          </p>
+        )}
+        {profile.resume_url && (
+          <p className="text-sm text-[#18191c]">
+            <span className="font-medium">Resume :&nbsp; </span>
+            <a href={profile.resume_url} target="_blank" rel="noopener noreferrer" className="text-[#f77f00] font-medium hover:underline">
+              Download Resume
+            </a>
+          </p>
+        )}
+      </ESection>
+
+      <ESection title="Culture & Values Alignment">
+        <EField label="Preferred Work Culture" value={profile.preferred_work_culture} />
+        <EField label="What Kind of Work Drives You?" value={profile.work_drives_you} />
+        <EField label="Career Goals (Next 1–2 years)" value={profile.career_goals} />
+      </ESection>
+
+      <ESection title="Human Touch & Differentiators">
+        <EField label="Special Notes / Needs" value={profile.special_notes} />
+        {profile.seeking_employer_who && (
+          <div>
+            <p className="text-sm font-medium text-[#18191c] mb-1">Specifically seeking for employer who is :</p>
+            <p className="text-sm text-[#18191c]">{profile.seeking_employer_who}</p>
+          </div>
+        )}
+        {profile.intro_video_url && (
+          <div>
+            <p className="text-sm font-medium text-[#18191c] mb-2">Intro Video / Culture Clip :</p>
+            <MediaPreview src={profile.intro_video_url} className="w-full rounded-xl border border-[#e4e5e8] max-h-[220px] object-cover" />
+          </div>
+        )}
+      </ESection>
+    </div>
+  );
+}
+
 // ─── Employment Apply Modal ───────────────────────────────────────────────────
 
 function EmploymentApplyModal({ posting, onClose }: { posting: EmployerPosting; onClose: () => void }) {
@@ -575,22 +691,7 @@ function SeekerCard({ profile, onUnsave, onView }: { profile: SeekerProfile; onU
         </div>
       )}
 
-      {expanded && (
-        <div className="border-t border-[#f2f2f3] pt-3 mt-2 space-y-2">
-          {profile.current_location && (
-            <p className="text-sm text-[#18191c]"><span className="font-medium">Current Location :&nbsp; </span>{profile.current_location}</p>
-          )}
-          {profile.preferred_base_city && (
-            <p className="text-sm text-[#18191c]"><span className="font-medium">Preferred Base City :&nbsp; </span>{profile.preferred_base_city}</p>
-          )}
-          {profile.expected_salary && (
-            <p className="text-sm text-[#18191c]"><span className="font-medium">Expected Salary :&nbsp; </span>{profile.expected_salary}</p>
-          )}
-          {profile.career_goals && (
-            <p className="text-sm text-[#18191c]"><span className="font-medium">Career Goals :&nbsp; </span>{profile.career_goals}</p>
-          )}
-        </div>
-      )}
+      {expanded && <SeekerExpandedDetails profile={profile} />}
 
       <div className="flex items-center justify-between text-sm pt-3 mt-2 border-t border-[#f2f2f3]">
         <span className="text-[#9f9f9f]">{timeAgo(profile.created_at)}</span>

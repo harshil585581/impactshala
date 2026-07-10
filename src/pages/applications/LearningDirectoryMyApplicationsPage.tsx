@@ -45,15 +45,26 @@ const STATUS_LABELS: Record<CourseApplicationStatus, string> = {
   goodfit: 'Goodfit',
 };
 
-type FilterTab = 'applied' | 'received' | 'accepted' | 'hold' | 'rejected';
+// Organizations own courses and review applicants — Received/Accepted/Hold/Rejected.
+// Individuals only ever submit applications — Applied only.
+type OrgFilterTab = 'received' | 'accepted' | 'hold' | 'rejected';
 
-const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: 'applied', label: 'Applied' },
+const ORG_FILTER_TABS: { key: OrgFilterTab; label: string }[] = [
   { key: 'received', label: 'Received' },
   { key: 'accepted', label: 'Accepted' },
   { key: 'hold', label: 'Hold' },
   { key: 'rejected', label: 'Rejected' },
 ];
+
+// Accepted/Hold/Rejected reflect the status this org assigned an applicant on
+// one of *their own* courses.
+const STATUS_TAB_MAP: Partial<Record<OrgFilterTab, CourseApplicationStatus>> = {
+  accepted: 'goodfit',
+  hold: 'maybe',
+  rejected: 'not_a_fit',
+};
+
+type ReceivedApplication = { course: MyCourse; app: CourseApplication };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -209,7 +220,6 @@ function SeekerView() {
   const [apps, setApps] = useState<MyLearningApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<FilterTab>('applied');
   const [page, setPage] = useState(1);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
@@ -220,19 +230,10 @@ function SeekerView() {
       .finally(() => setLoading(false));
   }, []);
 
-  function filterApps(tab: FilterTab): MyLearningApplication[] {
-    switch (tab) {
-      case 'applied':  return apps;
-      case 'received': return apps.filter(a => a.status !== 'applied');
-      case 'accepted': return apps.filter(a => a.status === 'goodfit');
-      case 'hold':     return apps.filter(a => a.status === 'maybe');
-      case 'rejected': return apps.filter(a => a.status === 'not_a_fit');
-    }
-  }
-
-  const filtered = filterApps(activeTab);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Individuals only ever submit applications — there's nothing to receive,
+  // accept, hold, or reject here, so a single "Applied" state covers it all.
+  const totalPages = Math.max(1, Math.ceil(apps.length / PAGE_SIZE));
+  const paged = apps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function handleWithdraw(appId: string) {
     setWithdrawing(appId);
@@ -247,17 +248,10 @@ function SeekerView() {
     <div className="flex flex-col gap-[30px]">
       {/* Filter tabs */}
       <div className="flex items-center gap-4 flex-wrap">
-        {FILTER_TABS.map(tab => (
-          <button key={tab.key} type="button"
-            onClick={() => { setActiveTab(tab.key); setPage(1); }}
-            className={`h-[48px] px-[24px] rounded-[24px] text-[16px] font-medium border transition-colors whitespace-nowrap ${
-              activeTab === tab.key
-                ? 'bg-[#ff9400] text-white border-[#ff9400]'
-                : 'bg-white text-[#ff9400] border-[#ff9400] hover:bg-[#fff8ee]'
-            }`}>
-            {tab.label}
-          </button>
-        ))}
+        <button type="button"
+          className="h-[48px] px-[24px] rounded-[24px] text-[16px] font-medium border transition-colors whitespace-nowrap bg-[#ff9400] text-white border-[#ff9400]">
+          Applied
+        </button>
       </div>
 
       {/* Card list */}
@@ -327,18 +321,23 @@ function ApplicantDetailPanel({
   setApplications,
   statusUpdating,
   setStatusUpdating,
+  onStatusChange,
 }: {
   selected: CourseApplication;
   selectedCourse: MyCourse;
   setApplications: React.Dispatch<React.SetStateAction<CourseApplication[]>>;
   statusUpdating: string | null;
   setStatusUpdating: React.Dispatch<React.SetStateAction<string | null>>;
+  // Also sync the cross-course cache backing the Accepted/Hold/Rejected tabs,
+  // since this panel only otherwise updates the currently-open course's list.
+  onStatusChange?: (appId: string, status: CourseApplicationStatus) => void;
 }) {
   async function handleStatus(appId: string, status: CourseApplicationStatus) {
     setStatusUpdating(appId + status);
     try {
       await updateCourseApplicationStatus(appId, status);
       setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
+      onStatusChange?.(appId, status);
     } catch {}
     setStatusUpdating(null);
   }
@@ -483,15 +482,17 @@ function ApplicantDetailPanel({
 
 function OrgView() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<OrgFilterTab>('received');
   const [view, setView] = useState<'list' | 'applicants'>('list');
   const [courses, setCourses] = useState<MyCourse[]>([]);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  const [appsByCourse, setAppsByCourse] = useState<Map<string, CourseApplication[]>>(new Map());
   const [selectedCourse, setSelectedCourse] = useState<MyCourse | null>(null);
   const [applications, setApplications] = useState<CourseApplication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [appsLoading, setAppsLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [listPage, setListPage] = useState(1);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
 
   useEffect(() => {
@@ -499,104 +500,192 @@ function OrgView() {
       .then(async cs => {
         setCourses(cs);
         if (cs.length > 0) {
-          const countMap = await fetchCourseApplicationCountsBatch(cs.map(c => c.id));
+          const [countMap, perCourse] = await Promise.all([
+            fetchCourseApplicationCountsBatch(cs.map(c => c.id)),
+            Promise.all(cs.map(async c => [c.id, await fetchCourseApplications(c.id).catch(() => [])] as const)),
+          ]);
           setCounts(countMap);
+          setAppsByCourse(new Map(perCourse));
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  function openCourse(course: MyCourse) {
+  function openCourse(course: MyCourse, focusAppId?: string) {
+    const cached = appsByCourse.get(course.id) ?? [];
     setSelectedCourse(course);
-    setView('applicants');
-    setApplications([]);
-    setSelectedId(null);
+    setApplications(cached);
+    setSelectedId(focusAppId ?? cached[0]?.id ?? null);
     setPage(1);
-    setAppsLoading(true);
-    fetchCourseApplications(course.id)
-      .then(apps => {
-        setApplications(apps);
-        if (apps.length > 0) setSelectedId(apps[0].id);
-      })
-      .catch(() => {})
-      .finally(() => setAppsLoading(false));
+    setView('applicants');
   }
+
+  function switchTab(tab: OrgFilterTab) {
+    setActiveTab(tab);
+    setView('list');
+    setSelectedCourse(null);
+    setListPage(1);
+  }
+
+  const isStatusTab = activeTab !== 'received';
+  const receivedApplications: ReceivedApplication[] = courses.flatMap(course =>
+    (appsByCourse.get(course.id) ?? []).map(app => ({ course, app })),
+  );
+  const filteredReceived = isStatusTab
+    ? receivedApplications.filter(r => r.app.status === STATUS_TAB_MAP[activeTab])
+    : [];
+  const listTotalPages = Math.max(1, Math.ceil(filteredReceived.length / PAGE_SIZE));
+  const pagedReceived = filteredReceived.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
 
   const totalPages = Math.max(1, Math.ceil(applications.length / PAGE_SIZE));
   const pagedApps = applications.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const selected = applications.find(a => a.id === selectedId) ?? null;
 
-  // ── View 1: Courses list ───────────────────────────────────────────────────
+  function syncAppsByCourse(appId: string, status: CourseApplicationStatus) {
+    if (!selectedCourse) return;
+    setAppsByCourse(prev => {
+      const next = new Map(prev);
+      next.set(selectedCourse.id, (next.get(selectedCourse.id) ?? []).map(a => a.id === appId ? { ...a, status } : a));
+      return next;
+    });
+  }
+
+  // ── View 1: Courses list / cross-course status list ───────────────────────
   if (view === 'list') {
+    const tabBar = (
+      <div className="flex items-center gap-4 flex-wrap">
+        {ORG_FILTER_TABS.map(tab => (
+          <button key={tab.key} type="button"
+            onClick={() => switchTab(tab.key)}
+            className={`h-[48px] px-[24px] rounded-[24px] text-[16px] font-medium border transition-colors whitespace-nowrap ${
+              activeTab === tab.key
+                ? 'bg-[#ff9400] text-white border-[#ff9400]'
+                : 'bg-white text-[#ff9400] border-[#ff9400] hover:bg-[#fff8ee]'
+            }`}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    );
+
     if (loading) {
       return (
-        <div className="max-w-[900px] border border-[#bebebe] rounded-[20px] p-[10px] bg-white flex flex-col gap-1">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="p-[10px] flex flex-col gap-4">
-              <Skeleton className="h-8 w-56" /><Skeleton className="h-6 w-44" />
-              <Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-28" />
-            </div>
-          ))}
+        <div className="flex flex-col gap-[30px]">
+          {tabBar}
+          <div className="max-w-[900px] border border-[#bebebe] rounded-[20px] p-[10px] bg-white flex flex-col gap-1">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="p-[10px] flex flex-col gap-4">
+                <Skeleton className="h-8 w-56" /><Skeleton className="h-6 w-44" />
+                <Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-28" />
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
 
     if (courses.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-[#6b7280] font-semibold text-base mb-2">No courses listed yet</p>
-          <p className="text-[#9ca3af] text-sm mb-5">List your first course to start receiving applications.</p>
-          <button onClick={() => navigate('/learning-directory/list-course')}
-            className="bg-[#f77f00] text-white text-sm font-semibold h-10 px-6 rounded-full hover:bg-[#e07000] transition-colors">
-            List a Course
-          </button>
+        <div className="flex flex-col gap-[30px]">
+          {tabBar}
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <p className="text-[#6b7280] font-semibold text-base mb-2">No courses listed yet</p>
+            <p className="text-[#9ca3af] text-sm mb-5">List your first course to start receiving applications.</p>
+            <button onClick={() => navigate('/learning-directory/list-course')}
+              className="bg-[#f77f00] text-white text-sm font-semibold h-10 px-6 rounded-full hover:bg-[#e07000] transition-colors">
+              List a Course
+            </button>
+          </div>
         </div>
       );
     }
 
+    if (activeTab === 'received') {
+      return (
+        <div className="flex flex-col gap-[30px]">
+          {tabBar}
+          <div className="max-w-[900px] border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
+            {courses.map((course, idx) => {
+              const count = counts.get(course.id) ?? 0;
+              return (
+                <div key={course.id}>
+                  <div onClick={() => openCourse(course)}
+                    className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer hover:bg-[#fffaf5] transition-colors">
+                    <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                      <div className="flex flex-col gap-[6px]">
+                        <p className="text-[20px] font-medium text-black"
+                          style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
+                          {course.title || 'Untitled Course'}
+                        </p>
+                        {course.program_level && (
+                          <p className="text-[16px] font-normal text-black"
+                            style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
+                            {course.program_level}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-[4px] opacity-40">
+                        {course.course_mode && (
+                          <p className="text-[13px] font-medium text-black capitalize">{course.course_mode}</p>
+                        )}
+                        <p className="text-[13px] font-medium text-black">Posted {timeAgo(course.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 mt-1">
+                      <span className="text-[#f77f00] text-[14px] font-medium whitespace-nowrap">
+                        {count} {count === 1 ? 'Applicant' : 'Applicants'}
+                      </span>
+                      <DotsMenuButton options={[
+                        { label: 'View Applicants', onClick: () => openCourse(course) },
+                        { label: 'Manage Course', onClick: () => navigate('/learning-directory/list-course') },
+                      ]} />
+                    </div>
+                  </div>
+                  {idx < courses.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // Accepted / Hold / Rejected — flattened list across all courses
     return (
-      <div className="max-w-[900px] border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
-        {courses.map((course, idx) => {
-          const count = counts.get(course.id) ?? 0;
-          return (
-            <div key={course.id}>
-              <div onClick={() => openCourse(course)}
-                className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer hover:bg-[#fffaf5] transition-colors">
-                <div className="flex-1 flex flex-col gap-[12px] min-w-0">
-                  <div className="flex flex-col gap-[6px]">
-                    <p className="text-[20px] font-medium text-black"
-                      style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
-                      {course.title || 'Untitled Course'}
-                    </p>
-                    {course.program_level && (
+      <div className="flex flex-col gap-[30px]">
+        {tabBar}
+        <div className="max-w-[900px] border border-[#bebebe] rounded-[20px] p-[10px] bg-white">
+          {pagedReceived.length === 0 ? (
+            <div className="py-16 text-center text-[#9ca3af] text-base">No applications in this category.</div>
+          ) : (
+            pagedReceived.map(({ course, app }, idx) => (
+              <div key={app.id}>
+                <div onClick={() => openCourse(course, app.id)}
+                  className="bg-white rounded-[24px] p-[10px] flex items-start justify-between gap-[10px] cursor-pointer hover:bg-[#fffaf5] transition-colors">
+                  <div className="flex-1 flex flex-col gap-[12px] min-w-0">
+                    <div className="flex flex-col gap-[6px]">
+                      <p className="text-[20px] font-medium text-black"
+                        style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '24px' }}>
+                        {course.title || 'Untitled Course'}
+                      </p>
                       <p className="text-[16px] font-normal text-black"
                         style={{ fontFamily: 'Be Vietnam Pro, sans-serif', lineHeight: '20px' }}>
-                        {course.program_level}
+                        {app.applicant_name}
                       </p>
-                    )}
+                    </div>
+                    <div className="flex flex-col gap-[4px] opacity-40">
+                      <p className="text-[13px] font-medium text-black">Applied {timeAgo(app.created_at)}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-[4px] opacity-40">
-                    {course.course_mode && (
-                      <p className="text-[13px] font-medium text-black capitalize">{course.course_mode}</p>
-                    )}
-                    <p className="text-[13px] font-medium text-black">Posted {timeAgo(course.created_at)}</p>
-                  </div>
+                  <DotsMenuButton options={[{ label: 'View Applicant', onClick: () => openCourse(course, app.id) }]} />
                 </div>
-                <div className="flex items-center gap-3 shrink-0 mt-1">
-                  <span className="text-[#f77f00] text-[14px] font-medium whitespace-nowrap">
-                    {count} {count === 1 ? 'Applicant' : 'Applicants'}
-                  </span>
-                  <DotsMenuButton options={[
-                    { label: 'View Applicants', onClick: () => openCourse(course) },
-                    { label: 'Manage Course', onClick: () => navigate('/learning-directory/list-course') },
-                  ]} />
-                </div>
+                {idx < pagedReceived.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
               </div>
-              {idx < courses.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
-            </div>
-          );
-        })}
+            ))
+          )}
+        </div>
+        {listTotalPages > 1 && <PaginationBar page={listPage} totalPages={listTotalPages} setPage={setListPage} />}
       </div>
     );
   }
@@ -625,7 +714,7 @@ function OrgView() {
           <div className="flex items-center gap-3 shrink-0 mt-1">
             <button type="button" onClick={() => { setView('list'); setSelectedCourse(null); }}
               className="border border-[#e5e5e5] text-[#6b7280] text-sm font-medium h-[41px] px-5 rounded-full hover:border-[#f77f00] hover:text-[#f77f00] transition-colors whitespace-nowrap">
-              ← All Courses
+              ← Back
             </button>
             <button type="button" onClick={() => navigate('/learning-directory/list-course')}
               className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-5 rounded-full hover:bg-[#fff8ee] transition-colors whitespace-nowrap">
@@ -635,12 +724,7 @@ function OrgView() {
         </div>
       )}
 
-      {appsLoading ? (
-        <div className="flex gap-6">
-          <div className="flex-1 space-y-4">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-28" />)}</div>
-          <Skeleton className="w-[420px] shrink-0 h-[600px]" />
-        </div>
-      ) : applications.length === 0 ? (
+      {applications.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[#e5e7eb] rounded-2xl">
           <p className="text-[#6b7280] font-semibold text-[15px]">No applications yet</p>
           <p className="text-[#9ca3af] text-sm mt-1">Applicants will appear here once people apply.</p>
@@ -681,6 +765,18 @@ function OrgView() {
                           if (selectedId === app.id) setSelectedId(next[0]?.id ?? null);
                           return next;
                         });
+                        if (selectedCourse) {
+                          setCounts(prev => {
+                            const next = new Map(prev);
+                            next.set(selectedCourse.id, Math.max(0, (next.get(selectedCourse.id) ?? 1) - 1));
+                            return next;
+                          });
+                          setAppsByCourse(prev => {
+                            const next = new Map(prev);
+                            next.set(selectedCourse.id, (next.get(selectedCourse.id) ?? []).filter(a => a.id !== app.id));
+                            return next;
+                          });
+                        }
                       }, danger: true }]} />
                     </div>
                     {idx < pagedApps.length - 1 && <div className="h-px bg-[#bebebe] w-full" />}
@@ -699,6 +795,7 @@ function OrgView() {
               setApplications={setApplications}
               statusUpdating={statusUpdating}
               setStatusUpdating={setStatusUpdating}
+              onStatusChange={syncAppsByCourse}
             />
           )}
         </div>
