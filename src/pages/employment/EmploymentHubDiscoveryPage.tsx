@@ -1941,7 +1941,6 @@ function ApplicantsView({
               )}
             </div>
 
-            {/* View Profile */}
             <button
               type="button"
               className="border border-[#f77f00] text-[#f77f00] text-sm font-medium h-[41px] px-4 rounded-full hover:bg-[#fff8ee] transition-colors w-full"
@@ -1949,7 +1948,6 @@ function ApplicantsView({
               View Profile
             </button>
 
-            {/* Collapsible: Resume */}
             <div>
               <button
                 type="button"
@@ -1994,7 +1992,6 @@ function ApplicantsView({
               )}
             </div>
 
-            {/* Collapsible: Eligibility */}
             <div>
               <button
                 type="button"
@@ -2040,7 +2037,6 @@ function ApplicantsView({
               )}
             </div>
 
-            {/* Collapsible: Documents */}
             <div>
               <button
                 type="button"
@@ -2101,7 +2097,6 @@ function ApplicantsView({
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function EmploymentHubDiscoveryPage() {
   useRequireAuth();
@@ -2112,7 +2107,6 @@ export default function EmploymentHubDiscoveryPage() {
   const [tab, setTab] = useState<Tab>('hire');
   const [careerLevel, setCareerLevel] = useState('');
 
-  // Pending = what's selected in the filter UI; applied = actually used for filtering
   const [pendingFilters, setPendingFilters] = useState<Filters>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(EMPTY_FILTERS);
   const [filterSectionOpen, setFilterSectionOpen] = useState({
@@ -2164,10 +2158,6 @@ export default function EmploymentHubDiscoveryPage() {
   }
 
   function handleToggleSave(id: string) {
-    // Side effects (network calls, toasts) must live outside the setState
-    // updater — React 18 Strict Mode double-invokes functional updaters in
-    // dev to catch exactly this kind of impurity, which was firing the
-    // toast (and the save/unsave request) twice per click.
     const wasSaved = savedIds.has(id);
     setSavedIds((prev) => {
       const next = new Set(prev);
@@ -2213,7 +2203,6 @@ export default function EmploymentHubDiscoveryPage() {
       .catch(() => {});
   }, []);
 
-  // Auto-open apply modal when navigated with ?apply=<jobId>
   useEffect(() => {
     const applyId = searchParams.get('apply');
     if (!applyId || postings.length === 0) return;
@@ -2222,10 +2211,8 @@ export default function EmploymentHubDiscoveryPage() {
       setApplyPosting(match);
       setSearchParams(prev => { prev.delete('apply'); return prev; }, { replace: true });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postings, searchParams]);
 
-  // Auto-open seeker detail modal when navigated with ?seeker=<profileId>
   useEffect(() => {
     const seekerId = searchParams.get('seeker');
     if (!seekerId || profiles.length === 0) return;
