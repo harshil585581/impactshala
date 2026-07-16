@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
-import EmojiPicker from 'emoji-picker-react';
 import type { EmojiClickData } from 'emoji-picker-react';
+
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 import type { FeedPost } from '../services/postService';
 import { fetchPollData, voteOnPoll, unvoteOnPoll } from '../services/postService';
 import { followUser, unfollowUser, checkIsFollowing } from '../services/followService';
@@ -747,12 +748,14 @@ export default function PostCard({
               onMouseEnter={() => clearTimeout(pickerTimer.current)}
             >
               {showFullPicker && (
-                <EmojiPicker
-                  height={380}
-                  width={320}
-                  searchPlaceholder="Search emoji…"
-                  onEmojiClick={(data: EmojiClickData) => applyReaction(data.emoji)}
-                />
+                <Suspense fallback={<div className="w-[320px] h-[380px] bg-white rounded-lg" />}>
+                  <EmojiPicker
+                    height={380}
+                    width={320}
+                    searchPlaceholder="Search emoji…"
+                    onEmojiClick={(data: EmojiClickData) => applyReaction(data.emoji)}
+                  />
+                </Suspense>
               )}
             </div>
 

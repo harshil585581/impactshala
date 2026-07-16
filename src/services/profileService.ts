@@ -60,19 +60,36 @@ function mapApiToProfile(data: any, isOwn: boolean): UserProfile {
   };
 }
 
+// Multiple components (e.g. HomePage + RightPanel) call fetchProfile("me")
+// on the same mount — share the in-flight request instead of firing a
+// duplicate round trip to the backend for identical data.
+const inFlightProfileRequests = new Map<string, Promise<UserProfile>>();
+
 export async function fetchProfile(userId: string): Promise<UserProfile> {
-  const session = await getAuthenticatedSession();
-  const currentUserId = session?.user?.id ?? '';
-  const isOwn = userId === 'me' || (!!currentUserId && userId === currentUserId);
+  const existing = inFlightProfileRequests.get(userId);
+  if (existing) return existing;
 
-  const endpoint = isOwn
-    ? `${API_URL}/api/profile`
-    : `${API_URL}/api/profile/${userId}`;
+  const promise = (async () => {
+    const session = await getAuthenticatedSession();
+    const currentUserId = session?.user?.id ?? '';
+    const isOwn = userId === 'me' || (!!currentUserId && userId === currentUserId);
 
-  const res = await fetch(endpoint, { headers: await authHeaders() });
-  if (!res.ok) throw new Error(`${res.status}`);
-  const data = await res.json();
-  return mapApiToProfile(data, isOwn);
+    const endpoint = isOwn
+      ? `${API_URL}/api/profile`
+      : `${API_URL}/api/profile/${userId}`;
+
+    const res = await fetch(endpoint, { headers: await authHeaders() });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = await res.json();
+    return mapApiToProfile(data, isOwn);
+  })();
+
+  inFlightProfileRequests.set(userId, promise);
+  try {
+    return await promise;
+  } finally {
+    inFlightProfileRequests.delete(userId);
+  }
 }
 
 export async function updateProfile(data: Partial<EditProfileForm>): Promise<void> {
