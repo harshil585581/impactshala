@@ -268,21 +268,18 @@ function CourseCard({
           </div>
           <button
             onClick={onToggleSave}
-            className="shrink-0 p-1 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={saved ? "#f77f00" : "none"}>
-              <path
-                d="M9 5C8.44772 5 8 5.44772 8 6C8 6.55228 8.44772 7 9 7H15C15.5523 7 16 6.55229 16 6C16 5.44772 15.5523 5 15 5H9Z"
-                fill={saved ? "#f77f00" : "#6b7280"}
-              />
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M7 1C5.34315 1 4 2.34315 4 4V20C4 20.3905 4.22734 20.7453 4.58214 20.9085C4.93694 21.0717 5.35428 21.0134 5.65079 20.7593L12 15.3171L18.3492 20.7593C18.6457 21.0134 19.0631 21.0717 19.4179 20.9085C19.7727 20.7453 20 20.3905 20 20V4C20 2.34315 18.6569 1 17 1H7ZM6 4C6 3.44772 6.44772 3 7 3H17C17.5523 3 18 3.44772 18 4V17.8258L12.6508 13.2407C12.2763 12.9198 11.7237 12.9198 11.3492 13.2407L6 17.8258V4Z"
-                fill={saved ? "#f77f00" : "#6b7280"}
-              />
-            </svg>
-          </button>
+              className="p-2 hover:bg-border-light rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            >
+              <svg width="35" height="30" viewBox="0 0 24 24" fill={saved ? "#f77f00" : "none"} className="text-primary">
+                <path
+                  d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"
+                  stroke="#f77f00"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
         </div>
 
         <div className="flex gap-2 mb-3">
@@ -876,8 +873,8 @@ export default function LearningDirectoryPage() {
   const [docUploads, setDocUploads] = useState<(File | null)[]>([]);
   const [appMessage, setAppMessage] = useState("");
   const [applyError, setApplyError] = useState<string | null>(null);
-  const [gradeLevel, setGradeLevel] = useState<GradeLevel>("pre_school");
-  const [academicLevel, setAcademicLevel] = useState<AcademicLevel>("high_school");
+  const [gradeLevel, setGradeLevel] = useState<GradeLevel>("");
+  const [academicLevel, setAcademicLevel] = useState<AcademicLevel>("");
 
   // Fetch courses whenever the main tab changes
   useEffect(() => {
@@ -913,10 +910,10 @@ export default function LearningDirectoryPage() {
   // used both as the base for those filters and to compute their facet counts.
   const tabScopedCourses = useMemo(() => {
     let result = courses;
-    if (mainTab === "school") {
+    if (mainTab === "school" && gradeLevel) {
       const label = GRADE_PILL_LABELS[gradeLevel];
       result = result.filter((c) => c.allAdmissionFor.includes(label));
-    } else if (mainTab === "college") {
+    } else if (mainTab === "college" && academicLevel) {
       const label = ACADEMIC_PILL_LABELS[academicLevel];
       result = result.filter((c) => c.allAcademicLevels.includes(label));
     } else if (mainTab === "professional" && levelTab) {
