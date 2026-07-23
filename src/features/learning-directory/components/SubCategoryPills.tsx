@@ -2,6 +2,7 @@ import { useRef, useCallback, useState } from 'react';
 import { cn } from '@/lib/cn';
 
 export type GradeLevel =
+  | ''
   | 'pre_school'
   | 'primary'
   | 'secondary'
@@ -90,16 +91,16 @@ export default function SubCategoryPills({
             type="button"
             role="tab"
             aria-selected={isActive}
-            tabIndex={isActive ? 0 : -1}
-            onClick={() => !dragRef.current.dragging && onChange(opt.value)}
+            tabIndex={isActive || (!value && i === 0) ? 0 : -1}
+            onClick={() => !dragRef.current.dragging && onChange(isActive ? '' : opt.value)}
             onKeyDown={(e) => handleKeyDown(e, i)}
             className={cn(
-              'shrink-0 whitespace-nowrap rounded-full px-4 py-1',
-              'text-xs font-medium transition-colors duration-150',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2',
+              'shrink-0 whitespace-nowrap rounded-full px-5 py-2',
+              'text-sm font-semibold transition-colors duration-150',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f77f00] focus-visible:ring-offset-2',
               isActive
-                ? 'bg-orange-500 text-white'
-                : 'bg-white border border-orange-500 text-orange-500 hover:bg-orange-50',
+                ? 'bg-[#f77f00] text-white border border-[#f77f00]'
+                : 'bg-white border border-[#f77f00] text-[#f77f00] hover:bg-[#fff8ee]',
             )}
           >
             {opt.label}

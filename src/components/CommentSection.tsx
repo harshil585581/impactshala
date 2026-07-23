@@ -83,7 +83,7 @@ function MentionDropdown({
             className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#fff3e0] transition-colors text-left"
           >
             {u.avatar_url ? (
-              <img src={u.avatar_url} alt={u.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+              <img src={u.avatar_url} alt={u.name} loading="lazy" decoding="async" className="w-8 h-8 rounded-full object-cover shrink-0" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-[#FF9400] flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                 {u.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
@@ -145,7 +145,7 @@ function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
 /* ── avatar ── */
 function CommentAvatar({ name, url, size = 'md' }: { name: string; url?: string | null; size?: 'sm' | 'md' }) {
   const dim = size === 'sm' ? 'w-7 h-7 text-[9px]' : 'w-10 h-10 text-xs';
-  if (url) return <img src={url} alt={name} className={`${dim} rounded-full object-cover shrink-0`} />;
+  if (url) return <img src={url} alt={name} loading="lazy" decoding="async" className={`${dim} rounded-full object-cover shrink-0`} />;
   const initials = name.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase();
   return (
     <div className={`${dim} rounded-full bg-[#FF9400] flex items-center justify-center text-white font-bold shrink-0`}>
