@@ -17,7 +17,7 @@ import PromoCard from "../../components/discover/PromoCard";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type MainTab = "school" | "college" | "professional";
-type LevelTab = "beginner" | "intermediate" | "advanced";
+type LevelTab = "" | "beginner" | "intermediate" | "advanced";
 type AppStep = "eligibility" | "documents" | "success" | null;
 
 interface Course {
@@ -848,7 +848,7 @@ export default function LearningDirectoryPage() {
     }
   })();
   const [mainTab, setMainTab] = useState<MainTab>("professional");
-  const [levelTab, setLevelTab] = useState<LevelTab>("beginner");
+  const [levelTab, setLevelTab] = useState<LevelTab>("");
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -919,7 +919,7 @@ export default function LearningDirectoryPage() {
     } else if (mainTab === "college") {
       const label = ACADEMIC_PILL_LABELS[academicLevel];
       result = result.filter((c) => c.allAcademicLevels.includes(label));
-    } else if (mainTab === "professional") {
+    } else if (mainTab === "professional" && levelTab) {
       const label = levelTab.charAt(0).toUpperCase() + levelTab.slice(1);
       result = result.filter((c) => c.allCourseLevels.includes(label));
     }
@@ -1060,12 +1060,12 @@ export default function LearningDirectoryPage() {
             <div className="mt-5">
               {/* Sub-tab pills */}
               {mainTab === "professional" && (
-                <div className="flex gap-3 mb-5 overflow-x-auto pb-1">
+                <div className="flex gap-2 mb-5 flex-wrap">
                   {LEVEL_TABS.map((lt) => (
                     <button
                       key={lt.key}
-                      onClick={() => setLevelTab(lt.key)}
-                      className={`shrink-0 px-4 py-1 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap ${
+                      onClick={() => setLevelTab((v) => (v === lt.key ? "" : lt.key))}
+                      className={`px-5 py-2 rounded-full text-sm font-semibold border transition-colors ${
                         levelTab === lt.key
                           ? "bg-[#f77f00] text-white border-[#f77f00]"
                           : "bg-white text-[#f77f00] border-[#f77f00] hover:bg-[#fff8ee]"

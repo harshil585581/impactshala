@@ -199,20 +199,52 @@ export type FeedPost = {
 
 export const FEED_PAGE_SIZE = 10;
 
+// Ranking constants for the LinkedIn-style feed score: a mix of recency,
+// how connected the author is to the viewer, and how much engagement the
+// post already has. Recency is weighted highest so the feed still reads as
+// "fresh" — connections and engagement mainly reorder within that window.
+const RECENCY_HALF_LIFE_HOURS = 36;
+const RECENCY_WEIGHT = 3;
+const CONNECTION_BOOST = 4;
+const OWN_POST_BOOST = 1.5;
+const LIKE_WEIGHT = 0.6;
+const COMMENT_WEIGHT = 1;
+
+// The pool candidates are ranked over needs to be bigger than one page so
+// posts from connections/high engagement can surface above merely-newer
+// public posts. It grows with page depth so deep infinite-scroll pages still
+// have enough candidates to slice from, capped to bound query/scoring cost.
+const CANDIDATE_POOL_MIN = 150;
+const CANDIDATE_POOL_MAX = 400;
+
+function computeFeedScore(
+  post: FeedPost,
+  opts: { myId: string; connectedIds: Set<string>; likes: number; comments: number },
+): number {
+  const ageHours = (Date.now() - new Date(post.created_at).getTime()) / 3_600_000;
+  const recencyScore = Math.pow(2, -ageHours / RECENCY_HALF_LIFE_HOURS);
+
+  let networkScore = 0;
+  if (post.user?.id === opts.myId) networkScore = OWN_POST_BOOST;
+  else if (post.user?.id && opts.connectedIds.has(post.user.id)) networkScore = CONNECTION_BOOST;
+
+  const engagementScore = Math.log1p(opts.likes * LIKE_WEIGHT + opts.comments * COMMENT_WEIGHT);
+
+  return recencyScore * RECENCY_WEIGHT + networkScore + engagementScore;
+}
+
 export async function fetchFeedPosts(
   filter: FeedFilter = 'all',
   page = 0,
 ): Promise<FeedPost[]> {
   await getAuthenticatedSession();
-  const from = page * FEED_PAGE_SIZE;
-  const to = from + FEED_PAGE_SIZE - 1;
-
   const myId = getUserId();
 
-  // Only connection IDs are needed up front to build the visibility filter.
-  // Block lists are only needed to filter the result afterwards, so they're
-  // fetched in parallel with the posts query itself instead of gating it —
-  // this cuts two blocking round trips off the critical path to first paint.
+  // Only connection IDs are needed up front to build the visibility filter
+  // (and later, the network-boost part of the ranking score). Block lists
+  // are only needed to filter the result afterwards, so they're fetched in
+  // parallel with the posts query itself instead of gating it — this cuts
+  // two blocking round trips off the critical path to first paint.
   const connectedIds = await fetchConnectionIds().catch(() => [] as string[]);
 
   // Community posts are visible only from self or connections
@@ -221,15 +253,17 @@ export async function fetchFeedPosts(
     ? `visibility.eq.public,and(visibility.eq.community,user_id.in.(${communityIds.join(',')}))`
     : 'visibility.eq.public';
 
-  // Fetch a small buffer of extra rows to account for filtered-out blocked posts
-  const fetchTo = to + 6;
+  const poolSize = Math.min(
+    CANDIDATE_POOL_MAX,
+    Math.max(CANDIDATE_POOL_MIN, (page + 2) * FEED_PAGE_SIZE * 3),
+  );
 
   let query = supabase
     .from('posts')
     .select('*, user:users!posts_user_id_fkey(id, first_name, last_name, org_name, user_type, org_type, avatar_url, title, company, deactivated_at, experiences(role, company, is_current))')
     .or(visFilter)
     .order('created_at', { ascending: false })
-    .range(from, fetchTo);
+    .range(0, poolSize - 1);
 
   if (filter === 'media') query = query.in('post_type', ['photo', 'video']);
   else if (filter === 'polls') query = query.in('post_type', ['poll', 'question']);
@@ -248,13 +282,36 @@ export async function fetchFeedPosts(
     ...myBlockedUsers.map(u => u.id),
   ]);
 
-  return ((data ?? []) as unknown as FeedPost[])
+  const candidates = ((data ?? []) as unknown as FeedPost[])
     .map(p => ({
       ...p,
       user: p.user ? maskDeactivatedUser(p.user) : null
     }))
-    .filter(p => !p.user?.id || !hiddenIds.has(p.user.id))
-    .slice(0, FEED_PAGE_SIZE);
+    .filter(p => !p.user?.id || !hiddenIds.has(p.user.id));
+
+  const connectedSet = new Set(connectedIds);
+  const candidateIds = candidates.map(p => p.id);
+  const [likesCounts, commentCounts] = await Promise.all([
+    fetchLikesCounts(candidateIds).catch(() => ({} as Record<string, number>)),
+    fetchCommentCounts(candidateIds).catch(() => ({} as Record<string, number>)),
+  ]);
+
+  const ranked = candidates
+    .map(post => ({
+      post,
+      score: computeFeedScore(post, {
+        myId,
+        connectedIds: connectedSet,
+        likes: likesCounts[post.id] ?? 0,
+        comments: commentCounts[post.id] ?? 0,
+      }),
+    }))
+    // Tie-break by recency so equally-scored posts still read newest-first.
+    .sort((a, b) => b.score - a.score || (new Date(b.post.created_at).getTime() - new Date(a.post.created_at).getTime()))
+    .map(r => r.post);
+
+  const from = page * FEED_PAGE_SIZE;
+  return ranked.slice(from, from + FEED_PAGE_SIZE);
 }
 
 export async function fetchPostById(postId: string): Promise<FeedPost | null> {

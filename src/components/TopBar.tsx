@@ -234,7 +234,7 @@ function SearchBar({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
                   {results.users.map(user => (
                     <button key={user.id} onMouseDown={() => handleUserClick(user.id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#f9fafb] transition-colors text-left">
                       {user.avatar_url ? (
-                        <img src={user.avatar_url} alt={user.name} className="w-9 h-9 rounded-full object-cover shrink-0" />
+                        <img src={user.avatar_url} alt={user.name} loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover shrink-0" />
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-[#f77f00] flex items-center justify-center text-white text-xs font-bold shrink-0">
                           {getInitials(user.name)}
@@ -264,7 +264,7 @@ function SearchBar({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
                     return (
                       <button key={post.id} onMouseDown={() => handlePostClick(post.id)} className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-[#f9fafb] transition-colors text-left">
                         {authorAvatar ? (
-                          <img src={authorAvatar} alt={authorName} className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
+                          <img src={authorAvatar} alt={authorName} loading="lazy" decoding="async" className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-[#6b7280] flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">
                             {getInitials(authorName)}
@@ -615,7 +615,7 @@ export default function TopBar({ onMenuToggle, searchValue: _sv, onSearchChange:
             <div className="absolute right-0 top-[calc(100%+8px)] w-52 bg-white rounded-2xl shadow-[0px_8px_24px_rgba(0,0,0,0.12)] border border-[#f2f2f3] z-50 overflow-hidden py-1">
               <div className="flex items-center gap-3 px-4 py-3 border-b border-[#f2f2f3]">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Me" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                  <img src={avatarUrl} alt="Me" loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover shrink-0" />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-[#ff9400] flex items-center justify-center shrink-0">
                     <span className="text-white text-xs font-bold">

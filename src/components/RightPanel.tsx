@@ -79,6 +79,8 @@ export default function RightPanel() {
             <img
               src={avatar}
               alt={name}
+              loading="lazy"
+              decoding="async"
               className="w-20 h-20 rounded-full border-4 border-white object-cover bg-white"
             />
           ) : (
@@ -132,6 +134,8 @@ export default function RightPanel() {
         <img
           src={courseImg}
           alt="Figma Design"
+          loading="lazy"
+          decoding="async"
           className="w-full h-[120px] object-cover"
         />
         <div className="p-5 flex flex-col gap-3">
