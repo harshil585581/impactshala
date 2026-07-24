@@ -167,6 +167,7 @@ export default function DiscoverCard({
         </div>
       </div>
 
+
       {/* Cover image */}
       {item.imageUrl && (
         <img

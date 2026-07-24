@@ -97,9 +97,12 @@ export async function fetchCourses(filters: CourseFilters = {}): Promise<CourseR
   if (filters.programLevel) params.set('program_level', filters.programLevel);
   if (filters.mode) params.set('mode', filters.mode);
 
-  const res = await fetch(`${API_URL}/api/learning/courses?${params}`, {
-    headers: await authHeaders(),
-  });
+  // GET /api/learning/courses is a public, unauthenticated listing endpoint
+  // (no `authorization` param on the backend route) — it never reads the
+  // Authorization header. Waiting on authHeaders() here just serialized the
+  // Supabase session lookup/refresh in front of every course-list fetch for
+  // no reason, so the request is fired immediately without it instead.
+  const res = await fetch(`${API_URL}/api/learning/courses?${params}`);
   if (!res.ok) throw new Error('Failed to fetch courses');
   return res.json();
 }
